@@ -30,17 +30,39 @@ def approval_path(hub_root: Path, execution_id: str, kind: str) -> Path:
     return hub_root / "runs" / execution_id / APPROVALS_DIR / f"{kind}.json"
 
 
-def _subject_for_kind(kind: str, snapshot: dict, result: dict | None) -> str:
+def subject_digest_for_results(run_dir: Path) -> str:
+    """Subject digest for implementation approval: the accepted results tree."""
+    from hubcoord.models.common import json_digest
+    from hubcoord.runstore import _read_json_or_none
+
+    rows = []
+    results_root = Path(run_dir) / "results"
+    for result_file in sorted(results_root.rglob("result.json")):
+        record = _read_json_or_none(result_file)
+        if record is None:
+            continue
+        rows.append(
+            {
+                "repo_id": record.get("repo_id"),
+                "attempt": record.get("attempt"),
+                "head_commit": record.get("head_commit"),
+                "result_digest": record.get("result_digest"),
+            }
+        )
+    if not rows:
+        raise ValidationError(
+            "result-required",
+            "implementation approval requires at least one accepted repository result",
+        )
+    return json_digest({"accepted_results": rows})
+
+
+def _subject_for_kind(kind: str, snapshot: dict, run_dir: Path) -> str:
     """Approve always recomputes the binding digest from frozen content."""
     if kind == "plan":
         return snapshot["planning_digest"]
     if kind == "implementation":
-        if not result:
-            raise ValidationError(
-                "result-required",
-                "implementation approval requires a validated result.json",
-            )
-        return result["result_digest"]
+        return subject_digest_for_results(Path(run_dir))
     if kind == "archive":
         return snapshot.get("completion_digest") or snapshot["context_digest"]
     raise ValidationError("approval-kind", f"unsupported approval kind {kind!r}")
@@ -62,10 +84,9 @@ def record_approval(
     snapshot: dict,
     actor: str,
     decision: str = "approve",
-    result: dict | None = None,
 ) -> dict:
     """Record the operator's own confirmation; v1 is always self_asserted."""
-    subject_digest = _subject_for_kind(kind, snapshot, result)
+    subject_digest = _subject_for_kind(kind, snapshot, store.run_dir(execution_id))
     record = {
         "api_version": "hub/v1",
         "execution_id": execution_id,
@@ -141,7 +162,7 @@ def require_gate(
             "approval-rejected",
             f"{kind} approval recorded decision {approval['decision']!r}",
         )
-    recomputed = _subject_for_kind(kind, snapshot, _load_result(store, execution_id, kind))
+    recomputed = _subject_for_kind(kind, snapshot, store.run_dir(execution_id))
     matching = (
         expected_subject_digest is None or approval["subject_digest"] == expected_subject_digest
     )
@@ -158,7 +179,6 @@ def verify_frozen_approval(
     execution_id: str,
     kind: str,
     recomputed_subject_digest: str,
-    result: dict | None = None,
 ) -> dict:
     """Changed approved input: recompute the digest from live content; must match."""
     approval = load_approval(store, execution_id, kind)
@@ -171,14 +191,6 @@ def verify_frozen_approval(
             f"stored approval ({kind}) binds different content than the current input",
         )
     return approval
-
-
-def _load_result(store: FileRunStore, execution_id: str, kind: str) -> dict | None:
-    from hubcoord.runstore import _read_json_or_none
-
-    if kind != "implementation":
-        return None
-    return _read_json_or_none(store.run_dir(execution_id) / "result.json")
 
 
 __all__ = [

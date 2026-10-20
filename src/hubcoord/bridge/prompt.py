@@ -13,6 +13,7 @@ def build_prompt(
     rule_files: list,
     dependency_results: dict,
     prior_result: dict | None,
+    attempt: int = 1,
 ) -> str:
     """Assemble the bounded agent prompt for one repo attempt.
 
@@ -32,6 +33,8 @@ def build_prompt(
     lines.append("")
     lines.append("## Task routing (frozen)")
     lines.append("")
+    lines.append(f"- execution_id: {snapshot['execution_id']}")
+    lines.append(f"- attempt: {int(attempt)}")
     lines.append(f"- repo_order: {manifest['repo_order']}")
     lines.append(f"- allowed_paths: {repo_entry['allowed_paths']}")
     lines.append(f"- test_profile: {repo_entry.get('test_profile', '')}")

@@ -34,7 +34,7 @@ Acceptance linkage: V1-A01.
 
 ## 6. L11 Run the sequential two-repo workflow
 
-- [ ] 6.1 [L11] Implement ordered two-repository execution and global review gates; verify downstream accepted-commit context, centralized task acceptance and ready_for_review output.
+- [x] 6.1 [L11] Implement ordered two-repository execution and global review gates; verify downstream accepted-commit context, centralized task acceptance and ready_for_review output.
 
 Acceptance linkage: V1-A02 V1-A09.
 

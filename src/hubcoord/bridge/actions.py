@@ -230,8 +230,6 @@ def action_run_repo(config: dict, context) -> dict:
         Path(local_cfg["store"]["path"]) / "openspec" / "changes" / snapshot["change_id"]
     )
 
-    from hubcoord.runstore import mark_uncertain, record_receipt, write_intent
-
     def bump_budget() -> None:
         newest = store.read_state(execution_id)
 
@@ -259,6 +257,7 @@ def action_run_repo(config: dict, context) -> dict:
         rule_files=_rule_file_paths(repo_path),
         dependency_results=_dependency_results(store, execution_id, manifest, entry),
         prior_result=prior_result,
+        attempt=attempt,
     )
     prompt_file = run_dir / "prompts" / f"{repo_id}-{attempt}.md"
     prompt_file.parent.mkdir(parents=True, exist_ok=True)
@@ -279,7 +278,7 @@ def action_run_repo(config: dict, context) -> dict:
         "intent": {"input_digest": input_digest},
         "status": "pending",
     }
-    write_intent(execution_id, operation)
+    store.write_intent(execution_id, operation)
 
     profile = resolve_profile(local_cfg["agent_profile"])
     outcome = launcher_run_agent(
@@ -348,7 +347,7 @@ def action_run_repo(config: dict, context) -> dict:
             run_dir=run_dir,
         )
     except (ResultRejected, GroupedValidationError) as exc:
-        mark_uncertain(
+        store.mark_uncertain(
             execution_id, operation["operation_key"], {"status": "rejected", "reason": str(exc)}
         )
         raise HubActionError(
@@ -365,7 +364,7 @@ def action_run_repo(config: dict, context) -> dict:
         ) from exc
 
     stored_ref = persist_result(run_dir, repo_id, accepted)
-    record_receipt(
+    store.record_receipt(
         execution_id,
         operation["operation_key"],
         {
@@ -499,6 +498,126 @@ def action_collect_summary(config: dict, context) -> dict:
     )
 
 
+def action_accept_tasks(config: dict, context) -> dict:
+    """Single Hub writer flips the mapped tasks.md checkboxes after acceptance."""
+    import hashlib
+
+    from hubcoord.checkboxes import accept_tasks
+
+    root = _control_root(config)
+    store, _run_dir, snapshot = _load_execution(root, config)
+    execution_id = config["execution"]
+    manifest = snapshot["manifest"]
+    state = store.read_state(execution_id)
+    results = state.get("results") or {}
+    incomplete = [
+        repo_id
+        for repo_id in manifest["repo_order"]
+        if not (results.get(repo_id) or {}).get("passed")
+    ]
+    if incomplete:
+        raise HubActionError(
+            "results-incomplete",
+            envelope(
+                "accept-tasks",
+                False,
+                {"missing": incomplete},
+                store_uid=snapshot["store_uid"],
+                change_uid=snapshot["change_uid"],
+                execution_id=execution_id,
+                error={
+                    "code": "results-incomplete",
+                    "message": f"no passed result yet for {', '.join(incomplete)}",
+                    "retryable": False,
+                },
+            ),
+        )
+    local_cfg = load_local_config(root)
+    tasks_path = (
+        Path(local_cfg["store"]["path"])
+        / "openspec"
+        / "changes"
+        / snapshot["change_id"]
+        / "tasks.md"
+    )
+    if not tasks_path.is_file():
+        raise HubActionError(
+            "tasks-missing",
+            envelope(
+                "accept-tasks",
+                False,
+                {},
+                store_uid=snapshot["store_uid"],
+                change_uid=snapshot["change_uid"],
+                execution_id=execution_id,
+                error={
+                    "code": "tasks-missing",
+                    "message": f"no tasks.md at {tasks_path}",
+                    "retryable": False,
+                },
+            ),
+        )
+    task_ids = sorted(
+        {
+            task_id
+            for repo_id in manifest["repo_order"]
+            for task_id in _repo_row(manifest, repo_id)["task_ids"]
+        }
+    )
+    before = tasks_path.read_text(encoding="utf-8")
+    try:
+        after, flipped = accept_tasks(before, task_ids)
+    except ValidationError as exc:
+        raise HubActionError(
+            str(exc),
+            envelope(
+                "accept-tasks",
+                False,
+                {"task_ids": task_ids},
+                store_uid=snapshot["store_uid"],
+                change_uid=snapshot["change_uid"],
+                execution_id=execution_id,
+                error={"code": exc.code, "message": str(exc), "retryable": False},
+            ),
+        ) from exc
+    after_digest = hashlib.sha256(after.encode("utf-8")).hexdigest()
+    operation_key = f"{execution_id}:accept-tasks:{after_digest[:16]}"
+    recorded = {
+        op.get("operation_key")
+        for op in store.operations(execution_id)
+        if op.get("status") == "recorded"
+    }
+    if operation_key not in recorded:
+        store.write_intent(
+            execution_id,
+            {
+                "operation_key": operation_key,
+                "kind": "accept-tasks",
+                "before_digest": hashlib.sha256(before.encode("utf-8")).hexdigest(),
+            },
+        )
+        if after != before:
+            tasks_path.write_text(after, encoding="utf-8")
+        store.record_receipt(
+            execution_id,
+            operation_key,
+            {"after_digest": after_digest, "flipped": flipped, "tasks_path": str(tasks_path)},
+        )
+    return envelope(
+        "accept-tasks",
+        True,
+        {
+            "task_ids": task_ids,
+            "flipped": flipped,
+            "tasks_digest": after_digest,
+        },
+        store_uid=snapshot["store_uid"],
+        change_uid=snapshot["change_uid"],
+        execution_id=execution_id,
+        evidence=[str(tasks_path)],
+    )
+
+
 def action_gate_check(config: dict, context) -> dict:
     """Verify an approval receipt exists BEFORE the workflow gate advances."""
     root = _control_root(config)
@@ -566,6 +685,7 @@ _DISPATCH = {
     "run-repo": action_run_repo,
     "verify-round": action_verify_round,
     "collect-summary": action_collect_summary,
+    "accept-tasks": action_accept_tasks,
     "gate-check": action_gate_check,
     "complete": action_complete,
     "note": action_note,

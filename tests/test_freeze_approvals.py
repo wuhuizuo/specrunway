@@ -310,6 +310,8 @@ def test_changed_approved_input_invalidates_approval(frozen):
 
 
 def test_implementation_approval_binds_result_digest(frozen):
+    from hubcoord.approvals import subject_digest_for_results
+
     store = frozen["store"]
     execution_id = frozen["execution_id"]
     result = validate_result(
@@ -328,17 +330,22 @@ def test_implementation_approval_binds_result_digest(frozen):
             "created_at": "2026-10-20T00:00:00Z",
         }
     )
-    atomic_write_json(store.run_dir(execution_id) / "result.json", result)
+    results_dir = store.run_dir(execution_id) / "results" / "repo-a" / "1"
+    results_dir.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(results_dir / "result.json", result)
+    expected_subject = subject_digest_for_results(store.run_dir(execution_id))
     record = record_approval(
         store=store,
         execution_id=execution_id,
         kind="implementation",
         snapshot=frozen["snapshot"],
         actor="reviewer",
-        result=result,
     )
-    assert record["subject_digest"] == "a" * 64
-    assert require_gate(store, execution_id, "implementation")["subject_digest"] == "a" * 64
+    assert record["subject_digest"] == expected_subject
+    assert (
+        require_gate(store, execution_id, "implementation")["subject_digest"]
+        == expected_subject
+    )
 
 
 def test_hub_approve_cli_records_and_refuses(frozen, capsys):
@@ -363,7 +370,7 @@ def test_hub_approve_cli_records_and_refuses(frozen, capsys):
     assert frozen["snapshot"]["planning_digest"] in out
     assert '"auth_level": "self_asserted"' in out
 
-    # implementation kind without a result must refuse; JSON goes to stdout
+    # implementation kind without accepted results must refuse; JSON to stdout
     assert (
         hub_main(
             [

@@ -297,3 +297,77 @@ Verified against the pinned Specify CLI (specify-cli 1.2.1, real run):
    `ready_for_review` non-archive; the installed-CLI end-to-end test.
 
 Full suite at L10: `pytest -q` → 163 passed.
+
+## L11 ordered two-repository execution (task 6.1)
+
+Built:
+
+- `src/hubcoord/runner.py` — the execution controller:
+  - `prepare_execution` validates the accepted plan manifest, then freezes
+    plan/rule/context bytes, base OIDs, and tool versions into
+    `snapshot.json` while holding the checkout lock; it claims the
+    active-owner record and sets `awaiting_plan_review`.
+  - `start_execution` refuses an uninitialized control checkout, writes the
+    generated workflow under `.specify/workflows/run-<id8>.yaml`, and runs
+    `specify workflow run <wf> --json` (argv only, explicit cwd). A native
+    gate pause is a normal outcome: `pending_gate=plan|implementation`
+    and the matching public phase are persisted.
+  - `continue_execution` requires the matching approval receipt through
+    `approvals.require_gate` BEFORE supplying a native gate verdict; it
+    resumes the stored `native_run_id` with `--input <verdict_input>=approve`.
+  - No auto-archive: a completed workflow ends at `ready_for_review`.
+- `src/hubcoord/bridge/workflow.py` — deterministic workflow generation:
+  `prepare` → native `plan-gate` → ordered `fan-out` of `run-repo`
+  (`max_concurrency: 1`, items = frozen `repo_order`) → `fan-in` →
+  `verify-round` → `accept-tasks` → native `implementation-gate` →
+  `complete`. Only hub steps carry business rules.
+- `src/hubcoord/checkboxes.py` + bridge `accept-tasks` action — the single
+  coordinator writer that flips only the mapped `- [ ]` lines to `- [x]`
+  in the Store change `tasks.md` (intent first, receipt with before/after
+  digests, idempotent by content digest, `task-unmapped` for unknown IDs).
+- `bridge/prompt.py` now states the `execution_id` and `attempt` so an
+  agent can produce an identity-correct `result.json`.
+- `hub run` CLI: `--change` freezes a new execution; `--execution ... --continue`
+  advances past the pending gate; unknown/unsupported combinations return
+  stable `hub/v1` errors.
+
+Defect found and fixed while wiring the real loop:
+
+- L10's `run-repo`/`accept-tasks` imported hypothetical module-level
+  `runstore` helpers (`write_intent`, `record_receipt`,
+  `mark_uncertain`). L10's tests paused before any repo attempt, so the
+  ImportError was latent. The bridge now calls the real
+  `FileRunStore` methods; `accept-tasks` adds intent-first ops.
+
+Verified (real pinned Specify CLI 1.2.1 + real git fixtures; fake agent
+shadowing `opencode` with the identical argv shape):
+
+1. `pytest tests/test_runner_flow.py -q` → 3 passed
+   (`test_two_repo_loop_reaches_ready_for_review` is the L11 loop):
+   - `hub run --change demo` → exit 0, native `status: paused`,
+     `current_step_id: plan-gate`, phase `awaiting_plan_review`;
+     `tasks.md` still unchecked.
+   - `hub approve --kind plan` → exit 0, self_asserted receipt bound to
+     the frozen `planning_digest`.
+   - `hub run --execution <id> --continue` → exit 0, paused at
+     `implementation-gate`; both repo results accepted
+     (`repo-a`, `repo-b`), phase `awaiting_implementation_review`,
+     `T001` checkbox flipped.
+   - Downstream context: `prompts/repo-b-1.md` contains
+     `repo-a: <accepted head commit>` + digest, so repo-b consumed the
+     first repo's accepted commit before editing.
+   - `hub approve --kind implementation` binds
+     `subject_digest_for_results` (accepted results tree), then
+     `hub run --continue` → native `status: completed`, phase
+     `ready_for_review`, both task checkboxes checked, and neither
+     original checkout gained the agent commit (`git log` unchanged).
+   - Refusal: `--continue` without a receipt → exit 1 (`no-approval`),
+     no native advance.
+2. Full suite: `pytest -q` → 166 passed.
+3. Lint: `ruff check src tests` → clean.
+
+Acceptance linkage: V1-A02 (standalone local use, business checkouts keep
+only the intended worktree changes), V1-A09 (ordered two-repo execution
+with downstream consumption of the first accepted commit). Full V1-A02
+release closure still requires the live-agent run recorded in the release
+evidence.

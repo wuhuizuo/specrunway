@@ -21,7 +21,7 @@ def test_doctor_json_ok(control_workspace):
 
 
 def test_stub_exit_code_not_implemented():
-    for name in ("run", "status", "resume", "recover", "archive"):
+    for name in ("status", "resume", "recover", "archive"):
         rc = main([name, "--json"])
         assert rc == 69
 

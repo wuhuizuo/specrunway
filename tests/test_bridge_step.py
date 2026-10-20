@@ -50,12 +50,25 @@ def executed(tmp_path):
     (control / ".hub").mkdir(parents=True)
     repo = tmp_path / "repo-a"
     repo.mkdir()
-    subprocess.run(["git", "-C", str(repo), "init", "-q", "-b", "main"], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(repo), "init", "-q", "-b", "main"], check=True, capture_output=True
+    )
     (repo / "src").mkdir()
     (repo / "src" / "keep.py").write_text("KEEP = 1\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True)
     subprocess.run(
-        ["git", "-C", str(repo), "-c", "user.name=f", "-c", "user.email=f@example.org", "commit", "-m", "init"],
+        [
+            "git",
+            "-C",
+            str(repo),
+            "-c",
+            "user.name=f",
+            "-c",
+            "user.email=f@example.org",
+            "commit",
+            "-m",
+            "init",
+        ],
         check=True,
         capture_output=True,
     )
@@ -63,7 +76,9 @@ def executed(tmp_path):
         ["git", "-C", str(repo), "rev-parse", "HEAD"], check=True, capture_output=True
     )
 
-    repos_cfg = {"repo-a": {"path": str(repo), "remote_identity": "https://example.org/repo-a.git"}}
+    repos_cfg = {
+        "repo-a": {"path": str(repo), "remote_identity": "https://example.org/repo-a.git"}
+    }
     (control / "local.yaml").write_text(
         json.dumps(
             {
@@ -78,7 +93,9 @@ def executed(tmp_path):
 
     plans = tmp_path / "plans" / "bridge-demo"
     (plans / "specs" / "repo-a-delivery").mkdir(parents=True)
-    (plans / "proposal.md").write_text("# p\n\n## Why\nw\n\n## What Changes\nx\n", encoding="utf-8")
+    (plans / "proposal.md").write_text(
+        "# p\n\n## Why\nw\n\n## What Changes\nx\n", encoding="utf-8"
+    )
     (plans / "design.md").write_text("# d\n\n## Approach\na\n", encoding="utf-8")
     (plans / "tasks.md").write_text("# Tasks\n\n- [ ] 1.1 [T001] Work one.\n", encoding="utf-8")
     (plans / "specs" / "repo-a-delivery" / "spec.md").write_text(
@@ -93,7 +110,12 @@ def executed(tmp_path):
     store.ensure_run(execution_id, "bridge-demo")
     snapshot = freeze_execution(execution_id, plans, MANIFEST, repos_cfg, TOOLS)
     atomic_write_json(store.run_dir(execution_id) / "snapshot.json", snapshot)
-    return {"control": control, "execution_id": execution_id, "store": store, "snapshot": snapshot}
+    return {
+        "control": control,
+        "execution_id": execution_id,
+        "store": store,
+        "snapshot": snapshot,
+    }
 
 
 def _cfg(executed, action, **extra) -> dict:
@@ -168,16 +190,17 @@ def test_collect_summary_aggregates_layers(executed):
         "tests_claimed": {"status": "passed", "command": ["python", "-m", "pytest", "-q"]},
         "created_at": "2026-10-20T00:00:00Z",
     }
-    atomic_write_json(
-        executed["store"].run_dir(executed["execution_id"]) / "result.json", result_record
+    results_dir = (
+        executed["store"].run_dir(executed["execution_id"]) / "results" / "repo-a" / "1"
     )
+    results_dir.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(results_dir / "result.json", result_record)
     record_approval(
         store=executed["store"],
         execution_id=executed["execution_id"],
         kind="implementation",
         snapshot=executed["snapshot"],
         actor="lead",
-        result=result_record,
     )
     envelope = action_collect_summary(_cfg(executed, "collect-summary"), None)
     assert envelope["data"]["repos"][0]["passed"] is True
@@ -196,21 +219,36 @@ def test_complete_sets_ready_for_review(executed):
 def specify_control(tmp_path, executed):
     """Initialize Specify + install the hub step shim from tooling/hubstep."""
     init = subprocess.run(
-        [str(SPECIFY), "init", "--here", "--force", "--non-interactive", "--ignore-agent-tools"],
+        [
+            str(SPECIFY),
+            "init",
+            "--here",
+            "--force",
+            "--non-interactive",
+            "--ignore-agent-tools",
+        ],
         cwd=str(executed["control"]),
         capture_output=True,
         text=True,
         check=False,
     )
-    assert init.returncode == 0, (init.stderr[-1500:] + init.stdout[-1500:])
+    assert init.returncode == 0, init.stderr[-1500:] + init.stdout[-1500:]
     add = subprocess.run(
-        [str(SPECIFY), "workflow", "step", "add", "hub", "--dev", str(REPO / "tooling" / "hubstep")],
+        [
+            str(SPECIFY),
+            "workflow",
+            "step",
+            "add",
+            "hub",
+            "--dev",
+            str(REPO / "tooling" / "hubstep"),
+        ],
         cwd=str(executed["control"]),
         capture_output=True,
         text=True,
         check=False,
     )
-    assert add.returncode == 0, (add.stderr[-1500:] + add.stdout[-1500:])
+    assert add.returncode == 0, add.stderr[-1500:] + add.stdout[-1500:]
     return executed
 
 

@@ -12,7 +12,6 @@ from .doctor import find_control_root, run_doctor
 
 #: Subcommands delivered by later changes, mapped to their owning OpenSpec change.
 LATER_CHANGES = {
-    "run": "03-deliver-two-repo-loop",
     "status": "03-deliver-two-repo-loop",
     "resume": "04-harden-recovery-and-archive",
     "recover": "04-harden-recovery-and-archive",
@@ -168,16 +167,9 @@ def cmd_approve(args: argparse.Namespace) -> int:
             raise ValidationError(
                 "snapshot-missing", f"snapshot.json unreadable for {args.execution}"
             )
-        result = None
-        if args.kind == "implementation":
-            from hubcoord.models.records import validate_result
-
-            result = _read_json_or_none(store.run_dir(args.execution).joinpath("result.json"))
-            if result is None:
-                raise ValidationError(
-                    "result-required", "implementation approval requires result.json"
-                )
-            validate_result(result)
+        # record_approval recomputes the binding subject digest from frozen
+        # content (plan: planning digest; implementation: accepted results
+        # tree), so no caller-supplied digest is consumed here.
         record = record_approval(
             store=store,
             execution_id=args.execution,
@@ -185,7 +177,6 @@ def cmd_approve(args: argparse.Namespace) -> int:
             snapshot=frozen,
             actor=args.actor,
             decision=args.decision,
-            result=result,
         )
     except RunStoreError as exc:
         return _fail_cli(_error_envelope("approve", exc), args.json, "hub approve")
@@ -213,6 +204,74 @@ def cmd_approve(args: argparse.Namespace) -> int:
         args.json,
         f"approve ok: {record['kind']} {record['decision']} "
         f"{record['subject_digest'][:12]}… by {record['actor']}\n",
+    )
+    return 0
+
+
+def cmd_run(args: argparse.Namespace) -> int:
+    """Freeze/claim an execution and drive it through ordered repositories."""
+    from hubcoord.runner import (
+        RunError,
+        continue_execution,
+        prepare_execution,
+        start_execution,
+    )
+
+    control_root = Path(args.root).resolve() if args.root else find_control_root(Path.cwd())
+    if control_root is None:
+        return _fail_cli(
+            _error_envelope("run", RuntimeError("no control checkout found")),
+            args.json,
+            "hub run",
+        )
+    try:
+        execution_id = args.execution
+        if args.continue_run:
+            if not execution_id:
+                raise RunError("execution-required", "--continue requires --execution")
+            payload = continue_execution(control_root, execution_id)
+        else:
+            if execution_id:
+                raise RunError(
+                    "execution-conflict",
+                    "pass --change to start a new execution or --continue to resume",
+                )
+            prepared = prepare_execution(control_root, args.change)
+            execution_id = prepared["execution_id"]
+            payload = start_execution(control_root, execution_id)
+    except Exception as exc:  # noqa: BLE001 (CLI boundary; stable envelope required)
+        return _fail_cli(_error_envelope("run", exc), args.json, "hub run")
+    status = payload.get("status")
+    paused_step = payload.get("current_step_id") if status == "paused" else None
+    next_hint = "review the accepted results; archive stays an explicit command"
+    if paused_step == "plan-gate":
+        next_hint = (
+            "record the plan approval (`hub approve --kind plan`) then run "
+            "`hub run --execution <id> --continue`"
+        )
+    elif status == "paused":
+        next_hint = (
+            "record the implementation approval (`hub approve --kind implementation`) "
+            "then run `hub run --execution <id> --continue`"
+        )
+    envelope = _hub_envelope(
+        action="run",
+        ok=True,
+        data={
+            "execution_id": execution_id,
+            "workflow_id": payload.get("workflow_id"),
+            "native_run_id": payload.get("run_id"),
+            "native_status": status,
+            "paused_step_id": paused_step,
+            "next": next_hint,
+        },
+        warnings=[],
+    )
+    hint = f" (paused at {paused_step})" if paused_step else ""
+    _emit(
+        envelope,
+        args.json,
+        f"run {status}: execution {execution_id}{hint}\n",
     )
     return 0
 
@@ -260,7 +319,6 @@ def build_parser() -> argparse.ArgumentParser:
     doc.set_defaults(func=cmd_doctor)
 
     helps = {
-        "run": "Run an approved change across ordered repositories",
         "status": "Show execution status",
         "resume": "Resume a paused/failed execution",
         "recover": "Reconcile an interrupted execution",
@@ -270,6 +328,21 @@ def build_parser() -> argparse.ArgumentParser:
         sub_parser = sub.add_parser(name, help=help_text)
         sub_parser.add_argument("--json", action="store_true", help="Emit hub/v1 JSON envelope")
         sub_parser.set_defaults(func=_make_stub(name))
+
+    run_parser = sub.add_parser(
+        "run", help="Run an approved change across ordered repositories"
+    )
+    run_parser.add_argument("--change", help="Change id to freeze into a new execution")
+    run_parser.add_argument("--execution", help="Existing execution UUID")
+    run_parser.add_argument(
+        "--continue",
+        dest="continue_run",
+        action="store_true",
+        help="Resume the paused run after the implementation approval receipt exists",
+    )
+    run_parser.add_argument("--root", help="Explicit control root (default: walk up from cwd)")
+    run_parser.add_argument("--json", action="store_true", help="Emit hub/v1 JSON envelope")
+    run_parser.set_defaults(func=cmd_run)
 
     plan_parser = sub.add_parser(
         "plan", help="Create/refresh planning artifacts for a central change"
