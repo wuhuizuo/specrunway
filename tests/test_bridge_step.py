@@ -207,7 +207,29 @@ def test_collect_summary_aggregates_layers(executed):
     assert envelope["data"]["implementation_approved"] is True
 
 
+def _seed_verified(executed):
+    store = executed["store"]
+    execution_id = executed["execution_id"]
+
+    def mutate(next_state: dict) -> None:
+        next_state["results"] = {
+            "repo-a": {
+                "attempt": 1,
+                "head_commit": "a" * 40,
+                "result_ref": "x",
+                "passed": True,
+                "result_digest": "b" * 64,
+            }
+        }
+        next_state["verification"] = {
+            "repo-a": {"repo_id": "repo-a", "status": "passed", "head_commit": "a" * 40}
+        }
+
+    store.update_state(execution_id, mutate, store.read_state(execution_id)["revision"])
+
+
 def test_complete_sets_ready_for_review(executed):
+    _seed_verified(executed)
     envelope = action_complete(_cfg(executed, "complete"), None)
     assert envelope["ok"] is True
     assert envelope["data"]["phase"] == "ready_for_review"
@@ -257,6 +279,7 @@ def test_installed_bridge_runs_and_finishes_ready_for_review(specify_control):
     control = specify_control["control"]
     execution_id = specify_control["execution_id"]
     store = specify_control["store"]
+    _seed_verified(specify_control)
     record_approval(
         store=store,
         execution_id=execution_id,

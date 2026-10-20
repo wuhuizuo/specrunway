@@ -72,6 +72,13 @@ def build_workflow(execution_id: str, change_id: str) -> dict:
                 "round": 1,
             },
             {
+                "id": "repair-round",
+                "type": "hub",
+                "action": "repair-round",
+                "root": "{{ inputs.control_root }}",
+                "execution": "{{ inputs.execution }}",
+            },
+            {
                 "id": "accept-tasks",
                 "type": "hub",
                 "action": "accept-tasks",

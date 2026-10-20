@@ -7,6 +7,7 @@ warnings`` (+ ``error`` when failed). Agent output never becomes shell text.
 
 from __future__ import annotations
 
+from datetime import UTC
 from pathlib import Path
 
 from hubcoord.approvals import GateError, require_gate
@@ -21,7 +22,7 @@ from hubcoord.results import (
 )
 from hubcoord.runstore import FileRunStore, _read_json_or_none, atomic_write_json
 from hubcoord.testprofiles import resolve_test_profile, run_test_command
-from hubcoord.worktrees import create_worktree
+from hubcoord.worktrees import create_worktree, head_oid
 
 
 def envelope(
@@ -136,6 +137,35 @@ def _repo_row(manifest: dict, repo_id: str) -> dict:
     )
 
 
+DEFAULT_BUDGET = {
+    "repo_max_attempts": 3,
+    "integration_max_repairs": 2,
+    "total_minutes": 120,
+}
+
+
+def _budget(manifest: dict) -> dict:
+    configured = manifest.get("budget") or {}
+    return {key: int(configured.get(key, default)) for key, default in DEFAULT_BUDGET.items()}
+
+
+def _elapsed_minutes(created_at: str) -> float:
+    from datetime import datetime
+
+    started = datetime.strptime(created_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+    return (datetime.now(UTC) - started).total_seconds() / 60.0
+
+
+def _block(store: FileRunStore, execution_id: str, reason: str) -> None:
+    current = store.read_state(execution_id)
+
+    def mutate(next_state: dict) -> None:
+        next_state["phase"] = "blocked"
+        next_state["blocked_reason"] = reason
+
+    store.update_state(execution_id, mutate, current["revision"])
+
+
 def _norm_item(item: object) -> str:
     if isinstance(item, dict):
         return str(item.get("repo_id") or "")
@@ -223,9 +253,51 @@ def action_run_repo(config: dict, context) -> dict:
         )
 
     state = store.read_state(execution_id)
+    budget = _budget(manifest)
     budgets = dict(state.get("budgets") or {})
     repo_budget = dict(budgets.get(repo_id) or {})
     attempt = int(repo_budget.get("attempts_used", 0)) + 1
+    if attempt > budget["repo_max_attempts"]:
+        _block(store, execution_id, f"repo budget exhausted for {repo_id}")
+        raise HubActionError(
+            "budget-exhausted",
+            envelope(
+                "run-repo",
+                False,
+                {"repo_id": repo_id, "max_attempts": budget["repo_max_attempts"]},
+                store_uid=snapshot["store_uid"],
+                change_uid=snapshot["change_uid"],
+                execution_id=execution_id,
+                error={
+                    "code": "budget-exhausted",
+                    "message": (
+                        f"{repo_id} already used {attempt - 1} of "
+                        f"{budget['repo_max_attempts']} attempts"
+                    ),
+                    "retryable": False,
+                },
+            ),
+        )
+    if _elapsed_minutes(state["created_at"]) > budget["total_minutes"]:
+        _block(store, execution_id, "total time budget exhausted")
+        raise HubActionError(
+            "budget-exhausted",
+            envelope(
+                "run-repo",
+                False,
+                {"repo_id": repo_id, "total_minutes": budget["total_minutes"]},
+                store_uid=snapshot["store_uid"],
+                change_uid=snapshot["change_uid"],
+                execution_id=execution_id,
+                error={
+                    "code": "budget-exhausted",
+                    "message": (
+                        f"execution exceeded the {budget['total_minutes']} minute total budget"
+                    ),
+                    "retryable": False,
+                },
+            ),
+        )
     change_path = (
         Path(local_cfg["store"]["path"]) / "openspec" / "changes" / snapshot["change_id"]
     )
@@ -245,9 +317,13 @@ def action_run_repo(config: dict, context) -> dict:
     from hubcoord.bridge.prompt import build_prompt
 
     prior_result = None
+    prior_test = None
     if attempt > 1:
         prior_result = _read_json_or_none(
             run_dir / "results" / repo_id / str(attempt - 1) / "result.json"
+        )
+        prior_test = _read_json_or_none(
+            run_dir / "tests_receipts" / repo_id / f"{attempt - 1}.json"
         )
     prompt_text = build_prompt(
         change_path=change_path,
@@ -257,6 +333,7 @@ def action_run_repo(config: dict, context) -> dict:
         rule_files=_rule_file_paths(repo_path),
         dependency_results=_dependency_results(store, execution_id, manifest, entry),
         prior_result=prior_result,
+        prior_test=prior_test,
         attempt=attempt,
     )
     prompt_file = run_dir / "prompts" / f"{repo_id}-{attempt}.md"
@@ -432,36 +509,166 @@ def _dependency_results(
     return rows
 
 
-def action_verify_round(config: dict, context) -> dict:
-    root = _control_root(config)
-    _store, run_dir, snapshot = _load_execution(root, config)
+def _run_verification(
+    store: FileRunStore,
+    run_dir: Path,
+    snapshot: dict,
+    execution_id: str,
+    round_label: str,
+) -> list:
+    """Trusted tests per repo worktree; persist head + status in run state."""
     manifest = snapshot["manifest"]
-    rounds = int(config.get("round") or 1)
     statuses = []
-    needs_repair = False
     for repo_id in manifest["repo_order"]:
         entry = _repo_row(manifest, repo_id)
         worktree = run_dir / "worktrees" / repo_id
         if not worktree.is_dir():
-            statuses.append({"repo_id": repo_id, "status": "not-started"})
-            needs_repair = True
+            statuses.append({"repo_id": repo_id, "status": "not-started", "head_commit": None})
             continue
         profile = resolve_test_profile(entry.get("test_profile") or "unit")
         receipt = run_test_command(
             profile.command(),
             worktree,
-            run_dir / "logs" / repo_id / "verify-rounds" / f"round-{rounds}.log",
+            run_dir / "logs" / repo_id / "verify-rounds" / f"{round_label}.log",
         )
-        statuses.append({"repo_id": repo_id, "status": receipt["status"]})
-        if receipt["status"] != "passed":
-            needs_repair = True
+        statuses.append(
+            {
+                "repo_id": repo_id,
+                "status": receipt["status"],
+                "exit_code": receipt.get("exit_code"),
+                "head_commit": head_oid(worktree),
+            }
+        )
+
+    def persist(next_state: dict) -> None:
+        next_state["verification"] = {row["repo_id"]: row for row in statuses}
+        next_state["verify_rounds"] = int(next_state.get("verify_rounds") or 0) + 1
+
+    current = store.read_state(execution_id)
+    store.update_state(execution_id, persist, current["revision"])
+    return statuses
+
+
+def action_verify_round(config: dict, context) -> dict:
+    root = _control_root(config)
+    store, run_dir, snapshot = _load_execution(root, config)
+    rounds = int(config.get("round") or 1)
+    statuses = _run_verification(
+        store, run_dir, snapshot, config["execution"], f"round-{rounds}"
+    )
     return envelope(
         "verify-round",
         True,
-        {"round": rounds, "needs_repair": needs_repair, "repos": statuses},
+        {
+            "round": rounds,
+            "needs_repair": any(row["status"] != "passed" for row in statuses),
+            "repos": statuses,
+        },
         store_uid=snapshot["store_uid"],
         change_uid=snapshot["change_uid"],
         execution_id=config["execution"],
+    )
+
+
+def action_repair_round(config: dict, context) -> dict:
+    """Bounded repair: re-attempt failing repos, stop on no-progress/exhaustion."""
+    root = _control_root(config)
+    store, run_dir, snapshot = _load_execution(root, config)
+    execution_id = config["execution"]
+    manifest = snapshot["manifest"]
+    budget = _budget(manifest)
+
+    def failing_repos() -> list:
+        state = store.read_state(execution_id)
+        verification = state.get("verification") or {}
+        return [
+            repo_id
+            for repo_id in manifest["repo_order"]
+            if (verification.get(repo_id) or {}).get("status") != "passed"
+        ]
+
+    failing = failing_repos()
+    if not failing:
+        return envelope(
+            "repair-round",
+            True,
+            {"repaired": False, "rounds_used": 0, "repos": []},
+            store_uid=snapshot["store_uid"],
+            change_uid=snapshot["change_uid"],
+            execution_id=execution_id,
+        )
+    repairs = 0
+    while failing and repairs < budget["integration_max_repairs"]:
+        repairs += 1
+        before = {
+            repo_id: (store.read_state(execution_id).get("verification") or {}).get(repo_id, {})
+            for repo_id in failing
+        }
+        for repo_id in failing:
+            action_run_repo(
+                {
+                    "action": "run-repo",
+                    "root": str(root),
+                    "execution": execution_id,
+                    "repo": repo_id,
+                },
+                context,
+            )
+        _run_verification(store, run_dir, snapshot, execution_id, f"repair-{repairs}")
+        still_failing = failing_repos()
+        for repo_id in still_failing:
+            row = (store.read_state(execution_id).get("verification") or {}).get(repo_id, {})
+            if row.get("head_commit") == before.get(repo_id, {}).get("head_commit"):
+                _block(store, execution_id, f"no progress repairing {repo_id}")
+                raise HubActionError(
+                    "no-progress",
+                    envelope(
+                        "repair-round",
+                        False,
+                        {"repo_id": repo_id, "rounds_used": repairs},
+                        store_uid=snapshot["store_uid"],
+                        change_uid=snapshot["change_uid"],
+                        execution_id=execution_id,
+                        error={
+                            "code": "no-progress",
+                            "message": (
+                                f"{repo_id} failed verification again at the same "
+                                "head commit; stop instead of burning the budget"
+                            ),
+                            "retryable": False,
+                        },
+                    ),
+                )
+        failing = still_failing
+    if failing:
+        _block(store, execution_id, "integration repair budget exhausted")
+        raise HubActionError(
+            "budget-exhausted",
+            envelope(
+                "repair-round",
+                False,
+                {"repos": failing, "rounds_used": repairs},
+                store_uid=snapshot["store_uid"],
+                change_uid=snapshot["change_uid"],
+                execution_id=execution_id,
+                error={
+                    "code": "budget-exhausted",
+                    "message": (
+                        f"still failing after {repairs} of "
+                        f"{budget['integration_max_repairs']} repair rounds: "
+                        f"{', '.join(failing)}"
+                    ),
+                    "retryable": False,
+                },
+            ),
+        )
+    return envelope(
+        "repair-round",
+        True,
+        {"repaired": True, "rounds_used": repairs, "repos": []},
+        store_uid=snapshot["store_uid"],
+        change_uid=snapshot["change_uid"],
+        execution_id=execution_id,
     )
 
 
@@ -655,6 +862,33 @@ def action_complete(config: dict, context) -> dict:
     """Final reviewed run finishes at ready_for_review (never auto-archives)."""
     root = _control_root(config)
     store, _run_dir, snapshot = _load_execution(root, config)
+    manifest = snapshot["manifest"]
+    state = store.read_state(config["execution"])
+    results = state.get("results") or {}
+    verification = state.get("verification") or {}
+    unproven = [
+        repo_id
+        for repo_id in manifest["repo_order"]
+        if not (results.get(repo_id) or {}).get("passed")
+        or (verification.get(repo_id) or {}).get("status") != "passed"
+    ]
+    if unproven:
+        raise HubActionError(
+            "verification-failed",
+            envelope(
+                "complete",
+                False,
+                {"repos": unproven},
+                store_uid=snapshot["store_uid"],
+                change_uid=snapshot["change_uid"],
+                execution_id=config["execution"],
+                error={
+                    "code": "verification-failed",
+                    "message": f"failed verification cannot become ready: {', '.join(unproven)}",
+                    "retryable": False,
+                },
+            ),
+        )
 
     def mutate(next_state: dict) -> None:
         next_state["phase"] = "ready_for_review"
@@ -686,6 +920,7 @@ _DISPATCH = {
     "verify-round": action_verify_round,
     "collect-summary": action_collect_summary,
     "accept-tasks": action_accept_tasks,
+    "repair-round": action_repair_round,
     "gate-check": action_gate_check,
     "complete": action_complete,
     "note": action_note,

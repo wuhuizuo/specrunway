@@ -1,6 +1,6 @@
 # Implementation state
 
-Updated: 20 October 2026 (L06–L11 session).
+Updated: 20 October 2026 (L06–L12 session).
 
 ## Completed preparation
 
@@ -36,14 +36,15 @@ Updated: 20 October 2026 (L06–L11 session).
 - L08 task 3.1 done: `hubcoord.launcher` — `AgentProfile` with `{prompt_file}` argv template (real `primary-coding-agent` profile → `opencode run --auto --pure --file <prompt>`; measured opencode 1.18.33 flags), `launch_process` (argv list, `shell=False`, own process group via `start_new_session=True`), `run_agent` structured outcome (completed/failed/timeout/cancelled + exit/log paths), `kill_proc_group`/`cancel` group kills covering agent-spawned grandchildren.
 - L08 task 3.1 done: `hubcoord.launcher` — `AgentProfile` with `{prompt_file}` argv template (real `primary-coding-agent` profile → `opencode run --auto --pure --file <prompt>`; measured opencode 1.18.33 flags), `launch_process` (argv list, `shell=False`, own process group via `start_new_session=True`), `run_agent` structured outcome (completed/failed/timeout/cancelled + exit/log paths), `kill_proc_group`/`cancel` group kills covering agent-spawned grandchildren.
 - L09 task 4.1 done: `hubcoord.worktrees` — detached worktrees at frozen base OIDs with original-checkout preservation checks; `hubcoord.testprofiles` — trusted argv test runner producing runner receipts; `hubcoord.results` — `accept_result` gating identity/ancestry/allowed-paths/trusted-receipt/digest binding before result acceptance + `persist_result` into the run tree.
+- L12 task 7.1 done: manifest budgets enforced (`repo_max_attempts`, `integration_max_repairs`, `total_minutes`), `verify-round` persists verification rows, new `repair-round` step re-attempts failing repos with prior-feedback prompts and stops on `budget-exhausted`/`no-progress` (phase `blocked`), `complete` refuses failed verification. Verified with fake-agent failure scenarios, persistent counters after a fresh store handle, and 171 passing tests.
 - L11 task 6.1 done: `hubcoord/runner.py` (freeze → native workflow → gate-pause → receipt-checked `--continue` → `ready_for_review`), `bridge/workflow.py` (ordered workflow generation with native plan/implementation gates), `checkboxes.py` + bridge `accept-tasks` (single-writer tasks.md acceptance with op receipts), real `hub run` CLI. Verified end-to-end with the pinned specify CLI and a deterministic fake agent shadowing `opencode`: plan gate paused, `hub approve --kind plan`, ordered repo-a → repo-b fan-out (repo-b prompt carried repo-a's accepted head), tasks.md flipped, implementation gate paused, approval bound the accepted results tree, `--continue` completed at `ready_for_review`, original checkouts untouched. Also fixed a latent L10 defect: `run-repo` called nonexistent module-level runstore helpers.
 - L10 task 5.1 done: `hubcoord.bridge` — production `type: hub` step (prepare / run-repo / verify-round / collect-summary / gate-check / complete actions with the standardized envelope); `bridge/prompt.py` bounded prompt builder; `tooling/hubstep` install shim delegating to the same package. Verified end-to-end with the pinned specify-cli 1.2.1: step install + real workflow run finished `status: completed` and the coordinator phase reached `ready_for_review`.
 - Verification: `pytest -q` → 163 passed (5 bridge incl. pinned-CLI end-to-end; 9 worktree/result; 8 launcher; 9 freeze/approval; 8 planning); `openspec validate --all --strict --json` → 5/5; `scripts/check_handoff.py` → passed. Details: `docs/evidence/03-deliver-two-repo-loop.md`.
 
 ## Current change
 
-`03-deliver-two-repo-loop` (source tasks L06-L12 core loop) — L06-L11 complete; L12 remaining.
+`03-deliver-two-repo-loop` — all tasks L06-L12 complete. Next change: `04-harden-recovery-and-archive`.
 
 ## Exact next action
 
-Execute `openspec/changes/03-deliver-two-repo-loop/tasks.md` in order: next is task 7.1 (L12) — bounded repository and integration repair with persistent budgets: counters in run state, no-progress stop, repaired attempts bounded by the manifest budget, failed verification must not reach `ready_for_review`, and counters unchanged across resume. The ordered loop (L11) is in place, so L12 mainly adds the do-while repair round + budget exhaustion handling in the workflow/step bridge. After L12, run the full suite + strict OpenSpec validation, update evidence, commit, and continue with change 04.
+Change 03 is complete (L06-L12). Run strict validation, commit/push the L12 milestone, then start `openspec/changes/04-harden-recovery-and-archive/tasks.md`: implement `hub status`, `hub resume`, `hub recover`, and explicit `hub archive` against the existing run store (active-owner, CAS revisions, operation intents/receipts, bounded reconciliation), replacing the remaining CLI stubs.

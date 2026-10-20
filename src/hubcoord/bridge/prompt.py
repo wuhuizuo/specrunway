@@ -13,6 +13,7 @@ def build_prompt(
     rule_files: list,
     dependency_results: dict,
     prior_result: dict | None,
+    prior_test: dict | None = None,
     attempt: int = 1,
 ) -> str:
     """Assemble the bounded agent prompt for one repo attempt.
@@ -40,6 +41,21 @@ def build_prompt(
     lines.append(f"- test_profile: {repo_entry.get('test_profile', '')}")
     lines.append(f"- base_oid: {snapshot['repos'][repo_id]['base_oid']}")
     lines.append("")
+    if prior_test:
+        lines.append("## Prior verification feedback")
+        lines.append("")
+        lines.append(f"- status: {prior_test.get('status')}")
+        lines.append(f"- command: {prior_test.get('command')}")
+        if prior_test.get("reason"):
+            lines.append(f"- reason: {prior_test.get('reason')}")
+        log_path = prior_test.get("log_path")
+        if log_path and Path(log_path).is_file():
+            tail = (
+                Path(log_path).read_text(encoding="utf-8", errors="replace").splitlines()[-25:]
+            )
+            lines.append("")
+            lines.extend(tail)
+        lines.append("")
     lines.append("## Approved plan")
     lines.append("")
     for name in ("proposal.md", "design.md"):

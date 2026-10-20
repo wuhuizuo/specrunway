@@ -11,6 +11,7 @@ import ast
 import datetime as dt
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -49,32 +50,59 @@ def main() -> int:
             f"# implemented by the fake agent for {task_id}\nVALUE = {{'task': '{task_id}'}}\n",
             encoding="utf-8",
         )
-    subprocess.run(["git", "add", "-A"], cwd=root, check=True, capture_output=True)
-    subprocess.run(
-        [
-            "git",
-            "-c",
-            "user.name=fake-agent",
-            "-c",
-            "user.email=fake@example.org",
-            "commit",
-            "-m",
-            f"fake agent: {repo_id} {' '.join(tasks)}",
-        ],
-        cwd=root,
-        check=True,
-        capture_output=True,
+    scenario = os.environ.get("HUB_FAKE_SCENARIO", "pass")
+    fail_before = int(os.environ.get("HUB_FAKE_FAIL_BEFORE", "0"))
+    failed_run = (
+        scenario == "fail"
+        or (scenario == "noop")
+        or (scenario == "fail-until-pass" and attempt <= fail_before)
     )
-    head = subprocess.run(
-        ["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True
-    ).stdout.strip()
-    changed = subprocess.run(
-        ["git", "diff", "--name-only", f"{base_oid}..{head}"],
-        cwd=root,
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.split()
+    if scenario == "noop":
+        # no commit at all: the next attempt produces the same head
+        (target_dir / "test_fake_failure.py").write_text(
+            "def test_never():\n    assert False, 'noop scenario failure'\n", encoding="utf-8"
+        )
+        head = base_oid
+        changed = []
+    else:
+        failure_test = target_dir / "test_fake_failure.py"
+        if failed_run:
+            failure_test.write_text(
+                f"def test_attempt_{attempt}():\n    assert False, 'attempt {attempt} fails'\n",
+                encoding="utf-8",
+            )
+        elif failure_test.exists():
+            failure_test.unlink()
+        (root / "result.json").unlink(missing_ok=True)
+        subprocess.run(
+            ["git", "add", "--", prefix], cwd=root, check=True, capture_output=True
+        )
+        subprocess.run(
+            [
+                "git",
+                "-c",
+                "user.name=fake-agent",
+                "-c",
+                "user.email=fake@example.org",
+                "commit",
+                "-m",
+                f"fake agent: {repo_id} {' '.join(tasks)} attempt {attempt}",
+            ],
+            cwd=root,
+            check=True,
+            capture_output=True,
+        )
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True
+        ).stdout.strip()
+    if scenario != "noop":
+        changed = subprocess.run(
+            ["git", "diff", "--name-only", f"{base_oid}..{head}"],
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.split()
     record = {
         "api_version": "hub/v1",
         "execution_id": execution_id,
@@ -85,7 +113,7 @@ def main() -> int:
         "base_commit": base_oid,
         "tasks": [{"task_id": t, "decision": "implemented", "notes": "fake"} for t in tasks],
         "changed_paths": sorted(changed),
-        "tests_claimed": {"status": "passed"},
+        "tests_claimed": {"status": "failed" if failed_run else "passed"},
         "created_at": dt.datetime.now(dt.UTC).isoformat().replace("+00:00", "Z"),
     }
     canonical = json.dumps(record, sort_keys=True, separators=(",", ":"), ensure_ascii=True)

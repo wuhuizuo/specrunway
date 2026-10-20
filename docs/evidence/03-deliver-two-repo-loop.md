@@ -371,3 +371,61 @@ only the intended worktree changes), V1-A09 (ordered two-repo execution
 with downstream consumption of the first accepted commit). Full V1-A02
 release closure still requires the live-agent run recorded in the release
 evidence.
+
+## L12 bounded repair budgets (task 7.1)
+
+Built:
+
+- Manifest budgets are enforced with v1 defaults when absent
+  (`repo_max_attempts=3` = initial work + at most two repairs,
+  `integration_max_repairs=2`, `total_minutes=120`):
+  - `run-repo` refuses a third+ attempt (`budget-exhausted`) and refuses
+    any attempt after the total wall-clock budget; both set the run phase
+    `blocked` and keep the worktrees.
+  - `verify-round` now persists per-repo `verification` rows
+    (`status`, `exit_code`, `head_commit`) plus a `verify_rounds` counter
+    in run state, so later steps and a restarted CLI see the same evidence.
+  - `repair-round` (new workflow step) re-attempts only the failing repos
+    in `repo_order`, re-runs trusted tests after each round, and stops on:
+    - `budget-exhausted` — `integration_max_repairs` rounds used and a repo
+      still fails (phase `blocked`);
+    - `no-progress` — the same head commit failed verification again, so
+      more attempts would only burn the budget (phase `blocked`).
+  - `complete` now refuses (`verification-failed`) unless every repo has an
+    accepted, test-passed result AND a passed verification row: failed
+    verification cannot reach `ready_for_review`.
+- Repair feedback reaches the agent: attempt 2+ prompts include a
+  `## Prior verification feedback` block (status, command, reason, and the
+  tail of the trusted test log).
+
+Defect found and fixed while exercising repair:
+
+- The fake fixture agent staged `git add -A`, which swept the prior
+  `result.json` / pytest `__pycache__` into the next repair commit and made
+  the changed-path whitelist reject it. Fixture agents now stage only the
+  declared allowed prefix (product `accept_result` correctly refused the
+  polluted claim).
+
+Verified (`tests/test_budget_repair.py`, 5 tests; deterministic fake agent
+scenarios `pass`, `fail-until-pass`, `fail`, `noop`):
+
+1. `fail-until-pass` with `FAIL_BEFORE=1`: attempt 1 accepted as failed,
+   `verify-round` persisted `failed`, `repair-round` ran attempt 2, returned
+   `repaired: true, rounds_used: 1`, verification `passed`, counters
+   `attempts_used == 2`, and the attempt-2 prompt carried the prior failure
+   feedback.
+2. `fail` with `repo_max_attempts=2`: `repair-round` raised
+   `budget-exhausted`, phase `blocked`, counters `attempts_used == 2`; a
+   fresh `FileRunStore` (simulated restart) read the same counters and a
+   further `run-repo` was refused without incrementing them.
+3. `noop` (no commit, failing tests): round 1 detected the same head and
+   raised `no-progress` after two attempts instead of consuming attempt 3.
+4. `fail` + `verify-round` then `complete` → `verification-failed`, phase
+   not `ready_for_review`.
+5. `total_minutes=1` with an execution aged to 2020 → `budget-exhausted`
+   before any agent launch.
+6. Full suite: `pytest -q` → 171 passed. `ruff check src tests` → clean.
+
+Acceptance linkage: V1-A07 (bounded repairs, feedback delivery, persistent
+counters across restart, no-progress/exhaustion stop, failed verification
+cannot become ready).

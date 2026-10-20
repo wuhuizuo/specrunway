@@ -40,7 +40,7 @@ Acceptance linkage: V1-A02 V1-A09.
 
 ## 7. L12 Bound test and repair attempts
 
-- [ ] 7.1 [L12] Implement bounded repository and integration repair with persistent budgets; verify failure classification, no-progress stop and unchanged counters after resume.
+- [x] 7.1 [L12] Implement bounded repository and integration repair with persistent budgets; verify failure classification, no-progress stop and unchanged counters after resume.
 
 Acceptance linkage: V1-A07.
 
