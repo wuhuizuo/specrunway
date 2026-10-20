@@ -75,6 +75,9 @@ def test_failing_agent_reports_failed(workspace):
     outcome = run_agent(profile, workspace["cwd"], workspace["prompt"], workspace["log_dir"])
     assert outcome["status"] == "failed"
     assert outcome["exit_code"] == 3
+    # the bridge formats failures through these properties, not raw keys
+    assert outcome.status == "failed"
+    assert outcome.reason == "exit 3"
     assert "bad" in Path(outcome["log_path"]).read_text(encoding="utf-8")
 
 
@@ -147,6 +150,9 @@ def test_profile_registry_resolves_real_cli_shape():
     assert "{prompt_file}" in profile.argv
     assert profile.argv[0] == "opencode"
     assert profile.argv[1] == "run"
+    # opencode 1.18.33 treats --file as an array; the message comes first
+    assert profile.argv[-2:] == ("--file", "{prompt_file}")
+    assert "attached prompt file" in " ".join(profile.argv[:-2])
     with pytest.raises(ValidationError) as unknown:
         resolve_profile("no-such-agent")
     assert unknown.value.code == "profile-unknown"

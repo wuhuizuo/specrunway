@@ -357,12 +357,22 @@ def test_reconcile_not_applied_allows_new_attempt(completion):
             "before": {"change_path": str(change)},
         },
     )
+    store.mark_uncertain(
+        execution_id, f"{execution_id}:archive:feedface", {"outcome": "unknown"}
+    )
+
+    def block(next_state: dict) -> None:
+        next_state["phase"] = "blocked"
+        next_state["blocked_reason"] = "uncertain archive"
+
+    store.update_state(execution_id, block, store.read_state(execution_id)["revision"])
     outcome = reconcile_pending_archive(store, execution_id, completion["snapshot"])
     assert outcome["outcome"] == "not-applied"
     statuses = {
         op["status"] for op in store.operations(execution_id) if op.get("kind") == "archive"
     }
     assert statuses == {"reconciled"}
+    assert store.read_state(execution_id)["phase"] == "ready_for_review"
 
 
 def test_portable_business_payloads(completion):

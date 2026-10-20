@@ -111,7 +111,11 @@ def _write_workflow(control_root: Path, execution_id: str, change_id: str) -> Pa
     return target
 
 
-def _specify_workflow(args: list[str], control_root: Path) -> dict:
+def _specify_workflow(
+    args: list[str],
+    control_root: Path,
+    allowed_statuses: set | None = None,
+) -> dict:
     specify_bin = resolve_tool_bin(control_root, None, "specify")
     process = subprocess.run(
         [specify_bin, *args, "--json"],
@@ -138,7 +142,8 @@ def _specify_workflow(args: list[str], control_root: Path) -> dict:
             "workflow-output",
             f"cannot parse `specify workflow {args[0]}` output: {combined[-500:]}",
         )
-    if process.returncode != 0 or payload.get("status") not in {"completed", "paused"}:
+    allowed = allowed_statuses or {"completed", "paused"}
+    if process.returncode != 0 or payload.get("status") not in allowed:
         detail = combined.strip().splitlines()
         tail = " | ".join(line.strip() for line in detail[-4:] if line.strip())
         raise RunError(

@@ -38,7 +38,11 @@ def native_status(control_root: Path, run_id: str) -> dict:
     from hubcoord.runner import _specify_workflow
 
     try:
-        return _specify_workflow(["workflow", "status", str(run_id)], Path(control_root))
+        return _specify_workflow(
+            ["workflow", "status", str(run_id)],
+            Path(control_root),
+            allowed_statuses={"completed", "paused", "failed", "running"},
+        )
     except ValidationError as exc:
         raise RecoveryError(exc.code, str(exc)) from exc
 
@@ -153,8 +157,32 @@ def _verify_live_plan(control_root: Path, snapshot: dict) -> None:
         )
 
 
+def _preserve_native_run(
+    store: FileRunStore, execution_id: str, payload: dict, status: str
+) -> None:
+
+    state = store.read_state(execution_id)
+
+    def mutate(next_state: dict) -> None:
+        rows = list(next_state.get("native_runs") or [])
+        rows.append(
+            {
+                "run_id": payload.get("run_id") or next_state.get("native_run_id"),
+                "status": status,
+                "current_step_id": payload.get("current_step_id"),
+            }
+        )
+        next_state["native_runs"] = rows
+
+    store.update_state(execution_id, mutate, state["revision"])
+
+
 def _resume_native(control_root: Path, store: FileRunStore, execution_id: str) -> dict:
-    from hubcoord.runner import _record_pause, _specify_workflow, continue_execution
+    from hubcoord.runner import (
+        _record_pause,
+        _specify_workflow,
+        continue_execution,
+    )
 
     state = store.read_state(execution_id)
     native_run_id = state.get("native_run_id")
@@ -232,20 +260,14 @@ def recover_execution(control_root: Path, execution_id: str) -> dict:
                 f"process {pid} still owns the checkout; confirm it stopped before recover",
             )
 
+        with store.lock(timeout=5.0):
+            _preserve_native_run(store, execution_id, status, "abandoned-running")
+
         def mutate(next_state: dict) -> None:
-            runs = list(next_state.get("native_runs") or [])
-            runs.append(
-                {
-                    "run_id": native_run_id,
-                    "status": "abandoned-running",
-                    "current_step_id": status.get("current_step_id"),
-                    "recorded_at": status.get("updated_at") or "",
-                }
-            )
-            next_state["native_runs"] = runs
             next_state["phase"] = "interrupted"
 
-        store.update_state(execution_id, mutate, state["revision"])
+        current = store.read_state(execution_id)
+        store.update_state(execution_id, mutate, current["revision"])
         return start_execution(control_root, execution_id)
     if native == "paused" or native == "failed":
         _verify_live_plan(control_root, snapshot)

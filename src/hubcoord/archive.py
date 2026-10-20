@@ -311,7 +311,7 @@ def reconcile_pending_archive(store: FileRunStore, execution_id: str, snapshot: 
     pending = [
         op
         for op in store.operations(execution_id)
-        if op.get("kind") == "archive" and op.get("status") == "pending"
+        if op.get("kind") == "archive" and op.get("status") in ("pending", "uncertain")
     ]
     if not pending:
         return {"outcome": "none"}
@@ -349,6 +349,14 @@ def reconcile_pending_archive(store: FileRunStore, execution_id: str, snapshot: 
     if active_exists and not archived_exists:
         store.mark_uncertain(execution_id, op["operation_key"], {"outcome": "not-applied"})
         store.reconcile(execution_id, op["operation_key"], {"outcome": "not-applied"})
+
+        def reopen(next_state: dict) -> None:
+            if next_state.get("phase") == "blocked":
+                next_state["phase"] = "ready_for_review"
+                next_state.pop("blocked_reason", None)
+
+        current = store.read_state(execution_id)
+        store.update_state(execution_id, reopen, current["revision"])
         return {"outcome": "not-applied"}
     raise ArchiveError(
         "archive-lost",

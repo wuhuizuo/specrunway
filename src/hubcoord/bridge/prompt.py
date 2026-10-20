@@ -39,6 +39,10 @@ def build_prompt(
     lines.append(f"- repo_order: {manifest['repo_order']}")
     lines.append(f"- allowed_paths: {repo_entry['allowed_paths']}")
     lines.append(f"- test_profile: {repo_entry.get('test_profile', '')}")
+    from hubcoord.testprofiles import resolve_test_profile
+
+    trusted_command = resolve_test_profile(repo_entry.get("test_profile") or "unit").command()
+    lines.append(f"- test_command: {trusted_command}")
     lines.append(f"- base_oid: {snapshot['repos'][repo_id]['base_oid']}")
     lines.append("")
     if prior_test:
@@ -103,8 +107,15 @@ def build_prompt(
         "3. Write a JSON file result.json in the working directory root with "
         "api_version hub/v1, execution_id, repo_id, attempt, agent name, "
         "head_commit, base_commit, tasks (task_id, decision, notes), "
-        "changed_paths (repo-relative), result_digest (sha256 of payload minus "
-        "result_digest), tests_claimed {status, command}, and created_at ISO string."
+        "changed_paths (repo-relative), tests_claimed, and created_at ISO string."
+    )
+    lines.append(
+        '   tests_claimed must be {"status": "passed"|"failed"} only; never '
+        "invent or override the trusted test command."
+    )
+    lines.append(
+        "   result_digest = sha256 hex of the canonical JSON of this object "
+        "without result_digest: keys sorted, separators ',', ':', ASCII."
     )
     lines.append(
         "4. Do not touch paths outside the allowed_paths list; tests and commits run by the coordinator count, not your prose."

@@ -2,7 +2,7 @@
 
 Pinned toolchain: OpenSpec 1.14.3 (npm lock in `tooling/openspec/`),
 specify-cli 1.2.1 (`v1.2.1`, commit 9dca9bf42), Python 3.14.5, real agent
-CLI profile `opencode` 1.18.33 (`opencode run --auto --pure --file`).
+CLI profile `opencode` 1.18.33 (default model `deepseek-flash`; argv `opencode run --auto --pure "<fixed message>" --file <prompt>`).
 
 ## Installation in a fresh directory (V1-A14, V1-A02)
 
@@ -52,11 +52,11 @@ available).
 | Case | Status | Mode | Evidence |
 |---|---|---|---|
 | V1-A01 Pinned tool and step contracts | Passed | upstream probes | `docs/evidence/L01/compatibility-report.md`, `toolchain.lock.json` |
-| V1-A02 Standalone local use and repo changes | Passed | fixture agent; live model Blocked | install above; `tests/test_runner_flow.py` (originals untouched) |
+| V1-A02 Standalone local use and repo changes | Passed | live agent + fixtures | install above; live run below; `tests/test_runner_flow.py` |
 | V1-A03 Configuration and dependency order | Passed | fixtures | `tests/test_manifest.py`, `tests/test_local.py`, `tests/test_planning.py` |
 | V1-A04 Planning versus implementation completion | Passed | fixtures | `docs/evidence/03-…`; `tests/test_archive.py` (`not-ready`) |
 | V1-A05 Local approval and digest drift | Passed | fixtures | `tests/test_freeze_approvals.py` |
-| V1-A06 Worktrees and result validation | Passed | fixture agent | `tests/test_worktrees_results.py`, `tests/test_launcher.py` |
+| V1-A06 Worktrees and result validation | Passed | live agent + fixtures | live run below; `tests/test_worktrees_results.py`, `tests/test_launcher.py` |
 | V1-A07 Test and repair budgets | Passed | fixtures | `tests/test_budget_repair.py` |
 | V1-A08 Local locking and atomic files | Passed | fixtures | `tests/test_runstore.py`, `tests/test_archive.py`, `tests/test_recovery.py` |
 | V1-A09 Sequential two-repo execution | Passed | fixture agent | `tests/test_runner_flow.py` |
@@ -64,18 +64,43 @@ available).
 | V1-A11 Explicit archive and code acceptance | Passed | real OpenSpec CLI | `tests/test_archive.py` |
 | V1-A12 Uncertain archive outcome | Passed | fixtures | `tests/test_archive.py` |
 | V1-A13 Portable business data | Passed | schema review + test | `tests/test_archive.py::test_portable_business_payloads`, `docs/examples/` |
-| V1-A14 Installation and human takeover | Passed for fixture replays; live-agent replay Blocked | install + fixtures | this document; `docs/RUNBOOK.md` |
+| V1-A14 Installation and human takeover | Passed | install + live agent | this document; `docs/RUNBOOK.md` |
 
-## Blocker: live coding-agent run
+## Live coding-agent run (real `opencode` 1.18.33, model `deepseek-flash`)
 
-The release-level live case (real `primary-coding-agent` model execution on
-two fixture repositories, recorded with the actual model identity) was not
-run in this session because no model credentials/entitlement were available
-in the environment. Per `docs/ACCEPTANCE.md`, coordination cases proven with
-the deterministic fake agent are reported in fixture-agent mode, and the
-live-agent sub-case is **Blocked**, not Passed. The exact command to run it
-is unchanged: point `agent_profile: primary-coding-agent` at the installed
-`opencode` 1.18.33 and execute `hub run` from the runbook.
+The release-level live case was executed against a disposable two-repo
+fixture with the real profile (not the fake agent):
+
+1. `hub run --change demo` → `paused` at `plan-gate` (native run `d58965a3`).
+2. `hub approve --kind plan` → `hub resume` → real agent edited and committed
+   in `repo-a` and `repo-b` worktrees; both trusted test receipts passed;
+   run paused at `implementation-gate`. `repo-a`'s accepted head was in the
+   `repo-b` prompt (downstream contract consumption).
+3. `hub approve --kind implementation` (subject bound to the accepted results
+   tree) → `hub run --continue` → `status: completed`,
+   phase `ready_for_review`; `tasks.md` both `[x]`; original checkouts only
+   gained the merge in step 4, never the agent commits directly.
+4. Merged both accepted heads into `main` (`git merge --ff-only`), then
+   `hub archive` → `archived_as: 2026-10-20-demo`,
+   backup at `archive-backup/<stamp>/{change,before.json,after.json}`,
+   `merged_commits` policy, OpenSpec delta applied by the pinned CLI.
+
+Defects exposed and fixed by the live run (would not appear with the fake
+agent):
+
+- `opencode` 1.18.33 parses `--file` as an array; the fixed message must
+  precede it, otherwise the message is attached as a second file.
+- `AgentOutcome` is a dict subclass; `run-repo` read `.reason` as an
+  attribute. Added the property + regression assertion.
+- The prompt now states the trusted `test_command` argv and requires
+  `tests_claimed = {"status": ...}` only; the model had invented its own
+  command string, which the result validator correctly rejected.
+- Archive reconciliation now also closes `uncertain` intents and restores
+  `ready_for_review` when the intent was never applied (the first archive
+  attempt targeted a Store that was not yet registered; recovery proved
+  `not-applied`, then the retry succeeded).
+
+Live result: 187 tests pass; no further live-agent blocker remains.
 
 ## Known limitations (v1, deliberate)
 
@@ -91,7 +116,7 @@ is unchanged: point `agent_profile: primary-coding-agent` at the installed
 ## Checks
 
 ```text
-$ .venv/bin/python -m pytest tests/ -q        # 186 passed
+$ .venv/bin/python -m pytest tests/ -q        # 187 passed
 $ .venv/bin/ruff check src tests              # clean
 $ tooling/openspec/node_modules/.bin/openspec validate --all --strict --json
   # 5/5 changes valid

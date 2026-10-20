@@ -344,3 +344,22 @@ steps:
     assert '"status": "completed"' in run.stdout and combined
     state = store.read_state(execution_id)
     assert state["phase"] == "ready_for_review"
+
+
+def test_prompt_states_trusted_test_command(executed):
+    from hubcoord.bridge.prompt import build_prompt
+
+    snapshot = executed["snapshot"]
+    prompt = build_prompt(
+        change_path=Path(executed["snapshot"]["manifest"]["change_id"]).parent,
+        manifest=snapshot["manifest"],
+        repo_entry=snapshot["manifest"]["repos"][0],
+        snapshot=snapshot,
+        rule_files=[],
+        dependency_results={},
+        prior_result=None,
+        attempt=1,
+    )
+    assert "- test_command:" in prompt
+    assert "tests_claimed must be" in prompt
+    assert "- attempt: 1" in prompt

@@ -44,9 +44,11 @@ PROFILES: dict = {
             "run",
             "--auto",
             "--pure",
+            # 1.18.33 parses --file as an array: the message must precede it,
+            # otherwise the fixed text is swallowed as a second attachment.
+            "Execute the attached prompt file exactly; do not ask interactive questions.",
             "--file",
             "{prompt_file}",
-            "Execute the attached prompt file exactly; do not ask interactive questions.",
         ),
     ),
 }
@@ -58,6 +60,10 @@ class AgentOutcome(dict):
     @property
     def status(self) -> str:
         return self["status"]
+
+    @property
+    def reason(self) -> str:
+        return str(self.get("reason") or "")
 
 
 def resolve_profile(name: str) -> AgentProfile:

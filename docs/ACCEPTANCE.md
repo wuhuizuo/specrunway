@@ -21,8 +21,8 @@ Version: v1; scope: Required.
 **Steps:** Install one Hub package, agreed upstream tools, and one agent. Run two Git checkouts; compare diff and untracked files before/after.
 **Pass criteria:** No server, database, or v2 dependency is needed. Business repositories contain only intended code/test changes.
 **Expected evidence:** Installation log; Git diff/status
-**Status:** Passed (fixture-agent mode; live-agent run Blocked)
-**Actual evidence:** `docs/evidence/05-release-local-v1.md` (fresh wheel install, wheel/venv versions); `tests/test_runner_flow.py` (two checkouts, intended worktree changes only, originals unchanged)
+**Status:** Passed (live `opencode` 1.18.33 / `deepseek-flash` and fixture modes)
+**Actual evidence:** `docs/evidence/05-release-local-v1.md` (fresh wheel install + live two-repo run); `tests/test_runner_flow.py`
 
 ## V1-A03 Configuration and explicit dependency order
 Version: v1; scope: Required.
@@ -53,8 +53,8 @@ Version: v1; scope: Required.
 **Steps:** Keep uncommitted files in the original checkout. Supply wrong result digest/head and unexpected changed paths.
 **Pass criteria:** The original checkout is preserved. Invalid results are rejected. A worktree is not claimed to sandbox a hostile same-user process.
 **Expected evidence:** Git/test results; rejection log
-**Status:** Passed (fixture-agent mode; same-user sandbox caveat recorded)
-**Actual evidence:** `tests/test_worktrees_results.py` (untracked preservation, foreign head/digest/path rejection); `tests/test_launcher.py` (real process-group kill)
+**Status:** Passed (live agent + fixtures; same-user sandbox caveat recorded)
+**Actual evidence:** `docs/evidence/05-release-local-v1.md` (live agent commits); `tests/test_worktrees_results.py` (untracked preservation, foreign head/digest/path rejection); `tests/test_launcher.py` (real process-group kill)
 
 ## V1-A07 Test and repair budgets
 Version: v1; scope: Required.
@@ -117,8 +117,8 @@ Version: v1; scope: Required.
 **Steps:** Install in a fresh directory. Follow the README through planning, run, approval, recovery, backup, and cleanup.
 **Pass criteria:** No team component is required. Preserve a usable failure scene. Replay normal, repair, and abnormal-recovery paths at pinned versions.
 **Expected evidence:** Release replays; backup/restore drill
-**Status:** Passed (fixture-agent replays; live-agent install replay Blocked)
-**Actual evidence:** `docs/evidence/05-release-local-v1.md` (fresh venv wheel install, runbook replay matrix); `docs/RUNBOOK.md`
+**Status:** Passed (fresh install + live-agent replay)
+**Actual evidence:** `docs/evidence/05-release-local-v1.md` (fresh venv wheel install, live-agent replay, archive + backup); `docs/RUNBOOK.md`
 
 ## V2-A01 Authentication and project authorization
 Version: v2; scope: Required.
