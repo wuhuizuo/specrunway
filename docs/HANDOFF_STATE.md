@@ -1,6 +1,6 @@
 # Implementation state
 
-Updated: 20 October 2026 (L06–L15 session).
+Updated: 20 October 2026 (L01-L15 complete; changes archived; renamed to SpecRunway).
 
 ## Completed preparation
 
@@ -49,6 +49,16 @@ Updated: 20 October 2026 (L06–L15 session).
 
 `05-release-local-v1` — L15 complete. All five OpenSpec changes (L01-L15) are implemented and validated.
 
+## Repository state
+
+- All five development changes are archived under
+  `openspec/changes/archive/2026-10-20-*`; their deltas are applied to the
+  baseline under `openspec/specs/`.
+- `README.md` now describes the implemented SpecRunway product and points to
+  `docs/RUNBOOK.md`; the pre-archive handoff instructions are historical.
+- `scripts/check_handoff.py` covers both active and archived changes (active
+  may be zero after archive) and still asserts L01-L15 coverage.
+
 ## Exact next action
 
-v1 implementation is complete. Remaining work is external: run the blocked live-agent acceptance sub-case (real `opencode`/model on two fixture repositories) when credentials are available, then create the PR / archive the five development changes under the repository policy. No further v1 code tasks are planned.
+v1 implementation, live-agent acceptance, docs, and development-change archive are complete. Remaining work is external only: publication decisions (tag/release, PR) and any v2 work, which stays deferred. No further v1 code tasks are planned.

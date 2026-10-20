@@ -4,12 +4,22 @@ from pathlib import Path
 import json, re, sys
 
 root = Path(__file__).resolve().parents[1]
-changes = sorted((root/'openspec/changes').glob('[0-9][0-9]-*'))
-assert len(changes) == 5, 'Expected five ordered implementation changes'
+active = sorted((root/'openspec/changes').glob('[0-9][0-9]-*'))
+archived = sorted((root/'openspec/changes/archive').glob('*-[0-9][0-9]-*'))
+changes = active + archived
+expected = {'01','02','03','04','05'}
+covered = set()
+for change in changes:
+    found = re.findall(r'(?:^|-)(\d{2})-', change.name)
+    covered.update(value for value in found if value in expected)
+assert covered == expected, f'Implementation change coverage incomplete: {sorted(covered)}'
 seen = set()
 requirements = scenarios = task_count = 0
 for change in changes:
-    for filename in ['.openspec.yaml','proposal.md','design.md','tasks.md']:
+    required = ['proposal.md','design.md','tasks.md']
+    if change in active:
+        required.insert(0, '.openspec.yaml')
+    for filename in required:
         assert (change/filename).is_file(), f'Missing {change.name}/{filename}'
     task_text = (change/'tasks.md').read_text()
     tasks = re.findall(r'^- \[([ xX])\] (\d+\.\d+) \[(L\d{2})\] (.+)$',task_text,re.M)
@@ -42,5 +52,6 @@ for p in root.rglob('*'):
     if not p.is_file() or any(x in p.parts for x in ['node_modules','.venv','.git']): continue
     if p.suffix in ['.md','.yaml','.json','.sh','.py']:
         assert not re.search(r'[\u3400-\u9fff]',p.read_text()), f'Non-English content in {p}'
-print(json.dumps({'changes':len(changes),'source_tasks':len(seen),'checkbox_tasks':task_count,
+print(json.dumps({'changes':len(changes),'active':len(active),'archived':len(archived),
+                  'source_tasks':len(seen),'checkbox_tasks':task_count,
                   'requirements':requirements,'scenarios':scenarios,'result':'passed'}))
