@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: hub-cli
+Version: 0.1.0
+Summary: Central Store Coordinator local v1: hub CLI and Spec Kit hub step bridge
+License: MIT
+Requires-Python: >=3.11
+License-File: LICENSE
+Requires-Dist: PyYAML>=6.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"
+Requires-Dist: ruff>=0.4; extra == "dev"
+Dynamic: license-file
