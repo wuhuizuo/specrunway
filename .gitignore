@@ -12,3 +12,4 @@ docs/evidence/**/raw/
 .opencode/
 *.zip
 src/*.egg-info/
+build/
