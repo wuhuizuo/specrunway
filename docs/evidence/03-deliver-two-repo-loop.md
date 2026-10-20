@@ -1,7 +1,9 @@
-# Evidence: change 03 — L06 planning, L07 freeze/approvals, L08 launcher, L09 worktrees
+# Evidence: change 03 — L06 planning, L07 freeze/approvals, L08 launcher,
+# L09 worktrees/tests/results, L10 hub step bridge
 
 Change: `03-deliver-two-repo-loop` source tasks L06 (task 1.1, V1-A04),
-L07 (task 2.1, V1-A05), L08 (task 3.1, V1-A06), L09 (task 4.1, V1-A06 + V1-A07).
+L07 (task 2.1, V1-A05), L08 (task 3.1, V1-A06), L09 (task 4.1, V1-A06 + V1-A07),
+L10 (task 5.1, V1-A01).
 
 ## What was built
 
@@ -238,3 +240,60 @@ Verified behaviors (`tests/test_worktrees_results.py`, 9 tests):
    `unknown-profile`.
 
 Full suite at L09: `pytest -q` → 158 passed.
+
+## L10 production hub step bridge (task 5.1)
+
+Built:
+
+- `src/hubcoord/bridge/` — the production `type: hub` step package:
+  - `__init__.py`: `HubStep(StepBase)` with `type_key: hub`; resolves
+    `{{ expressions }}` through the public
+    `specify_cli.workflows.expressions.evaluate_expression`; maps
+    `HubActionError` to `StepStatus.FAILED` with the error envelope; never
+    touches private engine state.
+  - `actions.py`: standardized envelope (`api_version/action/ok/store_uid/
+    change_uid/execution_id/data/evidence/warnings` + `error` when failed)
+    and the dispatch of production actions:
+    - `prepare` — frozen snapshot in, ordered repo rows with base OID,
+      task routing, allowed paths, test profiles, phase.
+    - `run-repo` — the synchronous per-repo engine: idempotent worktree
+      creation from the frozen base OID; bounded prompt assembly
+      (`bridge/prompt.py`: tasks, allowed paths, approved plan bytes,
+      capability delta, existing repo rule files, dependency accepted
+      results, prior-attempt feedback); operation intent FIRST
+      (`<exec>:repo:<id>:<attempt>:<input_digest>`), agent launch via
+      `launcher.run_agent`, trusted tests via `testprofiles`, receipt
+      persisted under `tests_receipts/<repo>/<attempt>.json`, result
+      validated via `results.accept_result`, persisted copy +
+      operation receipt, state budgets/results update.
+    - `verify-round` — re-runs trusted tests per repo worktree and
+      returns `needs_repair`.
+    - `collect-summary` — fan-in of accepted results + implementation
+      approval state.
+    - `gate-check` — approval receipt presence check (the injected-
+      verdict refusal at gate advance).
+    - `complete` — sets the run state phase `ready_for_review`
+      (never archives).
+  - `prompt.py`: bounded prompt builder (no shell text ever).
+- `tooling/hubstep/{step.yml,__init__.py}` — the install shim: Specify
+  loads this `__init__.py` from the control checkout's
+  `.specify/workflows/steps/hub/`, and it immediately imports
+  `hubcoord.bridge` (single-package delegation; no duplicated engine).
+
+Verified against the pinned Specify CLI (specify-cli 1.2.1, real run):
+
+1. `specify init --here --force --non-interactive --ignore-agent-tools`
+   in a disposable control; `specify workflow step add hub --dev
+   tooling/hubstep` (exit 0).
+2. A real bridge-probe workflow (`prepare` → `gate` → `complete`) ran
+   through `specify workflow run <wf> --json --input execution=...
+   --input control_root=... --input plan_verdict=approve` → exit 0,
+   `status: completed`; the hub envelope data from the installed step
+   landed in the coordinator run state: `phase == ready_for_review`.
+3. Direct action coverage (`tests/test_bridge_step.py`, 5 tests):
+   prepare ordering/base OID; gate-check refusal (`no-approval`) then
+   acceptance after self_asserted receipt; collect-summary aggregation
+   (passed rows + implementation approval); complete →
+   `ready_for_review` non-archive; the installed-CLI end-to-end test.
+
+Full suite at L10: `pytest -q` → 163 passed.

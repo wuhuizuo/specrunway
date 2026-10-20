@@ -28,7 +28,7 @@ Acceptance linkage: V1-A06 V1-A07.
 
 ## 5. L10 Package one Spec Kit hub step
 
-- [ ] 5.1 [L10] Package the production type: hub bridge through public Specify interfaces; verify installed imports and output.data against the pinned CLI.
+- [x] 5.1 [L10] Package the production type: hub bridge through public Specify interfaces; verify installed imports and output.data against the pinned CLI.
 
 Acceptance linkage: V1-A01.
 

@@ -1,6 +1,6 @@
 # Implementation state
 
-Updated: 20 October 2026 (L06–L09 session).
+Updated: 20 October 2026 (L06–L10 session).
 
 ## Completed preparation
 
@@ -27,7 +27,7 @@ Updated: 20 October 2026 (L06–L09 session).
 
 ## Not implemented
 
-`hub run/status/resume/recover/archive` behavior (change 03 remaining / change 04): worktree-based repo execution loop wiring into a run command, single-writer checkbox updates, integration matrix + fan-in, code review pack, budgets/exhaustion, hub step bridge package, native resume/recover flow, explicit archive + completion policy verification, release README/replay. Live agent profile exercise deferred to release acceptance.
+`hub run/status/resume/recover/archive` behavior (change 03 remaining / change 04): the `hub run` command that starts/owns Specify workflow runs (bridge exists; workflow YAML generation + gate verdict supply pending), single-writer checkbox updates after accepted results, integration combined matrix, code review pack, budgets/exhaustion enforcement + native resume/recover flow, explicit archive + completion policy verification, release README/replay. Live agent profile exercise deferred to release acceptance.
 
 ## Completed work: change 03 so far (L06 + L07 + L08)
 
@@ -36,12 +36,13 @@ Updated: 20 October 2026 (L06–L09 session).
 - L08 task 3.1 done: `hubcoord.launcher` — `AgentProfile` with `{prompt_file}` argv template (real `primary-coding-agent` profile → `opencode run --auto --pure --file <prompt>`; measured opencode 1.18.33 flags), `launch_process` (argv list, `shell=False`, own process group via `start_new_session=True`), `run_agent` structured outcome (completed/failed/timeout/cancelled + exit/log paths), `kill_proc_group`/`cancel` group kills covering agent-spawned grandchildren.
 - L08 task 3.1 done: `hubcoord.launcher` — `AgentProfile` with `{prompt_file}` argv template (real `primary-coding-agent` profile → `opencode run --auto --pure --file <prompt>`; measured opencode 1.18.33 flags), `launch_process` (argv list, `shell=False`, own process group via `start_new_session=True`), `run_agent` structured outcome (completed/failed/timeout/cancelled + exit/log paths), `kill_proc_group`/`cancel` group kills covering agent-spawned grandchildren.
 - L09 task 4.1 done: `hubcoord.worktrees` — detached worktrees at frozen base OIDs with original-checkout preservation checks; `hubcoord.testprofiles` — trusted argv test runner producing runner receipts; `hubcoord.results` — `accept_result` gating identity/ancestry/allowed-paths/trusted-receipt/digest binding before result acceptance + `persist_result` into the run tree.
-- Verification: `pytest -q` → 158 passed (9 new worktree/result tests incl. foreign-result and receipt-mismatch rejections; 8 launcher; 9 freeze/approval; 8 planning incl. real-CLI); `openspec validate --all --strict --json` → 5/5; `scripts/check_handoff.py` → passed. Details: `docs/evidence/03-deliver-two-repo-loop.md`.
+- L10 task 5.1 done: `hubcoord.bridge` — production `type: hub` step (prepare / run-repo / verify-round / collect-summary / gate-check / complete actions with the standardized envelope); `bridge/prompt.py` bounded prompt builder; `tooling/hubstep` install shim delegating to the same package. Verified end-to-end with the pinned specify-cli 1.2.1: step install + real workflow run finished `status: completed` and the coordinator phase reached `ready_for_review`.
+- Verification: `pytest -q` → 163 passed (5 bridge incl. pinned-CLI end-to-end; 9 worktree/result; 8 launcher; 9 freeze/approval; 8 planning); `openspec validate --all --strict --json` → 5/5; `scripts/check_handoff.py` → passed. Details: `docs/evidence/03-deliver-two-repo-loop.md`.
 
 ## Current change
 
-`03-deliver-two-repo-loop` (source tasks L06-L12 core loop) — L06/L07/L08/L09 complete; L10-L12 remaining.
+`03-deliver-two-repo-loop` (source tasks L06-L12 core loop) — L06-L10 complete; L11-L12 remaining.
 
 ## Exact next action
 
-Execute `openspec/changes/03-deliver-two-repo-loop/tasks.md` in order: next is task 5.1 (L10) — package the `type: hub` Specify step bridge (one step package delegating to functions in the same package; standardized `output.data` envelope; installed imports verified against the pinned CLI), then L11 ordered two-repo workflow with gates/fan-in and `ready_for_review` boundary, then L12 bounded repair budgets.
+Execute `openspec/changes/03-deliver-two-repo-loop/tasks.md` in order: next is task 6.1 (L11) — the ordered two-repo workflow: `hub run` command that creates/claims the execution, generates and starts the hub workflow YAML (prepare → plan gate with approval receipt gating → ordered fan-out max_concurrency 1 of run-repo steps → fan-in → verify/do-while → implementation approval gate → complete/ready_for_review), rejects invalid dependency order before execution, and finishes at `ready_for_review` without archiving. Then task 7.1 (L12): bounded repair budgets with persistent counters + no-progress stop.
