@@ -21,104 +21,104 @@ Version: v1; scope: Required.
 **Steps:** Install one Hub package, agreed upstream tools, and one agent. Run two Git checkouts; compare diff and untracked files before/after.
 **Pass criteria:** No server, database, or v2 dependency is needed. Business repositories contain only intended code/test changes.
 **Expected evidence:** Installation log; Git diff/status
-**Status:** Not run
-**Actual evidence:** None
+**Status:** Passed (fixture-agent mode; live-agent run Blocked)
+**Actual evidence:** `docs/evidence/05-release-local-v1.md` (fresh wheel install, wheel/venv versions); `tests/test_runner_flow.py` (two checkouts, intended worktree changes only, originals unchanged)
 
 ## V1-A03 Configuration and explicit dependency order
 Version: v1; scope: Required.
 **Steps:** Try unknown repo/remote, duplicate or missing tasks, forward dependencies, cycles, invalid paths, and unknown profiles.
 **Pass criteria:** Preflight fails without editing code. repo_order satisfies dependencies. Machine paths never enter shared manifests.
 **Expected evidence:** Validation findings; clean worktree
-**Status:** Not run
-**Actual evidence:** None
+**Status:** Passed
+**Actual evidence:** `tests/test_manifest.py`, `tests/test_local.py`, `tests/test_planning.py` (unknown repo/remote, duplicate/missing tasks, forward dependency, invalid paths, unknown profile)
 
 ## V1-A04 Planning versus implementation completion
 Version: v1; scope: Required.
 **Steps:** Generate complete planning artifacts. Query status. Request archive before implementation tasks have run.
 **Pass criteria:** Planning may be complete while implementation remains false. Premature archive is blocked.
 **Expected evidence:** Status JSON; archive preflight
-**Status:** Not run
-**Actual evidence:** None
+**Status:** Passed
+**Actual evidence:** `docs/evidence/03-deliver-two-repo-loop.md` (planning_complete vs tasks unchecked); `tests/test_archive.py` (`not-ready` archive refusal)
 
 ## V1-A05 Local approval and digest drift
 Version: v1; scope: Required.
 **Steps:** Approve a plan, then change design/rules/task text. Separately change only checkboxes. Try injecting a gate approval directly.
 **Pass criteria:** Content drift invalidates approval. Checkboxes preserve planning_digest. Execution requires a matching approval receipt.
 **Expected evidence:** Digests; local approval receipt
-**Status:** Not run
-**Actual evidence:** None
+**Status:** Passed
+**Actual evidence:** `tests/test_freeze_approvals.py` (checkbox-only invariance, text/rule drift, injected-verdict refusal, stale receipt)
 
 ## V1-A06 Worktrees and result validation
 Version: v1; scope: Required.
 **Steps:** Keep uncommitted files in the original checkout. Supply wrong result digest/head and unexpected changed paths.
 **Pass criteria:** The original checkout is preserved. Invalid results are rejected. A worktree is not claimed to sandbox a hostile same-user process.
 **Expected evidence:** Git/test results; rejection log
-**Status:** Not run
-**Actual evidence:** None
+**Status:** Passed (fixture-agent mode; same-user sandbox caveat recorded)
+**Actual evidence:** `tests/test_worktrees_results.py` (untracked preservation, foreign head/digest/path rejection); `tests/test_launcher.py` (real process-group kill)
 
 ## V1-A07 Test and repair budgets
 Version: v1; scope: Required.
 **Steps:** Cause unit/integration failures. Allow initial work plus at most two repairs. Repeat one failure and restart before continuing.
 **Pass criteria:** Feedback reaches the agent. Budgets survive recovery. Repeated failure or exhausted budget stops work; failed verification cannot become ready.
 **Expected evidence:** Test/repair receipts; persisted budget
-**Status:** Not run
-**Actual evidence:** None
+**Status:** Passed
+**Actual evidence:** `tests/test_budget_repair.py` (feedback delivery, two repairs max, no-progress, exhaustion, counters across restart, failed verification cannot become ready)
 
 ## V1-A08 Local locking and atomic files
 Version: v1; scope: Required.
 **Steps:** Run two writers against one checkout. Kill during temporary state writing, and after an external effect but before its receipt.
 **Pass criteria:** The second writer is blocked. Committed JSON stays readable. Proven completed effects are reconciled rather than repeated.
 **Expected evidence:** Lock test; state revision; operation intent
-**Status:** Not run
-**Actual evidence:** None
+**Status:** Passed
+**Actual evidence:** `tests/test_runstore.py` (two-writer lock, CAS revision, atomic JSON); `tests/test_archive.py` (intent/receipt, uncertain reconciliation); `tests/test_recovery.py`
 
 ## V1-A09 Sequential two-repo execution
 Version: v1; scope: Required.
 **Steps:** Run both repositories in repo_order. The second consumes the first accepted commit and contract.
 **Pass criteria:** Order is correct. Both results and the integration matrix are traceable. Actual parallel execution is unnecessary.
 **Expected evidence:** Commit matrix; ordered events
-**Status:** Not run
-**Actual evidence:** None
+**Status:** Passed (fixture-agent mode)
+**Actual evidence:** `tests/test_runner_flow.py` (ordered fan-out, repo-b prompt carries repo-a accepted head, both results traceable)
 
 ## V1-A10 Normal resume and orphan-running recovery
 Version: v1; scope: Required.
 **Steps:** Resume a gate pause and retryable failure. Kill a running process, confirm children exit, then reconcile/recover.
 **Pass criteria:** Paused/failed runs follow upstream resume. Do not force-edit running state. A new native run may reuse verified receipts under the same execution.
 **Expected evidence:** Native-run mapping; receipt reuse
-**Status:** Not run
-**Actual evidence:** None
+**Status:** Passed
+**Actual evidence:** `tests/test_recovery.py` (stale plan, receipt reuse/evidence conflict, orphan dead vs live, old-run preservation); `tests/test_runner_flow.py` (`hub resume`)
 
 ## V1-A11 Explicit archive and code acceptance
 Version: v1; scope: Required.
 **Steps:** Finish run at ready_for_review. Try archive with unaccepted code, stale final approval, or partial merge. Separately select validated_commits explicitly.
 **Pass criteria:** Missing conditions block archive clearly. Personal validated_commits requires its own confirmation and makes no main-branch merge claim.
 **Expected evidence:** Completion policy; final review; Git refs
-**Status:** Not run
-**Actual evidence:** None
+**Status:** Passed
+**Actual evidence:** `tests/test_archive.py` (partial merge, stale approval, unchecked tasks, validated_commits confirmation, replay refusal)
 
 ## V1-A12 Uncertain archive outcome
 Version: v1; scope: Required.
 **Steps:** Kill after archive but before receipt. Construct mixed active/archive state and a changed specification baseline.
 **Pass criteria:** Proven completion gets a receipt. Mixed/uncertain state is preserved and blocked. Delta specifications are not applied again blindly.
 **Expected evidence:** Archive intent; before/after state; backup
-**Status:** Not run
-**Actual evidence:** None
+**Status:** Passed
+**Actual evidence:** `tests/test_archive.py` (completed-without-receipt reconciliation, mixed state block, not-applied retry, backup bytes + before/after)
 
 ## V1-A13 Portable business data
 Version: v1; scope: Required.
 **Steps:** Inspect manifest, result, approval, and shared summaries. Separate machine runtime from the shared Store.
 **Pass criteria:** Use stable IDs, relative paths, and schema versions. Shared portable data contains no secrets or absolute checkout paths.
 **Expected evidence:** Schema validation; portable refs
-**Status:** Not run
-**Actual evidence:** None
+**Status:** Passed
+**Actual evidence:** `tests/test_archive.py::test_portable_business_payloads` (approval/result schema, no absolute checkout paths or secrets in shared payloads); `docs/examples/`
 
 ## V1-A14 Installation and human takeover
 Version: v1; scope: Required.
 **Steps:** Install in a fresh directory. Follow the README through planning, run, approval, recovery, backup, and cleanup.
 **Pass criteria:** No team component is required. Preserve a usable failure scene. Replay normal, repair, and abnormal-recovery paths at pinned versions.
 **Expected evidence:** Release replays; backup/restore drill
-**Status:** Not run
-**Actual evidence:** None
+**Status:** Passed (fixture-agent replays; live-agent install replay Blocked)
+**Actual evidence:** `docs/evidence/05-release-local-v1.md` (fresh venv wheel install, runbook replay matrix); `docs/RUNBOOK.md`
 
 ## V2-A01 Authentication and project authorization
 Version: v2; scope: Required.

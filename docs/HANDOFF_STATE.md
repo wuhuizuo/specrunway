@@ -1,6 +1,6 @@
 # Implementation state
 
-Updated: 20 October 2026 (L06–L14 session).
+Updated: 20 October 2026 (L06–L15 session).
 
 ## Completed preparation
 
@@ -36,6 +36,7 @@ Updated: 20 October 2026 (L06–L14 session).
 - L08 task 3.1 done: `hubcoord.launcher` — `AgentProfile` with `{prompt_file}` argv template (real `primary-coding-agent` profile → `opencode run --auto --pure --file <prompt>`; measured opencode 1.18.33 flags), `launch_process` (argv list, `shell=False`, own process group via `start_new_session=True`), `run_agent` structured outcome (completed/failed/timeout/cancelled + exit/log paths), `kill_proc_group`/`cancel` group kills covering agent-spawned grandchildren.
 - L08 task 3.1 done: `hubcoord.launcher` — `AgentProfile` with `{prompt_file}` argv template (real `primary-coding-agent` profile → `opencode run --auto --pure --file <prompt>`; measured opencode 1.18.33 flags), `launch_process` (argv list, `shell=False`, own process group via `start_new_session=True`), `run_agent` structured outcome (completed/failed/timeout/cancelled + exit/log paths), `kill_proc_group`/`cancel` group kills covering agent-spawned grandchildren.
 - L09 task 4.1 done: `hubcoord.worktrees` — detached worktrees at frozen base OIDs with original-checkout preservation checks; `hubcoord.testprofiles` — trusted argv test runner producing runner receipts; `hubcoord.results` — `accept_result` gating identity/ancestry/allowed-paths/trusted-receipt/digest binding before result acceptance + `persist_result` into the run tree.
+- L15 tasks 1.1-1.3 done: v1 release replays. Fresh venv install from source and from `hub_cli-0.1.0-py3-none-any.whl`; `hub doctor` exit 0 on a minimal wired control checkout; `docs/RUNBOOK.md` written; `docs/evidence/05-release-local-v1.md` records the install log, runbook replay matrix, acceptance matrix V1-A01..A14, the live-agent blocker, and known limitations. `docs/ACCEPTANCE.md` statuses updated: A01-A14 Passed except the live-agent sub-cases of A02/A06/A14 (Blocked: no model credentials in the environment).
 - L13 task 1.1 done: `hubcoord/recovery.py` (`execution_status`, `resume_execution` with live-plan drift refusal + pending-gate receipt check + native resume, `recover_execution` preserving an orphan running native run and starting a new one under the same execution, `reusable_result` evidence-checked receipt reuse); real `hub status`/`resume`/`recover`. Verified: 6 recovery tests incl. stale plan, evidence conflict, orphan dead-vs-live owner, plus `hub resume` in the real two-repo loop.
 - L14 tasks 2.1/2.2 done: `hubcoord/archive.py` explicit preflight (ready phase, accepted+verified results, all mapped checkboxes, approval binding, fresh trusted tests), `merged_commits` merge-ancestry enforcement vs explicit `validated_commits` confirmation, change-dir backup with before/after digests, intent/receipt around `openspec archive`, mixed/uncertain outcome blocking, and path-based reconciliation that never re-applies deltas. Verified with 8 tests against the real pinned OpenSpec CLI + registered disposable store.
 - L12 task 7.1 done: manifest budgets enforced (`repo_max_attempts`, `integration_max_repairs`, `total_minutes`), `verify-round` persists verification rows, new `repair-round` step re-attempts failing repos with prior-feedback prompts and stops on `budget-exhausted`/`no-progress` (phase `blocked`), `complete` refuses failed verification. Verified with fake-agent failure scenarios, persistent counters after a fresh store handle, and 171 passing tests.
@@ -45,8 +46,8 @@ Updated: 20 October 2026 (L06–L14 session).
 
 ## Current change
 
-`04-harden-recovery-and-archive` — L13/L14 complete. Change 03 complete. Next change: `05-release-local-v1` (L15 release evidence).
+`05-release-local-v1` — L15 complete. All five OpenSpec changes (L01-L15) are implemented and validated.
 
 ## Exact next action
 
-Change 04 is complete (L13/L14). Commit/push it, then execute change 05 (L15): package/install `hub-cli` into a fresh directory, build the V1-A01..A14 evidence matrix with real upstream/agent identities where credentials permit, replay normal/repair/abnormal-recovery/backup-restore paths from the runbook, and record known limitations with no v2 dependency. Missing live-agent credentials must be recorded as blockers, never as passes.
+v1 implementation is complete. Remaining work is external: run the blocked live-agent acceptance sub-case (real `opencode`/model on two fixture repositories) when credentials are available, then create the PR / archive the five development changes under the repository policy. No further v1 code tasks are planned.

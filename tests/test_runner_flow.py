@@ -236,9 +236,7 @@ def test_two_repo_loop_reaches_ready_for_review(loop, capsys):
     out = capsys.readouterr().out
     assert rc == 0, out
 
-    rc = hub_main(
-        ["resume", "--execution", execution_id, "--root", str(control), "--json"]
-    )
+    rc = hub_main(["resume", "--execution", execution_id, "--root", str(control), "--json"])
     out = capsys.readouterr().out
     assert rc == 0, out
     implemented = json.loads(out)

@@ -208,6 +208,11 @@ def completion(tmp_path):
 
 @pytest.mark.skipif(not OPENSPEC.is_file(), reason="pinned openspec CLI missing")
 def test_archive_requires_merged_commits(completion):
+    pre = {
+        name: (completion["change"] / name).read_bytes()
+        for name in ("proposal.md", "design.md", "tasks.md")
+    }
+    pre_spec = (completion["change"] / "specs" / "repo-a-delivery" / "spec.md").read_bytes()
     with pytest.raises(ArchiveError) as blocked:
         archive_execution(completion["control"], completion["execution_id"])
     assert blocked.value.code == "partial-merge"
@@ -222,7 +227,12 @@ def test_archive_requires_merged_commits(completion):
     assert archived and Path(outcome["path"]) == archived[0]
     state = completion["store"].read_state(completion["execution_id"])
     assert state["phase"] == "archived"
-    assert Path(outcome["backup_dir"], "change", "tasks.md").is_file()
+    backup = Path(outcome["backup_dir"], "change")
+    for name, payload in pre.items():
+        assert (backup / name).read_bytes() == payload
+    assert (backup / "specs" / "repo-a-delivery" / "spec.md").read_bytes() == pre_spec
+    assert (Path(outcome["backup_dir"]) / "before.json").is_file()
+    assert (Path(outcome["backup_dir"]) / "after.json").is_file()
     # replay is refused, not re-applied
     again = archive_execution(completion["control"], completion["execution_id"])
     assert again["already_archived"] is True
@@ -353,3 +363,24 @@ def test_reconcile_not_applied_allows_new_attempt(completion):
         op["status"] for op in store.operations(execution_id) if op.get("kind") == "archive"
     }
     assert statuses == {"reconciled"}
+
+
+def test_portable_business_payloads(completion):
+    execution_id = completion["execution_id"]
+    run_dir = completion["store"].run_dir(execution_id)
+    approval = json.loads((run_dir / "approvals" / "implementation.json").read_text())
+    for field in ("execution_id", "kind", "decision", "subject_digest", "scope", "actor"):
+        assert field in approval
+    blob = json.dumps(approval)
+    assert "/private/" not in blob and "/var/" not in blob
+    result = json.loads((run_dir / "results" / "repo-a" / "1" / "result.json").read_text())
+    result_blob = json.dumps(result)
+    assert "/private/" not in result_blob and "/var/" not in result_blob
+    assert result["changed_paths"] == ["src/ship.py"]
+    manifest = completion["snapshot"]["manifest"]
+    assert all(not path.startswith("/") for path in manifest["repos"][0]["allowed_paths"])
+    assert "path" not in manifest["repos"][0]
+    assert str(completion["repo"]) not in json.dumps(manifest)
+    assert not any(
+        key in result_blob.lower() for key in ("secret", "password", "api_key", "token")
+    )
