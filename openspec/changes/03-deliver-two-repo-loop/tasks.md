@@ -22,7 +22,7 @@ Acceptance linkage: V1-A06.
 
 ## 4. L09 Create worktrees and run trusted tests
 
-- [ ] 4.1 [L09] Implement worktrees, explicit test profiles and result validation; verify original checkout preservation, commit binding and rejection of foreign results.
+- [x] 4.1 [L09] Implement worktrees, explicit test profiles and result validation; verify original checkout preservation, commit binding and rejection of foreign results.
 
 Acceptance linkage: V1-A06 V1-A07.
 

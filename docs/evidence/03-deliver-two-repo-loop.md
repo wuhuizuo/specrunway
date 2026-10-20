@@ -1,7 +1,7 @@
-# Evidence: change 03 — L06 planning, L07 freeze/approvals, L08 agent launcher
+# Evidence: change 03 — L06 planning, L07 freeze/approvals, L08 launcher, L09 worktrees
 
 Change: `03-deliver-two-repo-loop` source tasks L06 (task 1.1, V1-A04),
-L07 (task 2.1, V1-A05), L08 (task 3.1, V1-A06).
+L07 (task 2.1, V1-A05), L08 (task 3.1, V1-A06), L09 (task 4.1, V1-A06 + V1-A07).
 
 ## What was built
 
@@ -185,3 +185,56 @@ Verified behaviors (`tests/test_launcher.py`, 8 tests, fake agents):
    real execution.
 
 Full suite at L08: `pytest -q` → 149 passed.
+
+## L09 worktrees + trusted tests + result validation (task 4.1)
+
+Built:
+
+- `src/hubcoord/worktrees.py` — `create_worktree(repo, base_oid,
+  execution_dir, repo_id)` via argv-only `git worktree add --detach
+  <target> <base_oid>` (stable errors `repo-not-git`, `worktree-exists`,
+  `worktree-create`); `original_status`/`assert_original_preserved`
+  (porcelain snapshot equality across operations), `commit_all`,
+  `head_oid`, `is_ancestor` (merge-base --is-ancestor).
+- `src/hubcoord/testprofiles.py` — trusted test runner: registry
+  `TEST_PROFILES` with explicit argv (unit → `python -m pytest -q`,
+  `python` replaced by the trusted interpreter); `resolve_test_profile`
+  (`unknown-profile`), `run_test_command` (argv list, shell=False, explicit
+  cwd, stdout/stderr to a runner-produced log, timeout → status `error`)
+  returning a runner receipt {status passed/failed/error, exit_code,
+  command, started/finished, duration, log_path, reason}.
+- `src/hubcoord/results.py` — independent result validation
+  (`accept_result`): shape via `validate_result`; identity binding
+  (`execution-mismatch`, `repo-mismatch`, `repo-not-in-manifest`,
+  `task-unmapped`); commit binding (`base-mismatch`,
+  `head-not-descendant` incl. nonexistent heads; `ancestry-check-failed`);
+  changed-path policy (`path-unsafe` at shape level, `path-not-allowed`
+  against manifest `allowed_paths` with normalized prefix tests); trusted
+  evidence (`receipt-missing`, `receipt-mismatch` agent claim vs runner
+  receipt, `receipt-command-mismatch`); payload binding
+  (`digest-mismatch` via `compute_result_digest` over the record minus
+  `result_digest`). `persist_result` copies the accepted record into the
+  immutable run tree `results/<repo>/<attempt>/result.json`.
+
+Verified behaviors (`tests/test_worktrees_results.py`, 9 tests):
+
+1. Worktree detached exactly at the frozen base OID; original checkout
+   with an untracked uncommitted file stays byte-identical per
+   `status --porcelain` before/after.
+2. Second worktree creation at the same path refused (`worktree-exists`).
+3. Accepted path: committed change in the worktree, runner receipt
+   passed, result.json validated end-to-end, persisted copy readable with
+   the head commit inside.
+4. Foreign result with a nonexistent/foreign head → `head-not-descendant`.
+5. Wrong execution_id → `execution-mismatch`; stray extra task id →
+   `task-unmapped`.
+6. Path outside allowed_paths → `path-not-allowed`; `../secret` caught by
+   the shape validator (must be a relative normed path).
+7. Agent claims passed with no receipt → `receipt-missing`; claims passed
+   while the receipt recorded failed → `receipt-mismatch`.
+8. Tampered result body → `digest-mismatch`.
+9. Trusted runner runs REAL pytest in a fixture project: passing suite →
+   `passed` receipt; failing test → `failed` receipt; unknown profile →
+   `unknown-profile`.
+
+Full suite at L09: `pytest -q` → 158 passed.
