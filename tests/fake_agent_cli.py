@@ -74,9 +74,7 @@ def main() -> int:
         elif failure_test.exists():
             failure_test.unlink()
         (root / "result.json").unlink(missing_ok=True)
-        subprocess.run(
-            ["git", "add", "--", prefix], cwd=root, check=True, capture_output=True
-        )
+        subprocess.run(["git", "add", "--", prefix], cwd=root, check=True, capture_output=True)
         subprocess.run(
             [
                 "git",

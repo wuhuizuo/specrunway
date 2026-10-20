@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from hubcoord.cli import main
 
 
@@ -20,10 +22,11 @@ def test_doctor_json_ok(control_workspace):
     assert rc == 0  # dev-tooling hints are warnings, not errors, in a fresh fixture
 
 
-def test_stub_exit_code_not_implemented():
+def test_commands_require_execution_flag():
     for name in ("status", "resume", "recover", "archive"):
-        rc = main([name, "--json"])
-        assert rc == 69
+        with pytest.raises(SystemExit) as exited:
+            main([name, "--json"])
+        assert exited.value.code == 2
 
 
 def test_approve_require_flags(capsys):

@@ -252,6 +252,22 @@ def action_run_repo(config: dict, context) -> dict:
             repo_path, snapshot["repos"][repo_id]["base_oid"], run_dir, repo_id
         )
 
+    from hubcoord.recovery import reusable_result
+
+    reused = reusable_result(
+        store, snapshot, repo_id, {rid: dict(cfg) for rid, cfg in local_cfg["repos"].items()}
+    )
+    if reused is not None:
+        return envelope(
+            "run-repo",
+            True,
+            reused,
+            store_uid=snapshot["store_uid"],
+            change_uid=snapshot["change_uid"],
+            execution_id=execution_id,
+            warnings=["reused verified result from an earlier attempt"],
+        )
+
     state = store.read_state(execution_id)
     budget = _budget(manifest)
     budgets = dict(state.get("budgets") or {})

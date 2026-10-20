@@ -10,14 +10,6 @@ from pathlib import Path
 from . import __version__
 from .doctor import find_control_root, run_doctor
 
-#: Subcommands delivered by later changes, mapped to their owning OpenSpec change.
-LATER_CHANGES = {
-    "status": "03-deliver-two-repo-loop",
-    "resume": "04-harden-recovery-and-archive",
-    "recover": "04-harden-recovery-and-archive",
-    "archive": "04-harden-recovery-and-archive",
-}
-
 
 def _error_payload(action: str, exc: Exception) -> dict:
     code = getattr(exc, "code", None)
@@ -276,31 +268,132 @@ def cmd_run(args: argparse.Namespace) -> int:
     return 0
 
 
-def _make_stub(name: str):
-    change_dir = LATER_CHANGES[name]
+def _control_root_for(args: argparse.Namespace) -> Path | None:
+    return Path(args.root).resolve() if args.root else find_control_root(Path.cwd())
 
-    def handler(args: argparse.Namespace) -> int:
-        payload = _envelope(
-            False,
-            action=name,
-            data={},
-            error={
-                "code": "not-implemented",
-                "message": (
-                    f"`hub {name}` is not implemented yet; see openspec/changes/{change_dir}."
-                ),
-                "retryable": False,
-            },
+
+def cmd_status(args: argparse.Namespace) -> int:
+    from hubcoord.recovery import execution_status
+
+    root = _control_root_for(args)
+    if root is None:
+        return _fail_cli(
+            _error_envelope("status", RuntimeError("no control checkout found")),
+            args.json,
+            "hub status",
         )
-        if getattr(args, "json", False):
-            json.dump(payload, sys.stdout, indent=2, sort_keys=True)
-            sys.stdout.write("\n")
-        else:
-            sys.stderr.write(f"hub: {payload['error']['message']}\n")
-        return 69  # EX_UNAVAILABLE
+    try:
+        data = execution_status(root, args.execution)
+    except Exception as exc:  # noqa: BLE001
+        return _fail_cli(_error_envelope("status", exc), args.json, "hub status")
+    payload = _hub_envelope(action="status", ok=True, data=data, warnings=[])
+    _emit(
+        payload,
+        args.json,
+        f"status {data['phase']}: execution {args.execution} "
+        f"(native run {data['native_run_id']})\n",
+    )
+    return 0
 
-    handler.__name__ = f"cmd_{name}"
-    return handler
+
+def cmd_resume(args: argparse.Namespace) -> int:
+    from hubcoord.recovery import resume_execution
+
+    root = _control_root_for(args)
+    if root is None:
+        return _fail_cli(
+            _error_envelope("resume", RuntimeError("no control checkout found")),
+            args.json,
+            "hub resume",
+        )
+    try:
+        outcome = resume_execution(root, args.execution)
+    except Exception as exc:  # noqa: BLE001
+        return _fail_cli(_error_envelope("resume", exc), args.json, "hub resume")
+    payload = _hub_envelope(
+        action="resume",
+        ok=True,
+        data={
+            "execution_id": args.execution,
+            "native_run_id": outcome.get("run_id"),
+            "native_status": outcome.get("status"),
+            "paused_step_id": outcome.get("current_step_id"),
+        },
+        warnings=[],
+    )
+    _emit(
+        payload,
+        args.json,
+        f"resume {outcome.get('status')}: execution {args.execution}\n",
+    )
+    return 0
+
+
+def cmd_recover(args: argparse.Namespace) -> int:
+    from hubcoord.recovery import recover_execution
+
+    root = _control_root_for(args)
+    if root is None:
+        return _fail_cli(
+            _error_envelope("recover", RuntimeError("no control checkout found")),
+            args.json,
+            "hub recover",
+        )
+    try:
+        outcome = recover_execution(root, args.execution)
+    except Exception as exc:  # noqa: BLE001
+        return _fail_cli(_error_envelope("recover", exc), args.json, "hub recover")
+    payload = _hub_envelope(
+        action="recover",
+        ok=True,
+        data={
+            "execution_id": args.execution,
+            "native_run_id": outcome.get("run_id"),
+            "native_status": outcome.get("status"),
+            "paused_step_id": outcome.get("current_step_id"),
+            "reconciled_archive": bool(outcome.get("reconciled_archive")),
+        },
+        warnings=[],
+    )
+    _emit(
+        payload,
+        args.json,
+        f"recover {outcome.get('status')}: execution {args.execution}\n",
+    )
+    return 0
+
+
+def cmd_archive(args: argparse.Namespace) -> int:
+    from hubcoord.archive import archive_execution
+
+    root = _control_root_for(args)
+    if root is None:
+        return _fail_cli(
+            _error_envelope("archive", RuntimeError("no control checkout found")),
+            args.json,
+            "hub archive",
+        )
+    try:
+        outcome = archive_execution(
+            root,
+            args.execution,
+            policy=args.policy,
+            confirm_validated=args.confirm_validated,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return _fail_cli(_error_envelope("archive", exc), args.json, "hub archive")
+    payload = _hub_envelope(
+        action="archive",
+        ok=True,
+        data={**outcome, "execution_id": args.execution},
+        warnings=[],
+    )
+    _emit(
+        payload,
+        args.json,
+        f"archive ok: {outcome.get('archived_as')} (policy {outcome.get('policy')})\n",
+    )
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -318,16 +411,36 @@ def build_parser() -> argparse.ArgumentParser:
     )
     doc.set_defaults(func=cmd_doctor)
 
-    helps = {
-        "status": "Show execution status",
-        "resume": "Resume a paused/failed execution",
-        "recover": "Reconcile an interrupted execution",
-        "archive": "Archive a completed change explicitly",
-    }
-    for name, help_text in helps.items():
+    for name, help_text, handler in (
+        ("status", "Show execution status", cmd_status),
+        ("resume", "Resume a paused/failed execution", cmd_resume),
+        ("recover", "Reconcile an interrupted execution", cmd_recover),
+    ):
         sub_parser = sub.add_parser(name, help=help_text)
+        sub_parser.add_argument("--execution", required=True, help="Execution UUID")
+        sub_parser.add_argument(
+            "--root", help="Explicit control root (default: walk up from cwd)"
+        )
         sub_parser.add_argument("--json", action="store_true", help="Emit hub/v1 JSON envelope")
-        sub_parser.set_defaults(func=_make_stub(name))
+        sub_parser.set_defaults(func=handler)
+
+    archive_parser = sub.add_parser("archive", help="Archive a completed change explicitly")
+    archive_parser.add_argument("--execution", required=True, help="Execution UUID")
+    archive_parser.add_argument(
+        "--policy",
+        choices=["merged_commits", "validated_commits"],
+        help="Explicit completion policy (default: manifest policy / merged_commits)",
+    )
+    archive_parser.add_argument(
+        "--confirm-validated",
+        action="store_true",
+        help="Confirm validated_commits (no main-branch merge claim)",
+    )
+    archive_parser.add_argument(
+        "--root", help="Explicit control root (default: walk up from cwd)"
+    )
+    archive_parser.add_argument("--json", action="store_true", help="Emit hub/v1 JSON envelope")
+    archive_parser.set_defaults(func=cmd_archive)
 
     run_parser = sub.add_parser(
         "run", help="Run an approved change across ordered repositories"
