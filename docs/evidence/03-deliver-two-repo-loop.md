@@ -1,7 +1,7 @@
-# Evidence: change 03 — L06 planning entry point + L07 freeze/approvals
+# Evidence: change 03 — L06 planning, L07 freeze/approvals, L08 agent launcher
 
-Change: `03-deliver-two-repo-loop` source tasks L06 (task 1.1, V1-A04) and
-L07 (task 2.1, V1-A05).
+Change: `03-deliver-two-repo-loop` source tasks L06 (task 1.1, V1-A04),
+L07 (task 2.1, V1-A05), L08 (task 3.1, V1-A06).
 
 ## What was built
 
@@ -142,3 +142,46 @@ Verified behaviors (tests in `tests/test_freeze_approvals.py`, 9):
    a result (exit 1, `result-required`).
 
 Full suite at L07: `pytest -q` → 141 passed.
+
+## L08 agent launcher (task 3.1)
+
+Built `src/hubcoord/launcher.py`:
+
+- `AgentProfile` — frozen argv template with a `{prompt_file}` placeholder;
+  `resolved(prompt_file)` substitutes the absolute prompt path. The real
+  packaged profile `primary-coding-agent` drives the actually used coding
+  agent CLI (measured here: opencode 1.18.33):
+  `opencode run --auto --pure --file {prompt_file} "Execute the attached
+  prompt file exactly; do not ask interactive questions."` — verified flags
+  via `opencode run --help` in this environment (non-interactive,
+  file-attached run).
+- `launch_process(argv, cwd, log_path)` — argv list only, `shell=False`,
+  explicit `cwd`, output redirected to a single sanitized log file
+  (`agent.log` under the run artifacts dir), `start_new_session=True` so the
+  agent owns a killable process group. Resolves the executable on PATH or
+  absolute; stable errors `agent-binary-missing`, `cwd-missing`,
+  `prompt-file-missing` (argv never becomes shell text).
+- `run_agent(...)` — synchronous launch returning a structured
+  `AgentOutcome` (`status` ∈ completed/failed/timeout/cancelled,
+  `exit_code`, `duration_seconds`, `log_path`, `reason`); timeout kills the
+  process group (SIGTERM → grace → SIGKILL) and reports `timeout`.
+- `kill_proc_group` / `cancel` — operator cancellation takes down agent
+  children AND grandchildren spawned by the agent (process-group kill).
+
+Verified behaviors (`tests/test_launcher.py`, 8 tests, fake agents):
+
+1. Fake agent completes: structured outcome `completed`/exit 0, log file
+   written, prompt file content seen by the agent, cwd honored.
+2. Failing agent: `failed`, exit 3, stderr captured in the log.
+3. Timeout: `timeout` status, process killed, wall-clock bounded.
+4. Process-group control: agent spawning a `sleep 120` grandchild dies
+   together with its child on group kill; `cancel()` then reports
+   `cancelled`.
+5. Cancel of a running launch stops it (`poll()` non-None).
+6. Stable rejections: missing prompt/cwd/binary.
+7. Profile registry: unknown profile → `profile-unknown`; real profile
+   resolves `{prompt_file}` fully (no placeholder left).
+8. No shell interpolation: argv list + `shell=False` asserted against a
+   real execution.
+
+Full suite at L08: `pytest -q` → 149 passed.

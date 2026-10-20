@@ -16,7 +16,7 @@ Acceptance linkage: V1-A05.
 
 ## 3. L08 Launch one real agent CLI
 
-- [ ] 3.1 [L08] Implement one real agent launcher using verified argv/cwd/prompt interfaces and process-group control; verify structured success/error results and cancellation.
+- [x] 3.1 [L08] Implement one real agent launcher using verified argv/cwd/prompt interfaces and process-group control; verify structured success/error results and cancellation.
 
 Acceptance linkage: V1-A06.
 

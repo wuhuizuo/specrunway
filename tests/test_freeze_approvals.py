@@ -114,7 +114,9 @@ def frozen(tmp_path):
         "# freeze-demo\n\n## Why\nNeeded.\n\n## What Changes\nTwo tasks.\n",
         encoding="utf-8",
     )
-    (change_path / "design.md").write_text("# Design\n\n## Approach\nSequential.\n", encoding="utf-8")
+    (change_path / "design.md").write_text(
+        "# Design\n\n## Approach\nSequential.\n", encoding="utf-8"
+    )
     (change_path / "tasks.md").write_text(TASKS_MD, encoding="utf-8")
     (change_path / "specs" / "demo-delivery" / "spec.md").write_text(
         "# demo-delivery Specification\n\n## ADDED Requirements\n\n"
@@ -209,7 +211,9 @@ def test_planning_digest_ignores_checkbox_markers_only(frozen):
     assert compute_planning_digest(change_path, manifest) == before
     assert "First work item." in strip_checkbox_markers(text)
 
-    tasks_file.write_text(text.replace("First work item.", "First work item CHANGED."), encoding="utf-8")
+    tasks_file.write_text(
+        text.replace("First work item.", "First work item CHANGED."), encoding="utf-8"
+    )
     after_text = tasks_file.read_text(encoding="utf-8")
     assert after_text != text
     assert compute_planning_digest(change_path, manifest) != before
@@ -290,9 +294,7 @@ def test_changed_approved_input_invalidates_approval(frozen):
         actor="operator",
     )
     # a rule change only alters the context digest; the plan approval still binds
-    verify_frozen_approval(
-        store, execution_id, "plan", frozen["snapshot"]["planning_digest"]
-    )
+    verify_frozen_approval(store, execution_id, "plan", frozen["snapshot"]["planning_digest"])
     tasks_file = frozen["change_path"] / "tasks.md"
     tasks_file.write_text(
         tasks_file.read_text(encoding="utf-8").replace("First work item.", "Dangerous edit"),
