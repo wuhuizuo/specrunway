@@ -332,22 +332,9 @@ def _parse_spec_blocks(text: str) -> dict:
 
 
 def _resolve_openspec_bin(control_root: Path, explicit: str | None) -> str | None:
-    if explicit:
-        return explicit
-    hubPackage = Path(__import__("hubcoord").__file__).resolve().parent
-    hints = [
-        control_root / "tooling" / "openspec" / "node_modules" / ".bin" / "openspec",
-        hubPackage.parent.parent
-        / "tooling"
-        / "openspec"
-        / "node_modules"
-        / ".bin"
-        / "openspec",
-    ]
-    for hint in hints:
-        if hint.is_file():
-            return str(hint)
-    return None
+    from hubcoord.toolresolvers import resolve_tool_bin
+
+    return resolve_tool_bin(control_root, explicit, "openspec")
 
 
 def _minimal_manifest(adapter: OpenSpecAdapter, change_id: str, task_texts: dict) -> dict:

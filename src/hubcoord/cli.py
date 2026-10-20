@@ -13,12 +13,40 @@ from .doctor import find_control_root, run_doctor
 #: Subcommands delivered by later changes, mapped to their owning OpenSpec change.
 LATER_CHANGES = {
     "run": "03-deliver-two-repo-loop",
-    "approve": "03-deliver-two-repo-loop",
     "status": "03-deliver-two-repo-loop",
     "resume": "04-harden-recovery-and-archive",
     "recover": "04-harden-recovery-and-archive",
     "archive": "04-harden-recovery-and-archive",
 }
+
+
+def _error_payload(action: str, exc: Exception) -> dict:
+    code = getattr(exc, "code", None)
+    errors = getattr(exc, "errors", None)
+    body = {"code": code or type(exc).__name__, "message": str(exc)}
+    if errors:
+        body["errors"] = errors
+    return _hub_envelope(action=action, ok=False, data={}, error=body)
+
+
+def _emit(payload: dict, as_json: bool, line: str, err: bool = False) -> None:
+    stream = sys.stderr if err else sys.stdout
+    if as_json:
+        json.dump(payload, stream, indent=2, sort_keys=True)
+        stream.write("\n")
+    else:
+        stream.write(line)
+
+
+def _fail_cli(payload: dict, as_json: bool, prefix: str) -> int:
+    error = payload["error"]
+    _emit(
+        payload,
+        as_json,
+        f"{prefix}: [{error['code']}] {error['message']}\n",
+        err=not as_json,
+    )
+    return 1
 
 
 def _envelope(ok: bool, **body) -> dict:
@@ -112,6 +140,83 @@ def cmd_plan(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_approve(args: argparse.Namespace) -> int:
+    """Record the operator's own confirmation bound to the frozen subject digest."""
+    from hubcoord.approvals import record_approval
+    from hubcoord.models.common import ValidationError
+    from hubcoord.runstore import FileRunStore, RunStoreError
+
+    control_root = Path(args.root).resolve() if args.root else find_control_root(Path.cwd())
+    if control_root is None:
+        return _fail_cli(
+            _error_envelope("approve", RuntimeError("no control checkout found")),
+            args.json,
+            "hub approve",
+        )
+    hub_root = control_root / ".hub"
+    store = FileRunStore(hub_root)
+    try:
+        snapshot = store.run_dir(args.execution).joinpath("snapshot.json")
+        if not snapshot.is_file():
+            raise ValidationError(
+                "snapshot-missing", f"no frozen snapshot.json for execution {args.execution}"
+            )
+        from hubcoord.runstore import _read_json_or_none
+
+        frozen = _read_json_or_none(snapshot)
+        if frozen is None:
+            raise ValidationError(
+                "snapshot-missing", f"snapshot.json unreadable for {args.execution}"
+            )
+        result = None
+        if args.kind == "implementation":
+            from hubcoord.models.records import validate_result
+
+            result = _read_json_or_none(store.run_dir(args.execution).joinpath("result.json"))
+            if result is None:
+                raise ValidationError(
+                    "result-required", "implementation approval requires result.json"
+                )
+            validate_result(result)
+        record = record_approval(
+            store=store,
+            execution_id=args.execution,
+            kind=args.kind,
+            snapshot=frozen,
+            actor=args.actor,
+            decision=args.decision,
+            result=result,
+        )
+    except RunStoreError as exc:
+        return _fail_cli(_error_envelope("approve", exc), args.json, "hub approve")
+    except ValidationError as exc:
+        return _fail_cli(_error_envelope("approve", exc), args.json, "hub approve")
+    except Exception as exc:  # noqa: BLE001
+        return _fail_cli(_error_envelope("approve", exc), args.json, "hub approve")
+    payload = _hub_envelope(
+        action="approve",
+        ok=True,
+        data={
+            "execution_id": args.execution,
+            "kind": record["kind"],
+            "decision": record["decision"],
+            "subject_digest": record["subject_digest"],
+            "scope": record["scope"],
+            "actor": record["actor"],
+            "auth_level": record["auth_level"],
+            "timestamp": record["timestamp"],
+        },
+        warnings=[],
+    )
+    _emit(
+        payload,
+        args.json,
+        f"approve ok: {record['kind']} {record['decision']} "
+        f"{record['subject_digest'][:12]}… by {record['actor']}\n",
+    )
+    return 0
+
+
 def _make_stub(name: str):
     change_dir = LATER_CHANGES[name]
 
@@ -156,7 +261,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     helps = {
         "run": "Run an approved change across ordered repositories",
-        "approve": "Record a local approval for an execution",
         "status": "Show execution status",
         "resume": "Resume a paused/failed execution",
         "recover": "Reconcile an interrupted execution",
@@ -179,6 +283,25 @@ def build_parser() -> argparse.ArgumentParser:
     plan_parser.add_argument("--root", help="Explicit control root (default: walk up from cwd)")
     plan_parser.add_argument("--json", action="store_true", help="Emit hub/v1 JSON envelope")
     plan_parser.set_defaults(func=cmd_plan)
+
+    approve_parser = sub.add_parser(
+        "approve", help="Record a self_asserted approval bound to a frozen subject digest"
+    )
+    approve_parser.add_argument("--execution", required=True, help="Execution UUID")
+    approve_parser.add_argument(
+        "--kind", required=True, choices=["plan", "implementation"], help="Approval kind"
+    )
+    approve_parser.add_argument(
+        "--actor", required=True, help="Operator recording the approval"
+    )
+    approve_parser.add_argument(
+        "--decision", choices=["approve", "reject"], default="approve", help="Decision"
+    )
+    approve_parser.add_argument(
+        "--root", help="Explicit control root (default: walk up from cwd)"
+    )
+    approve_parser.add_argument("--json", action="store_true", help="Emit hub/v1 JSON envelope")
+    approve_parser.set_defaults(func=cmd_approve)
 
     return parser
 

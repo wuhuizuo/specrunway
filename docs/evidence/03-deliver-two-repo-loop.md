@@ -1,6 +1,7 @@
-# Evidence: change 03 — L06 planning entry point
+# Evidence: change 03 — L06 planning entry point + L07 freeze/approvals
 
-Change: `03-deliver-two-repo-loop` source task L06 (task 1.1, acceptance link V1-A04).
+Change: `03-deliver-two-repo-loop` source tasks L06 (task 1.1, V1-A04) and
+L07 (task 2.1, V1-A05).
 
 ## What was built
 
@@ -67,3 +68,77 @@ Real-CLI: generation path existence/shape, manual acceptance path with
 manifest wiring, routing-mismatch rejection, incomplete-change rejection,
 unknown-wrong-store rejection. Unit: extract/render/crosscheck helpers,
 request task-text format.
+
+## L07 freeze + approvals (task 2.1)
+
+Built:
+
+- `src/hubcoord/freezer.py` — context freeze:
+  - `compute_planning_digest(change_path, manifest)`: canonical
+    `[relpath, text]` pairs over `proposal.md`, `design.md`, `tasks.md`
+    (checkbox markers stripped with `strip_checkbox_markers`), and all
+    `specs/**/*.md` deltas, plus the manifest routing dict — digested via
+    `json_digest`.
+  - `compute_context_digest`: planning content plus per-repo rule files
+    (`AGENTS.md`, `CLAUDE.md` when present at repo roots).
+  - `resolve_base_oid(repo_path, base_ref)`: argv-only `git --no-pager -C
+    <path> rev-parse --verify <ref>`; missing `.git` → `repo-not-git`;
+    unresolvable ref → `base-ref-unknown`.
+  - `freeze_execution(...)`: builds snapshot (manifest embedded +
+    `manifest_digest`, `planning_digest`, `context_digest`, per-repo
+    `base_ref`/`base_oid`/`remote_identity`, tools version block, RFC 3339
+    `created_at`) and runs `validate_snapshot` (hub/v1, machine-checked
+    digest binding).
+  - `is_snapshot_immutable(existing, fresh)`: equality ignoring
+    `created_at` — snapshot content immutability for re-freeze.
+- `src/hubcoord/approvals.py` — local approvals:
+  - `record_approval(store, execution_id, kind, snapshot, actor, decision,
+    result)`: recomputes the subject digest from FROZEN content (never from
+    caller input) — `plan` → snapshot `planning_digest`; `implementation` →
+    validated `result.json` `result_digest`; writes
+    `runs/<exec>/approvals/<kind>.json` via `atomic_write_json` and mirrors
+    into `state.json.approvals` with CAS. v1 hard-codes
+    `auth_level: self_asserted` (validator refuses `authenticated`).
+  - `require_gate(store, execution_id, kind[, expected_subject_digest])`:
+    the gate-advance refusal point — refuses when approval file missing
+    (`no-approval` — the injected-verdict refusal), the recorded decision is
+    reject (`approval-rejected`), or the recorded `subject_digest` does not
+    bind the frozen content or the caller-claimed value
+    (`approval-mismatch`).
+  - `verify_frozen_approval(...)`: recompute-from-frozen-content binding
+    check; raises `approval-stale` when the live input digest differs from
+    the stored approval.
+- `src/hubcoord/toolresolvers.py` — shared dev-convention binary resolution
+  (openspec + specify; explicit → dev hints → PATH); `planning` refactored
+  onto it.
+- `hub approve` CLI (real): `--execution --kind {plan,implementation}
+  --actor [--decision]` — records the operator's own confirmation bound to
+  the recomputed digest; refuses (exit 1) with a stable code when the
+  snapshot is missing (`snapshot-missing`) or an implementation approval
+  lacks a validated `result.json` (`result-required`).
+
+Verified behaviors (tests in `tests/test_freeze_approvals.py`, 9):
+
+1. Snapshot binds each digest to its content (`manifest_digest ==
+   json_digest(embedded manifest)`; recomputed planning/context digests
+   match snapshot fields; base_oids 40-hex; tools block frozen).
+2. Snapshot immutability: `created_at`-only change is immutably equal;
+   a digest change is not.
+3. Checkbox normalization: toggling `- [ ]` → `- [x]` leaves the planning
+   digest unchanged; changing a task description changes it.
+4. Rule drift: adding `AGENTS.md` to repo-b changes the context digest.
+5. Approval receipt: `record_approval` writes the file + state mirror;
+   `require_gate` passes with the receipt.
+6. Injected verdict refusal: absent receipt → `no-approval`; recorded
+   reject → `approval-rejected`; caller-claimed foreign subject →
+   `approval-mismatch`.
+7. Changed approved input: after a task-text edit the recomputed planning
+   digest differs from the stored approval → `approval-stale`; before the
+   edit the verification passes.
+8. Implementation approval binds the validated result's `result_digest`;
+   the gate then requires exactly that digest.
+9. `hub approve` CLI records the self_asserted receipt (JSON envelope
+   shows digest + auth_level) and refuses implementation approval without
+   a result (exit 1, `result-required`).
+
+Full suite at L07: `pytest -q` → 141 passed.

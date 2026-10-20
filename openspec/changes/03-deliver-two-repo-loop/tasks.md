@@ -10,7 +10,7 @@ Acceptance linkage: V1-A04.
 
 ## 2. L07 Freeze context and record local approvals
 
-- [ ] 2.1 [L07] Freeze context and record self_asserted plan/result approval; verify text/rule drift, checkbox normalization and verdict injection behavior.
+- [x] 2.1 [L07] Freeze context and record self_asserted plan/result approval; verify text/rule drift, checkbox normalization and verdict injection behavior.
 
 Acceptance linkage: V1-A05.
 

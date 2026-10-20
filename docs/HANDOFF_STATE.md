@@ -1,6 +1,6 @@
 # Implementation state
 
-Updated: 20 October 2026 (L06 session).
+Updated: 20 October 2026 (L06+L07 session).
 
 ## Completed preparation
 
@@ -27,18 +27,18 @@ Updated: 20 October 2026 (L06 session).
 
 ## Not implemented
 
-`hub run/approve/status/resume/recover/archive` behavior (change 03 remaining / change 04): execution freeze/snapshot creation, agent launcher (Specify workflow + hub step), identity/ancestry/allowed-path verification, single-writer checkbox updates, integration matrix, code review pack, budgets/exhaustion, native resume/recover flow, explicit archive + completion policy verification, release README/replay. No live agent profile exercise yet.
+`hub run/status/resume/recover/archive` behavior (change 03 remaining / change 04): agent launcher (Specify workflow + hub step), worktree creation, identity/ancestry/allowed-path verification, single-writer checkbox updates, integration matrix, code review pack, budgets/exhaustion, native resume/recover flow, explicit archive + completion policy verification, release README/replay. No live agent profile exercise yet.
 
-## Completed work: change 03 so far (L06)
+## Completed work: change 03 so far (L06 + L07)
 
 - L06 task 1.1 done: `hubcoord.planning` — `hub plan` is now real (no longer a stub): generation path (request-driven scaffolding of proposal/design/tasks/spec deltas per repo with `[Txxx]` routing labels), manual-plan acceptance path (complete change + deterministic validated manifest from labeled tasks), `crosscheck_task_routing` exact-match gate, `.hub/plans/<change_id>/{manifest.yaml,plan-summary.json}` landing; `openspec_adapter.status()` now returns `change_root`.
-- Mismatch/wrong-store/incomplete/new-without-request rejections verified live (task-routing, store-unknown, plan-incomplete, plan-request-required); all exit 1 with stable codes; success exit 0.
-- Verification: `pytest -q` → 131 passed (8 new planning tests incl. 4 real-CLI against pinned OpenSpec 1.14.3); `openspec validate --all --strict --json` → 5/5; `scripts/check_handoff.py` → passed. Details: `docs/evidence/03-deliver-two-repo-loop.md`.
+- L07 task 2.1 done: `hubcoord.freezer` — planning/context digests (checkbox-mark-normalized, rule-file aware), argv-only base-OID resolution per repo, `freeze_execution` machine-validated snapshots + content immutability check; `hubcoord.approvals` — self_asserted `hub approve` (plan/implementation) recomputing subject digests from frozen content, `require_gate` refusal points (`no-approval`/`approval-rejected`/`approval-mismatch`), `verify_frozen_approval` staleness (`approval-stale`); `hubcoord.toolresolvers` shared binary resolution.
+- Verification: `pytest -q` → 141 passed (9 new freeze/approval tests incl. drift/injection/staleness behaviors); `openspec validate --all --strict --json` → 5/5; `scripts/check_handoff.py` → passed. Details: `docs/evidence/03-deliver-two-repo-loop.md`.
 
 ## Current change
 
-`03-deliver-two-repo-loop` (source tasks L06-L12 core loop) — L06 complete; L07-L12 remaining.
+`03-deliver-two-repo-loop` (source tasks L06-L12 core loop) — L06+L07 complete; L08-L12 remaining.
 
 ## Exact next action
 
-Execute `openspec/changes/03-deliver-two-repo-loop/tasks.md` in order: next is task 2.1 (L07) — freeze planning/context/manifest content + per-repo base commit OIDs into `snapshot.json` with digests via `json_digest` + `strip_checkbox_markers` (checkbox-only invariance), and implement `hub approve` recording self_asserted approvals bound to the frozen subject digests. Then L08 agent launcher, L09 worktrees/trusted tests, L10 hub step package, L11 two-repo workflow, L12 budgets. Reuse L01/L06 fixture mechanics; do not re-probe the compatibility gate.
+Execute `openspec/changes/03-deliver-two-repo-loop/tasks.md` in order: next is task 3.1 (L08) — the single real agent launcher: verified argv/cwd/prompt-file interfaces, process-group control, structured success/error result capture, and cancellation support (`hub run` prepares an execution + invokes the profile); verify with deterministic fake agents at pinnedSpecify workflow start.
