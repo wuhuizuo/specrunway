@@ -115,6 +115,7 @@ def freeze_execution(
     repos_config: dict,
     tool_versions: dict,
     integration: dict | None = None,
+    test_profiles: dict | None = None,
 ) -> dict:
     """Build and machine-validate snapshot.json content for the execution.
 
@@ -146,6 +147,8 @@ def freeze_execution(
         "tools": tool_versions,
         "created_at": _now(),
     }
+    if test_profiles is not None:
+        snapshot["test_profiles"] = dict(test_profiles)
     if integration is not None:
         frozen = dict(integration)
         frozen.setdefault(

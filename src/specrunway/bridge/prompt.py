@@ -40,10 +40,12 @@ def build_prompt(
     lines.append(f"- repo_order: {manifest['repo_order']}")
     lines.append(f"- allowed_paths: {repo_entry['allowed_paths']}")
     lines.append(f"- test_profile: {repo_entry.get('test_profile', '')}")
-    from specrunway.testprofiles import resolve_test_profile
+    from specrunway.testprofiles import profile_for_repo
 
-    trusted_command = resolve_test_profile(repo_entry.get("test_profile") or "unit").command()
-    lines.append(f"- test_command: {trusted_command}")
+    trusted = profile_for_repo(snapshot, repo_entry)
+    lines.append(f"- test_command: {trusted.command()}")
+    if trusted.cwd:
+        lines.append(f"- test_cwd: {trusted.cwd}")
     lines.append(f"- base_oid: {snapshot['repos'][repo_id]['base_oid']}")
     lines.append("")
     if extra_feedback:

@@ -21,7 +21,7 @@ from specrunway.results import (
     persist_result,
 )
 from specrunway.runstore import FileRunStore, _read_json_or_none, atomic_write_json
-from specrunway.testprofiles import resolve_test_profile, run_test_command
+from specrunway.testprofiles import profile_cwd, profile_for_repo, run_test_command
 from specrunway.worktrees import create_worktree, head_oid
 
 
@@ -411,7 +411,7 @@ def action_run_repo(config: dict, context) -> dict:
         )
 
     try:
-        test_profile = resolve_test_profile(entry.get("test_profile") or "unit")
+        test_profile = profile_for_repo(snapshot, entry)
     except ValidationError as exc:
         raise SpecRunwayActionError(
             str(exc),
@@ -428,8 +428,9 @@ def action_run_repo(config: dict, context) -> dict:
         ) from exc
     receipt = run_test_command(
         test_profile.command(),
-        worktree,
+        profile_cwd(worktree, test_profile),
         run_dir / "logs" / repo_id / str(attempt) / "tests.log",
+        test_profile.timeout_seconds,
     )
     receipt_path = run_dir / "tests_receipts" / repo_id / f"{attempt}.json"
     receipt_path.parent.mkdir(parents=True, exist_ok=True)
@@ -547,11 +548,12 @@ def _run_verification(
         if not worktree.is_dir():
             statuses.append({"repo_id": repo_id, "status": "not-started", "head_commit": None})
             continue
-        profile = resolve_test_profile(entry.get("test_profile") or "unit")
+        profile = profile_for_repo(snapshot, entry)
         receipt = run_test_command(
             profile.command(),
-            worktree,
+            profile_cwd(worktree, profile),
             run_dir / "logs" / repo_id / "verify-rounds" / f"{round_label}.log",
+            profile.timeout_seconds,
         )
         statuses.append(
             {

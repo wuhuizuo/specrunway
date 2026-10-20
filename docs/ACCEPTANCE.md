@@ -30,7 +30,7 @@ Version: v1; scope: Required.
 **Pass criteria:** Preflight fails without editing code. repo_order satisfies dependencies. Machine paths never enter shared manifests.
 **Expected evidence:** Validation findings; clean worktree
 **Status:** Passed
-**Actual evidence:** `tests/test_manifest.py`, `tests/test_local.py`, `tests/test_planning.py` (unknown repo/remote, duplicate/missing tasks, forward dependency, invalid paths, unknown profile)
+**Actual evidence:** `tests/test_manifest.py`, `tests/test_local.py`, `tests/test_planning.py` (unknown repo/remote, duplicate/missing tasks, forward dependency, invalid paths, unknown profile); `tests/test_test_profiles.py` (unsafe/unknown test profiles); `docs/evidence/08-configurable-test-profiles.md`
 
 ## V1-A04 Planning versus implementation completion
 Version: v1; scope: Required.
@@ -54,7 +54,7 @@ Version: v1; scope: Required.
 **Pass criteria:** The original checkout is preserved. Invalid results are rejected. A worktree is not claimed to sandbox a hostile same-user process.
 **Expected evidence:** Git/test results; rejection log
 **Status:** Passed (live agent + fixtures; same-user sandbox caveat recorded)
-**Actual evidence:** `docs/evidence/05-release-local-v1.md` (live agent commits); `tests/test_worktrees_results.py` (untracked preservation, foreign head/digest/path rejection); `tests/test_launcher.py` (real process-group kill)
+**Actual evidence:** `docs/evidence/05-release-local-v1.md` (live agent commits); `tests/test_worktrees_results.py` (untracked preservation, foreign head/digest/path rejection); `tests/test_launcher.py` (real process-group kill); `tests/test_test_profiles.py` (frozen subdirectory test profile)
 
 ## V1-A07 Test and repair budgets
 Version: v1; scope: Required.
@@ -62,7 +62,7 @@ Version: v1; scope: Required.
 **Pass criteria:** Feedback reaches the agent. Budgets survive recovery. Repeated failure or exhausted budget stops work; failed verification cannot become ready.
 **Expected evidence:** Test/repair receipts; persisted budget
 **Status:** Passed
-**Actual evidence:** `tests/test_budget_repair.py`, `tests/test_integration.py` (feedback delivery, bounded repo + integration repairs, no-progress, exhaustion, counters across restart, failed verification/integration cannot become ready); `docs/evidence/06-verify-integration-matrix.md`
+**Actual evidence:** `tests/test_budget_repair.py`, `tests/test_integration.py` (feedback delivery, bounded repo + integration repairs, no-progress, exhaustion, counters across restart, failed verification/integration cannot become ready); `tests/test_test_profiles.py`; `docs/evidence/06-verify-integration-matrix.md`, `docs/evidence/08-configurable-test-profiles.md`
 
 ## V1-A08 Local locking and atomic files
 Version: v1; scope: Required.

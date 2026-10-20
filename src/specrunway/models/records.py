@@ -58,6 +58,7 @@ def validate_snapshot(snapshot: dict) -> dict:
         "tools",
         "created_at",
         "integration",
+        "test_profiles",
     }
     err = ErrorCollector()
     if not _base_check(snapshot, err, keys, "snapshot"):
@@ -135,6 +136,53 @@ def validate_snapshot(snapshot: dict) -> dict:
                 "tool-version",
                 f"tools.{tool_key} must be a non-empty version string",
             )
+    profiles = snapshot.get("test_profiles")
+    if profiles is not None:
+        err.require(
+            isinstance(profiles, dict), "test-profiles-type", "test_profiles must be a mapping"
+        )
+        if isinstance(profiles, dict):
+            for name, entry in profiles.items():
+                err.require(
+                    isinstance(name, str) and is_slug(name),
+                    "test-profile-name",
+                    f"test profile name {name!r} must be a slug",
+                )
+                if not isinstance(entry, dict):
+                    err.fail("test-profile-type", f"test profile {name!r} must be a mapping")
+                    continue
+                err.require(
+                    set(entry) <= {"command", "cwd", "timeout_seconds", "config_digest"},
+                    "unknown-key",
+                    f"test profile {name!r} has unknown keys",
+                )
+                command = entry.get("command")
+                err.require(
+                    isinstance(command, list)
+                    and len(command) > 0
+                    and all(isinstance(part, str) and part.strip() for part in command),
+                    "test-command",
+                    f"test profile {name!r} command must be a non-empty argv list",
+                )
+                cwd = entry.get("cwd", "")
+                err.require(
+                    isinstance(cwd, str)
+                    and not cwd.startswith(("/", "\\"))
+                    and ".." not in cwd.replace("\\", "/").split("/"),
+                    "test-cwd",
+                    f"test profile {name!r} cwd must stay inside the worktree",
+                )
+                timeout = entry.get("timeout_seconds")
+                err.require(
+                    isinstance(timeout, int) and not isinstance(timeout, bool) and timeout > 0,
+                    "test-timeout",
+                    f"test profile {name!r} timeout_seconds must be a positive integer",
+                )
+                err.require(
+                    is_sha256_hex(entry.get("config_digest")),
+                    "digest-format",
+                    f"test profile {name!r} config_digest must be lowercase sha256 hex",
+                )
     integration = snapshot.get("integration")
     if integration is not None:
         err.require(

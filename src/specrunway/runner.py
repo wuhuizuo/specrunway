@@ -79,7 +79,10 @@ def prepare_execution(control_root: Path, change_id: str) -> dict:
             "path": entry["path"],
             "remote_identity": entry.get("remote_identity", ""),
         }
+    from specrunway.testprofiles import freeze_test_profiles
+
     integration = resolve_integration_profile(config, manifest)
+    frozen_profiles = freeze_test_profiles(manifest, config.get("test_profiles"))
     execution_id = new_execution_id()
     store = FileRunStore(control_root / ".specrunway")
     with store.lock(timeout=5.0):
@@ -92,6 +95,7 @@ def prepare_execution(control_root: Path, change_id: str) -> dict:
             repos_cfg,
             _tool_versions(control_root, config["agent_profile"]),
             integration,
+            frozen_profiles,
         )
         atomic_write_json(store.run_dir(execution_id) / "snapshot.json", snapshot)
         _set_phase(store, execution_id, "awaiting_plan_review")

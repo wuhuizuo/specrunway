@@ -11,6 +11,14 @@ repos:
     remote_identity: github:example-org/operator
 agent_profile: primary-coding-agent
 max_workers: 1
+test_profiles:                     # trusted test argv per manifest test_profile
+  go-unit:
+    command: ["go", "test", "./..."]
+    cwd: cloudevents-server        # relative to the repo worktree
+  k8s-validate:
+    command: ["bash", "scripts/validate_k8s_yaml.sh"]
+    timeout_seconds: 900
+
 integration_profiles:
   quota-e2e:
     command: ["go", "test", "./test/e2e/..."]

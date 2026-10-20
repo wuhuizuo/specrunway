@@ -30,6 +30,13 @@ repos:
     remote_identity: https://example.org/repo-a.git
 agent_profile: primary-coding-agent
 max_workers: 1
+test_profiles:                     # trusted argv per manifest test_profile
+  go-unit:
+    command: ["go", "test", "./..."]
+    cwd: cloudevents-server        # relative to the repo worktree
+  k8s-validate:
+    command: ["bash", "scripts/validate_k8s_yaml.sh"]
+
 integration_profiles:              # executable combined check, trusted config
   quota-e2e:
     command: ["go", "test", "./test/e2e/..."]
@@ -80,7 +87,10 @@ Execution order:
    frozen base OID, bounded prompt, agent CLI (argv only), trusted tests,
    result identity/ancestry/path validation, result + receipt persistence.
 4. `verify-round` re-runs trusted tests; `repair-round` retries only failing
-   repos with prior test feedback, bounded by `repo_max_attempts`.
+   repos with prior test feedback, bounded by `repo_max_attempts`. Test
+   profiles are frozen from `test_profiles` in the snapshot (`command`, `cwd`,
+   `timeout_seconds`, digest); editing `local.yaml` later does not change a
+   running execution.
 5. `integration-round` writes `matrix.json` (accepted head/result per repo),
    exports `SPECRUNWAY_MATRIX` + `SPECRUNWAY_HEAD_<REPO>`, and runs the frozen
    integration command. Failure is fed back to the last repository and

@@ -10,8 +10,9 @@ import yaml
 from specrunway.models.common import ErrorCollector, GroupedValidationError, is_slug
 from specrunway.remotes import normalize_identity, remote_matches
 
-LOCAL_KEYS = {"store", "repos", "agent_profile", "max_workers", "integration_profiles"}
+LOCAL_KEYS = {"store", "repos", "agent_profile", "max_workers", "integration_profiles", "test_profiles"}
 INTEGRATION_PROFILE_KEYS = {"command", "repo", "timeout_seconds"}
+TEST_PROFILE_KEYS = {"command", "cwd", "timeout_seconds"}
 STORE_KEYS = {"id", "path"}
 REPO_ENTRY_KEYS = {"path", "remote_identity"}
 
@@ -143,6 +144,64 @@ def validate_local_config(config: dict) -> dict:
                         and not isinstance(timeout, bool)
                         and timeout > 0,
                         "integration-timeout",
+                        "timeout_seconds must be a positive integer",
+                    )
+                err.pop_base()
+            err.pop_base()
+    test_profiles = config.get("test_profiles")
+    if test_profiles is not None:
+        err.require(
+            isinstance(test_profiles, dict),
+            "test-profiles-type",
+            "test_profiles must be a mapping of profile name -> entry",
+        )
+        if isinstance(test_profiles, dict):
+            err.push_base("test_profiles")
+            for name, entry in test_profiles.items():
+                err.push_base(str(name))
+                err.require(
+                    is_slug(str(name)),
+                    "test-profile-name",
+                    f"test profile {name!r} is not a slug",
+                )
+                if not isinstance(entry, dict):
+                    err.fail("test-profile-type", "profile entry must be a mapping")
+                    err.pop_base()
+                    continue
+                unknown = set(entry) - TEST_PROFILE_KEYS
+                err.require(
+                    not unknown,
+                    "unknown-key",
+                    f"test profile {name!r} has unknown keys: {sorted(unknown)}",
+                )
+                command = entry.get("command")
+                err.require(
+                    isinstance(command, list)
+                    and len(command) > 0
+                    and all(isinstance(part, str) and part.strip() for part in command),
+                    "test-command",
+                    "command must be a non-empty argv list of strings",
+                )
+                cwd = entry.get("cwd")
+                if cwd is not None:
+                    text = str(cwd)
+                    parts = [
+                        p for p in text.replace("\\", "/").split("/") if p not in ("", ".")
+                    ]
+                    err.require(
+                        isinstance(cwd, str)
+                        and not text.startswith(("/", "\\"))
+                        and ".." not in parts,
+                        "test-cwd",
+                        "cwd must be a relative path inside the worktree",
+                    )
+                timeout = entry.get("timeout_seconds")
+                if timeout is not None:
+                    err.require(
+                        isinstance(timeout, int)
+                        and not isinstance(timeout, bool)
+                        and timeout > 0,
+                        "test-timeout",
                         "timeout_seconds must be a positive integer",
                     )
                 err.pop_base()

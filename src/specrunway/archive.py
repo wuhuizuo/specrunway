@@ -12,7 +12,7 @@ from specrunway.checkboxes import TASK_LINE_RE
 from specrunway.models import load_local_config
 from specrunway.models.common import ValidationError
 from specrunway.runstore import FileRunStore, _read_json_or_none, atomic_write_json
-from specrunway.testprofiles import resolve_test_profile, run_test_command
+from specrunway.testprofiles import profile_cwd, profile_for_repo, run_test_command
 from specrunway.toolresolvers import resolve_tool_bin
 from specrunway.worktrees import is_ancestor
 
@@ -97,10 +97,12 @@ def _preflight(control_root: Path, store: FileRunStore, execution_id: str) -> di
         worktree = store.run_dir(execution_id) / "worktrees" / repo_id
         if not worktree.is_dir():
             raise ArchiveError("verification-stale", f"worktree for {repo_id} is gone")
+        profile = profile_for_repo(snapshot, entry)
         receipt = run_test_command(
-            resolve_test_profile(entry.get("test_profile") or "unit").command(),
-            worktree,
+            profile.command(),
+            profile_cwd(worktree, profile),
             store.run_dir(execution_id) / "logs" / repo_id / "archive-final.log",
+            profile.timeout_seconds,
         )
         from specrunway.worktrees import head_oid
 
