@@ -18,6 +18,10 @@ dev = ["pytest>=8", "ruff>=0.4"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["specrunway*"]
+
+[tool.setuptools.package-data]
+"specrunway.step_package" = ["step.yml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

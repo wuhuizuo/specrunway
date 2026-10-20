@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+import specrunway
 from specrunway.approvals import record_approval
 from specrunway.bridge.actions import (
     SpecRunwayActionError,
@@ -20,6 +21,7 @@ from specrunway.freezer import freeze_execution, new_execution_id
 from specrunway.runstore import FileRunStore, atomic_write_json
 
 REPO = Path(__file__).resolve().parents[1]
+STEP_PACKAGE = Path(specrunway.__file__).parent / "step_package"
 SPECIFY = REPO / ".venv" / "bin" / "specify"
 TOOLS = {"openspec": "1.14.3", "spec_kit": "1.2.1", "agent_profile": "primary-coding-agent"}
 MANIFEST = {
@@ -286,7 +288,7 @@ def specify_control(tmp_path, executed):
             "add",
             "specrunway",
             "--dev",
-            str(REPO / "tooling" / "specrunwaystep"),
+            str(STEP_PACKAGE),
         ],
         cwd=str(executed["control"]),
         capture_output=True,

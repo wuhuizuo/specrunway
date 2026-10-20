@@ -274,6 +274,140 @@ def _control_root_for(args: argparse.Namespace) -> Path | None:
     return Path(args.root).resolve() if args.root else find_control_root(Path.cwd())
 
 
+def cmd_init(args: argparse.Namespace) -> int:
+    """Idempotent control bootstrap: Store, Specify workspace, bundled step."""
+    import subprocess
+
+    from specrunway.models import load_local_config
+    from specrunway.openspec_adapter import OpenSpecAdapter
+    from specrunway.toolresolvers import resolve_tool_bin
+
+    root = _control_root_for(args)
+    if root is None:
+        return _fail_cli(
+            _error_envelope(
+                "init",
+                RuntimeError("no control checkout found; pass --root or run inside it"),
+            ),
+            args.json,
+            "specrunway init",
+        )
+    try:
+        config = load_local_config(root)
+    except FileNotFoundError:
+        return _fail_cli(
+            _error_envelope(
+                "init",
+                _validation_error(
+                    "local-yaml-missing",
+                    f"write {root / 'local.yaml'} (store, repos, agent_profile, "
+                    "integration_profiles) before running init",
+                ),
+            ),
+            args.json,
+            "specrunway init",
+        )
+    except Exception as exc:  # noqa: BLE001
+        return _fail_cli(_error_envelope("init", exc), args.json, "specrunway init")
+    specify_initialized = False
+    try:
+        openspec_bin = resolve_tool_bin(root, None, "openspec")
+        specify_bin = resolve_tool_bin(root, None, "specify")
+        store_path = Path(config["store"]["path"])
+        store_path.mkdir(parents=True, exist_ok=True)
+        adapter = OpenSpecAdapter(
+            store_path=store_path,
+            store_id=config["store"]["id"],
+            openspec_bin=openspec_bin,
+        )
+        adapter.store_setup()
+        if not (root / ".specify").is_dir():
+            done = subprocess.run(
+                [
+                    specify_bin,
+                    "init",
+                    "--here",
+                    "--force",
+                    "--non-interactive",
+                    "--ignore-agent-tools",
+                ],
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if done.returncode != 0:
+                raise _validation_error(
+                    "specify-init-failed",
+                    f"specify init failed (exit {done.returncode}): "
+                    f"{(done.stderr or done.stdout)[-400:]}",
+                )
+            specify_initialized = True
+        step_path = Path(__file__).resolve().parent / "step_package"
+        installed_step = root / ".specify" / "workflows" / "steps" / "specrunway" / "step.yml"
+        step = None
+        if not installed_step.is_file():
+            step = subprocess.run(
+                [
+                    specify_bin,
+                    "workflow",
+                    "step",
+                    "add",
+                    "specrunway",
+                    "--dev",
+                    str(step_path),
+                ],
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        if step is not None and step.returncode != 0:
+            raise _validation_error(
+                "step-install-failed",
+                f"specify step install failed (exit {step.returncode}): "
+                f"{(step.stderr or step.stdout)[-400:]}",
+            )
+    except Exception as exc:  # noqa: BLE001
+        return _fail_cli(_error_envelope("init", exc), args.json, "specrunway init")
+
+    report = run_doctor(root_dir=str(root))
+    payload = _specrunway_envelope(
+        action="init",
+        ok=bool(report["ok"]),
+        data={
+            "control_root": str(root),
+            "store_id": config["store"]["id"],
+            "store_path": config["store"]["path"],
+            "specify_initialized": specify_initialized,
+            "step_package": str(step_path),
+            "doctor_ok": bool(report["ok"]),
+            "findings": report["data"]["findings"],
+        },
+        warnings=[],
+    )
+    if not report["ok"]:
+        payload["error"] = {
+            "code": "doctor-failed",
+            "message": "init completed but doctor reported errors; fix them before plan/run",
+            "retryable": False,
+        }
+    _emit(
+        payload,
+        args.json,
+        f"init {'ok' if report['ok'] else 'incomplete'}: {root} "
+        f"(store {config['store']['id']}, specify "
+        f"{'initialized' if specify_initialized else 'already present'})\n",
+    )
+    return 0 if report["ok"] else 1
+
+
+def _validation_error(code: str, message: str) -> Exception:
+    from specrunway.models.common import ValidationError
+
+    return ValidationError(code, message)
+
+
 def cmd_status(args: argparse.Namespace) -> int:
     from specrunway.recovery import execution_status
 
@@ -414,6 +548,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--root", help="Explicit control checkout root (default: walk up from cwd)"
     )
     doc.set_defaults(func=cmd_doctor)
+
+    init_parser = sub.add_parser(
+        "init", help="Prepare the control checkout (Store, Specify, step) idempotently"
+    )
+    init_parser.add_argument("--root", help="Explicit control root (default: walk up from cwd)")
+    init_parser.add_argument(
+        "--json", action="store_true", help="Emit specrunway/v1 JSON envelope"
+    )
+    init_parser.set_defaults(func=cmd_init)
 
     for name, help_text, handler in (
         ("status", "Show execution status", cmd_status),

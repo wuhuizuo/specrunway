@@ -227,6 +227,7 @@ def archive_execution(
         store_id=preflight["config"]["store"]["id"],
         openspec_bin=resolve_tool_bin(control_root, None, "openspec"),
     )
+    adapter.store_setup()
     try:
         outcome = adapter.archive(snapshot["change_id"])
     except Exception as exc:

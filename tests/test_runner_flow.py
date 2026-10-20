@@ -9,11 +9,13 @@ from pathlib import Path
 
 import pytest
 
+import specrunway
 from specrunway.checkboxes import accept_tasks
 from specrunway.cli import main as specrunway_main
 from specrunway.runstore import FileRunStore
 
 REPO = Path(__file__).resolve().parents[1]
+STEP_PACKAGE = Path(specrunway.__file__).parent / "step_package"
 SPECIFY = REPO / ".venv" / "bin" / "specify"
 FAKE_AGENT = Path(__file__).with_name("fake_agent_cli.py")
 MANIFEST = {
@@ -51,7 +53,7 @@ TASKS_MD = (
 )
 
 pytestmark = pytest.mark.skipif(
-    not (SPECIFY.is_file() and (REPO / "tooling" / "specrunwaystep" / "step.yml").is_file()),
+    not (SPECIFY.is_file() and (STEP_PACKAGE / "step.yml").is_file()),
     reason="pinned Specify CLI or specrunway step package is missing",
 )
 
@@ -179,7 +181,7 @@ def loop(tmp_path, monkeypatch):
             "add",
             "specrunway",
             "--dev",
-            str(REPO / "tooling" / "specrunwaystep"),
+            str(STEP_PACKAGE),
         ],
         cwd=str(control),
         capture_output=True,

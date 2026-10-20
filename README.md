@@ -28,24 +28,21 @@ Quick start:
 ```bash
 python3 -m venv .venv && .venv/bin/python -m pip install .
 .venv/bin/specrunway --version
+# write local.yaml (store, repos, agent_profile, integration_profiles)
+.venv/bin/specrunway init        # Store + Specify workspace + bundled step
 .venv/bin/specrunway doctor --json
 ```
 
-The pinned upstream tools are OpenSpec 1.14.3 (`tooling/openspec/`) and
-specify-cli 1.2.1 (`docs/TOOLCHAIN.md`). Install the hub step once per control
-checkout:
-
-```bash
-specify init --here --force --non-interactive --ignore-agent-tools
-specify workflow step add specrunway --dev <repo>/tooling/specrunwaystep
-```
+`init` is idempotent and only writes inside the control checkout. The pinned
+upstream tools are OpenSpec 1.14.3 (`tooling/openspec/`) and specify-cli 1.2.1
+(`docs/TOOLCHAIN.md`); `init` invokes them for you.
 
 ## Repository layout
 
 | Path | Purpose |
 | --- | --- |
 | `src/specrunway/` | Coordinator package (CLI, planning, freezer, approvals, launcher, worktrees, results, runner, recovery, archive, Specify step bridge) |
-| `tooling/specrunwaystep/` | Installed `type: specrunway` step shim delegating to the package |
+| `src/specrunway/step_package/` | Bundled `type: specrunway` step shim installed by `specrunway init` |
 | `tooling/openspec/` | Pinned OpenSpec CLI and lockfile |
 | `tests/` | Deterministic fixtures (fake agent CLI) plus real pinned OpenSpec/Specify integration tests |
 | `openspec/` | This repository's own development specs and archived changes 01-05 |

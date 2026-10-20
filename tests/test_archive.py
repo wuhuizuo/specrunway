@@ -394,3 +394,18 @@ def test_portable_business_payloads(completion):
     assert not any(
         key in result_blob.lower() for key in ("secret", "password", "api_key", "token")
     )
+
+
+@pytest.mark.skipif(not OPENSPEC.is_file(), reason="pinned openspec CLI missing")
+def test_archive_registers_the_store_idempotently(completion):
+    subprocess.run(
+        [str(OPENSPEC), "store", "unregister", completion["store_id"], "--json"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    _git(completion["repo"], "merge", "--ff-only", completion["head"])
+    outcome = archive_execution(completion["control"], completion["execution_id"])
+    assert outcome["archived"] is True
+    state = completion["store"].read_state(completion["execution_id"])
+    assert state["phase"] == "archived"

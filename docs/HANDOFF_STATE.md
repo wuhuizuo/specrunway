@@ -1,6 +1,6 @@
 # Implementation state
 
-Updated: 20 October 2026 (L01-L16 complete; integration verification closed; changes archived).
+Updated: 20 October 2026 (L01-L17 complete; one-command bootstrap added; changes archived).
 
 ## Completed preparation
 
@@ -36,6 +36,7 @@ Updated: 20 October 2026 (L01-L16 complete; integration verification closed; cha
 - L08 task 3.1 done: `specrunway.launcher` — `AgentProfile` with `{prompt_file}` argv template (real `primary-coding-agent` profile → `opencode run --auto --pure --file <prompt>`; measured opencode 1.18.33 flags), `launch_process` (argv list, `shell=False`, own process group via `start_new_session=True`), `run_agent` structured outcome (completed/failed/timeout/cancelled + exit/log paths), `kill_proc_group`/`cancel` group kills covering agent-spawned grandchildren.
 - L08 task 3.1 done: `specrunway.launcher` — `AgentProfile` with `{prompt_file}` argv template (real `primary-coding-agent` profile → `opencode run --auto --pure --file <prompt>`; measured opencode 1.18.33 flags), `launch_process` (argv list, `shell=False`, own process group via `start_new_session=True`), `run_agent` structured outcome (completed/failed/timeout/cancelled + exit/log paths), `kill_proc_group`/`cancel` group kills covering agent-spawned grandchildren.
 - L09 task 4.1 done: `specrunway.worktrees` — detached worktrees at frozen base OIDs with original-checkout preservation checks; `specrunway.testprofiles` — trusted argv test runner producing runner receipts; `specrunway.results` — `accept_result` gating identity/ancestry/allowed-paths/trusted-receipt/digest binding before result acceptance + `persist_result` into the run tree.
+- L17 change 07 done: step shim moved into `src/specrunway/step_package/` and shipped in the wheel; idempotent `specrunway init` (local.yaml validation, Store directory/registration, Specify init only when absent, bundled step install, doctor diagnostics); archive now registers the Store idempotently. README/RUNBOOK bootstrap reduced to `local.yaml` + `specrunway init`. Verified with 3 bootstrap tests + archive registration test; full suite 198 passed.
 - L16 change 06 done: frozen integration profile (control `integration_profiles`), combined-matrix execution (`SPECRUNWAY_MATRIX`), `integration-round` workflow step with feedback-driven bounded repair, persisted `integration_repairs`/`integration_rounds`, and completion guards (`integration-required`/`failed`/`stale`). Verified with 7 integration tests + real-CLI runner flow; full suite 194 passed.
 - Live-agent release replay done (after L15): real `opencode` 1.18.33 / `deepseek-flash` on a disposable two-repo fixture — plan gate, ordered repo-a→repo-b, accepted results, implementation gate, `ready_for_review`, merged commits, explicit `merged_commits` archive with backup. Fixed defects found only in the live path: `--file` array argv order, `AgentOutcome.reason`, prompt trusted-command/result contract, archive reconciliation of `uncertain` intents. A02/A06/A14 live sub-cases now Passed; no live-agent blocker remains.
 - L15 tasks 1.1-1.3 done: v1 release replays. Fresh venv install from source and from `specrunway-0.1.0-py3-none-any.whl`; `specrunway doctor` exit 0 on a minimal wired control checkout; `docs/RUNBOOK.md` written; `docs/evidence/05-release-local-v1.md` records the install log, runbook replay matrix, acceptance matrix V1-A01..A14, the live-agent blocker, and known limitations. `docs/ACCEPTANCE.md` statuses updated: A01-A14 Passed except the live-agent sub-cases of A02/A06/A14 (Blocked: no model credentials in the environment).
@@ -62,4 +63,4 @@ Updated: 20 October 2026 (L01-L16 complete; integration verification closed; cha
 
 ## Exact next action
 
-v1 implementation (L01-L16), live-agent acceptance, docs, and all development-change archives are complete. Remaining work is publication only: tag `v0.1.0` / GitHub Release (awaiting explicit approval) and any v2 work, which stays deferred. No further v1 code tasks are planned.
+v1 implementation (L01-L17), live-agent acceptance, docs, and all development-change archives are complete. Remaining work: dogfood using only `specrunway init` + `specrunway` commands, then tag `v0.1.0` / GitHub Release (awaiting explicit approval). v2 work stays deferred.

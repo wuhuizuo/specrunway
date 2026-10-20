@@ -38,11 +38,14 @@ integration_profiles:              # executable combined check, trusted config
 ```
 
 ```bash
-specrunway doctor --json                   # wiring findings, exit 1 on errors
-openspec store setup my-store --path /abs/path/to/store --json
-specify init --here --force --non-interactive --ignore-agent-tools
-specify workflow step add specrunway --dev <path-to>/tooling/specrunwaystep
+specrunway init --json     # Store setup + Specify workspace + bundled step
+specrunway doctor --json   # wiring findings, exit 1 on errors
 ```
+
+`init` is idempotent, creates the Store directory, registers the Store,
+initializes `.specify` only when absent, installs the `specrunway` step from
+the installed package, and never writes outside the control checkout. You do
+not need to type the upstream `openspec`/`specify` commands yourself.
 
 ## 3. Plan
 
