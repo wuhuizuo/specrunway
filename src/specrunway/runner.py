@@ -51,7 +51,9 @@ def _set_phase(store: FileRunStore, execution_id: str, phase: str) -> None:
 
 
 def prepare_execution(control_root: Path, change_id: str) -> dict:
-    """Freeze plan bytes and base commits for a new execution id."""
+    """Freeze plan bytes, base commits, and the integration profile."""
+    from specrunway.integration import resolve_integration_profile
+
     control_root = Path(control_root)
     plan_file = control_root / ".specrunway" / "plans" / change_id / "manifest.yaml"
     if not plan_file.is_file():
@@ -77,6 +79,7 @@ def prepare_execution(control_root: Path, change_id: str) -> dict:
             "path": entry["path"],
             "remote_identity": entry.get("remote_identity", ""),
         }
+    integration = resolve_integration_profile(config, manifest)
     execution_id = new_execution_id()
     store = FileRunStore(control_root / ".specrunway")
     with store.lock(timeout=5.0):
@@ -88,6 +91,7 @@ def prepare_execution(control_root: Path, change_id: str) -> dict:
             manifest,
             repos_cfg,
             _tool_versions(control_root, config["agent_profile"]),
+            integration,
         )
         atomic_write_json(store.run_dir(execution_id) / "snapshot.json", snapshot)
         _set_phase(store, execution_id, "awaiting_plan_review")

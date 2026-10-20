@@ -62,7 +62,7 @@ Version: v1; scope: Required.
 **Pass criteria:** Feedback reaches the agent. Budgets survive recovery. Repeated failure or exhausted budget stops work; failed verification cannot become ready.
 **Expected evidence:** Test/repair receipts; persisted budget
 **Status:** Passed
-**Actual evidence:** `tests/test_budget_repair.py` (feedback delivery, two repairs max, no-progress, exhaustion, counters across restart, failed verification cannot become ready)
+**Actual evidence:** `tests/test_budget_repair.py`, `tests/test_integration.py` (feedback delivery, bounded repo + integration repairs, no-progress, exhaustion, counters across restart, failed verification/integration cannot become ready); `docs/evidence/06-verify-integration-matrix.md`
 
 ## V1-A08 Local locking and atomic files
 Version: v1; scope: Required.
@@ -78,7 +78,7 @@ Version: v1; scope: Required.
 **Pass criteria:** Order is correct. Both results and the integration matrix are traceable. Actual parallel execution is unnecessary.
 **Expected evidence:** Commit matrix; ordered events
 **Status:** Passed (fixture-agent mode)
-**Actual evidence:** `tests/test_runner_flow.py` (ordered fan-out, repo-b prompt carries repo-a accepted head, both results traceable)
+**Actual evidence:** `tests/test_runner_flow.py` (ordered fan-out, repo-b prompt carries repo-a accepted head); `tests/test_integration.py` (frozen combined check executes against the accepted matrix and blocks stale/failed evidence); `docs/evidence/06-verify-integration-matrix.md`
 
 ## V1-A10 Normal resume and orphan-running recovery
 Version: v1; scope: Required.

@@ -5,9 +5,14 @@ store:
 repos:
   api-server:
     path: /work/src/api-server
-    remote_identity: gitspecrunway:example-org/api-server
+    remote_identity: github:example-org/api-server
   operator:
     path: /work/src/operator
-    remote_identity: gitspecrunway:example-org/operator
+    remote_identity: github:example-org/operator
 agent_profile: primary-coding-agent
 max_workers: 1
+integration_profiles:
+  quota-e2e:
+    command: ["go", "test", "./test/e2e/..."]
+    repo: operator          # worktree the combined check runs in
+    timeout_seconds: 900

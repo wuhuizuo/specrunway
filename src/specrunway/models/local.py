@@ -10,7 +10,8 @@ import yaml
 from specrunway.models.common import ErrorCollector, GroupedValidationError, is_slug
 from specrunway.remotes import normalize_identity, remote_matches
 
-LOCAL_KEYS = {"store", "repos", "agent_profile", "max_workers"}
+LOCAL_KEYS = {"store", "repos", "agent_profile", "max_workers", "integration_profiles"}
+INTEGRATION_PROFILE_KEYS = {"command", "repo", "timeout_seconds"}
 STORE_KEYS = {"id", "path"}
 REPO_ENTRY_KEYS = {"path", "remote_identity"}
 
@@ -91,8 +92,60 @@ def validate_local_config(config: dict) -> dict:
                     bool(host) and bool(id_path),
                     "remote-identity",
                     f"repo {repo_id!r} remote_identity {identity!r} is not a parseable "
-                    "form (gitspecrunway:owner/repo, https://host/path, git@host:path)",
+                    "form (github:owner/repo, https://host/path, git@host:path)",
                 )
+            err.pop_base()
+    profiles = config.get("integration_profiles")
+    if profiles is not None:
+        err.require(
+            isinstance(profiles, dict),
+            "integration-profiles-type",
+            "integration_profiles must be a mapping of profile name -> entry",
+        )
+        if isinstance(profiles, dict):
+            err.push_base("integration_profiles")
+            for name, entry in profiles.items():
+                err.push_base(str(name))
+                err.require(
+                    is_slug(str(name)),
+                    "integration-profile-name",
+                    f"integration profile {name!r} is not a slug",
+                )
+                if not isinstance(entry, dict):
+                    err.fail("integration-profile-type", "profile entry must be a mapping")
+                    err.pop_base()
+                    continue
+                unknown = set(entry) - INTEGRATION_PROFILE_KEYS
+                err.require(
+                    not unknown,
+                    "unknown-key",
+                    f"integration profile {name!r} has unknown keys: {sorted(unknown)}",
+                )
+                command = entry.get("command")
+                err.require(
+                    isinstance(command, list)
+                    and len(command) > 0
+                    and all(isinstance(part, str) and part.strip() for part in command),
+                    "integration-command",
+                    "command must be a non-empty argv list of strings",
+                )
+                repo = entry.get("repo")
+                if repo is not None:
+                    err.require(
+                        isinstance(repo, str) and is_slug(repo),
+                        "integration-repo",
+                        "repo must be a repository id slug",
+                    )
+                timeout = entry.get("timeout_seconds")
+                if timeout is not None:
+                    err.require(
+                        isinstance(timeout, int)
+                        and not isinstance(timeout, bool)
+                        and timeout > 0,
+                        "integration-timeout",
+                        "timeout_seconds must be a positive integer",
+                    )
+                err.pop_base()
             err.pop_base()
     if err.errors:
         raise GroupedValidationError(err.errors)

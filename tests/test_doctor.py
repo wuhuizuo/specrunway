@@ -122,7 +122,7 @@ def test_doctor_wrong_remote_identity(control_workspace):
                 **p["repos"],
                 "repo-a": {
                     **p["repos"]["repo-a"],
-                    "remote_identity": "gitspecrunway:example.org/other-repo",
+                    "remote_identity": "github:example.org/other-repo",
                 },
             },
         },

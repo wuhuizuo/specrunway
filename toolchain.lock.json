@@ -36,11 +36,11 @@
   "specify": {
     "distribution": "specify-cli",
     "version": "1.2.1",
-    "source": "git+https://gitspecrunway.com/gitspecrunway/spec-kit.git@v1.2.1",
-    "upstream_repository": "https://gitspecrunway.com/gitspecrunway/spec-kit",
+    "source": "git+https://github.com/github/spec-kit.git@v1.2.1",
+    "upstream_repository": "https://github.com/github/spec-kit",
     "upstream_tag": "v1.2.1",
     "installed_commit_id": "9dca9bf42a031765ee5e5f2371137f2f26967e11",
-    "install_command": "python -m pip install \"specify-cli @ git+https://gitspecrunway.com/gitspecrunway/spec-kit.git@v1.2.1\"",
+    "install_command": "python -m pip install \"specify-cli @ git+https://github.com/github/spec-kit.git@v1.2.1\"",
     "fresh_environment_repro": "1.2.1 from a clean venv, same commit id from direct_url.json"
   },
   "step_packages": [

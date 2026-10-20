@@ -41,8 +41,8 @@ def control_workspace(workspace: Path) -> dict:
     root = workspace
     store = make_store(root / "store")
     make_repo(root / "store")
-    make_repo(root / "repo-a", "https://gitspecrunway.com/example.org/repo-a.git")
-    make_repo(root / "repo-b", "git@gitspecrunway.com:example.org/repo-b.git")
+    make_repo(root / "repo-a", "https://github.com/example.org/repo-a.git")
+    make_repo(root / "repo-b", "git@github.com:example.org/repo-b.git")
     control = root / "control"
     control.mkdir()
     (control / "local.yaml").write_text(
@@ -52,11 +52,11 @@ def control_workspace(workspace: Path) -> dict:
                 "repos": {
                     "repo-a": {
                         "path": str(root / "repo-a"),
-                        "remote_identity": "gitspecrunway:example.org/repo-a",
+                        "remote_identity": "github:example.org/repo-a",
                     },
                     "repo-b": {
                         "path": str(root / "repo-b"),
-                        "remote_identity": "gitspecrunway:example.org/repo-b",
+                        "remote_identity": "github:example.org/repo-b",
                     },
                 },
                 "agent_profile": "primary-coding-agent",

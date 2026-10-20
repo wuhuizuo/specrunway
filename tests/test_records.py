@@ -50,7 +50,7 @@ def snapshot(**overrides) -> dict:
             "repo-a": {
                 "base_ref": "main",
                 "base_oid": "0123456789012345678901234567890123456789",
-                "remote_identity": "gitspecrunway:example.org/repo-a",
+                "remote_identity": "github:example.org/repo-a",
             }
         },
         "tools": {
@@ -106,7 +106,7 @@ def test_snapshot_base_oid_validation():
                     "repo-a": {
                         "base_ref": "main",
                         "base_oid": "xyz",
-                        "remote_identity": "gitspecrunway:a/b",
+                        "remote_identity": "github:a/b",
                     }
                 }
             )

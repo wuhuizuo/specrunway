@@ -79,6 +79,13 @@ def build_workflow(execution_id: str, change_id: str) -> dict:
                 "execution": "{{ inputs.execution }}",
             },
             {
+                "id": "integration-round",
+                "type": "specrunway",
+                "action": "integration-round",
+                "root": "{{ inputs.control_root }}",
+                "execution": "{{ inputs.execution }}",
+            },
+            {
                 "id": "accept-tasks",
                 "type": "specrunway",
                 "action": "accept-tasks",

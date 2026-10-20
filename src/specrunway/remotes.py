@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from urllib.parse import urlparse
 
-_PREFIX_HOSTS = {"gitspecrunway": "gitspecrunway.com", "gitlab": "gitlab.com", "bitbucket": "bitbucket.org"}
+_PREFIX_HOSTS = {"github": "github.com", "gitlab": "gitlab.com", "bitbucket": "bitbucket.org"}
 
 
 def normalize_remote_url(url: str) -> tuple:
@@ -23,7 +23,7 @@ def normalize_remote_url(url: str) -> tuple:
         _user, _, rest = scp_like.partition("@")
         host, _, path = rest.partition(":")
         return host, path.strip("/").strip()
-    # Transport shorthand such as ``gitspecrunway:owner/repo-name``.
+    # Transport shorthand such as ``github:owner/repo-name``.
     shorthand, _, rest = url.partition(":")
     if shorthand in _PREFIX_HOSTS and rest.startswith("/"):
         return _PREFIX_HOSTS[shorthand], rest.strip("/")
@@ -35,7 +35,7 @@ def normalize_remote_url(url: str) -> tuple:
 def normalize_identity(identity: str) -> tuple:
     """Return ``(host, path)`` from a remote_identity declaration.
 
-    Supported forms: transport shorthands (``gitspecrunway:owner/repo-name``) and
+    Supported forms: transport shorthands (``github:owner/repo-name``) and
     full HTTPS/SSH URLs (``https://host/path/repo.git``, ``git@host:owner/repo.git``).
     """
     identity = identity.strip()
@@ -66,8 +66,8 @@ def remote_matches(identity: str, url: str) -> bool:
 
 
 def _prefix_alias_match(id_host, id_path, url_host, url_path) -> bool:
-    # ``gitspecrunway:``-style identity and full URL remotes normalize to distinct
-    # host spellings (for example ``ssh.git@gitspecrunway.com``); accept suffix match.
+    # ``github:``-style identity and full URL remotes normalize to distinct
+    # host spellings (for example ``ssh.git@github.com``); accept suffix match.
     if url_host.split(".")[-2:] == id_host.split(".")[-2:]:
         return _path_match(id_path, url_path)
     return False

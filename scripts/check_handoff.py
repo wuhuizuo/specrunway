@@ -7,7 +7,7 @@ root = Path(__file__).resolve().parents[1]
 active = sorted((root/'openspec/changes').glob('[0-9][0-9]-*'))
 archived = sorted((root/'openspec/changes/archive').glob('*-[0-9][0-9]-*'))
 changes = active + archived
-expected = {'01','02','03','04','05'}
+expected = {'01','02','03','04','05','06'}
 covered = set()
 for change in changes:
     found = re.findall(r'(?:^|-)(\d{2})-', change.name)
@@ -47,7 +47,7 @@ for change in changes:
             for part in parts:
                 assert '- **WHEN** ' in part and '- **THEN** ' in part
             requirements += 1; scenarios += len(parts)
-assert seen == {f'L{i:02d}' for i in range(1,16)}, f'Incorrect required source IDs: {seen}'
+assert seen == {f'L{i:02d}' for i in range(1,17)}, f'Incorrect required source IDs: {seen}'
 for p in root.rglob('*'):
     if not p.is_file() or any(x in p.parts for x in ['node_modules','.venv','.git']): continue
     if p.suffix in ['.md','.yaml','.json','.sh','.py']:

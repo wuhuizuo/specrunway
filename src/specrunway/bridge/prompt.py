@@ -14,6 +14,7 @@ def build_prompt(
     dependency_results: dict,
     prior_result: dict | None,
     prior_test: dict | None = None,
+    extra_feedback: str | None = None,
     attempt: int = 1,
 ) -> str:
     """Assemble the bounded agent prompt for one repo attempt.
@@ -45,6 +46,15 @@ def build_prompt(
     lines.append(f"- test_command: {trusted_command}")
     lines.append(f"- base_oid: {snapshot['repos'][repo_id]['base_oid']}")
     lines.append("")
+    if extra_feedback:
+        lines.append("## Integration failure feedback")
+        lines.append("")
+        lines.extend(extra_feedback.strip().splitlines()[-30:])
+        lines.append("")
+        lines.append(
+            "Fix the combined integration failure in this repository; keep allowed paths only."
+        )
+        lines.append("")
     if prior_test:
         lines.append("## Prior verification feedback")
         lines.append("")

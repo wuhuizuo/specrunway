@@ -208,8 +208,24 @@ def test_collect_summary_aggregates_layers(executed):
 
 
 def _seed_verified(executed):
+    from specrunway.integration import build_matrix, matrix_digest
+    from specrunway.models.common import json_digest
+
     store = executed["store"]
     execution_id = executed["execution_id"]
+    snapshot_path = store.run_dir(execution_id) / "snapshot.json"
+    snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    integration = {
+        "profile": snapshot["manifest"]["integration_profile"],
+        "command": ["true"],
+        "cwd_repo": snapshot["manifest"]["repo_order"][0],
+        "timeout_seconds": 60,
+    }
+    integration["config_digest"] = json_digest(
+        {key: integration[key] for key in ("profile", "command", "cwd_repo", "timeout_seconds")}
+    )
+    snapshot["integration"] = integration
+    atomic_write_json(snapshot_path, snapshot)
 
     def mutate(next_state: dict) -> None:
         next_state["results"] = {
@@ -226,6 +242,13 @@ def _seed_verified(executed):
         }
 
     store.update_state(execution_id, mutate, store.read_state(execution_id)["revision"])
+    state = store.read_state(execution_id)
+    digest = matrix_digest(build_matrix(state, snapshot["manifest"]))
+
+    def stamp(next_state: dict) -> None:
+        next_state["integration"] = {"status": "passed", "matrix_digest": digest}
+
+    store.update_state(execution_id, stamp, state["revision"])
 
 
 def test_complete_sets_ready_for_review(executed):

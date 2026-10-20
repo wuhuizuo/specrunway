@@ -29,7 +29,7 @@ For a fresh project environment on macOS/Linux:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install "specify-cli @ git+https://gitspecrunway.com/gitspecrunway/spec-kit.git@v1.2.1"
+.venv/bin/python -m pip install "specify-cli @ git+https://github.com/github/spec-kit.git@v1.2.1"
 .venv/bin/specify version
 .venv/bin/specify workflow --help
 ```
@@ -54,8 +54,8 @@ Keep production initialization and temporary experiment installation separate. N
 
 ## References
 
-- OpenSpec release: https://gitspecrunway.com/Fission-AI/OpenSpec/releases/tag/v1.14.3
-- OpenSpec CLI at that tag: https://gitspecrunway.com/Fission-AI/OpenSpec/blob/v1.14.3/docs/cli.md
-- OpenSpec schema at that tag: https://gitspecrunway.com/Fission-AI/OpenSpec/blob/v1.14.3/schemas/spec-driven/schema.yaml
-- Spec Kit release: https://gitspecrunway.com/gitspecrunway/spec-kit/releases/tag/v1.2.1
-- Specify workflow reference at that tag: https://gitspecrunway.com/gitspecrunway/spec-kit/blob/v1.2.1/docs/reference/workflows.md
+- OpenSpec release: https://github.com/Fission-AI/OpenSpec/releases/tag/v1.14.3
+- OpenSpec CLI at that tag: https://github.com/Fission-AI/OpenSpec/blob/v1.14.3/docs/cli.md
+- OpenSpec schema at that tag: https://github.com/Fission-AI/OpenSpec/blob/v1.14.3/schemas/spec-driven/schema.yaml
+- Spec Kit release: https://github.com/github/spec-kit/releases/tag/v1.2.1
+- Specify workflow reference at that tag: https://github.com/github/spec-kit/blob/v1.2.1/docs/reference/workflows.md

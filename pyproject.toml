@@ -19,9 +19,6 @@ dev = ["pytest>=8", "ruff>=0.4"]
 [tool.setuptools.packages.find]
 where = ["src"]
 
-[tool.setuptools.package-data]
-"specrunway.schemas" = ["*.json"]
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 

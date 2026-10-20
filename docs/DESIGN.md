@@ -124,10 +124,10 @@ store:
 repos:
   api-server:
     path: /work/src/api-server
-    remote_identity: gitspecrunway:example-org/api-server
+    remote_identity: github:example-org/api-server
   operator:
     path: /work/src/operator
-    remote_identity: gitspecrunway:example-org/operator
+    remote_identity: github:example-org/operator
 agent_profile: primary-coding-agent
 max_workers: 1
 ```
@@ -554,10 +554,10 @@ step:
 These sources support upstream capability statements. The local/team architecture, proposed interfaces, budgets, stages, and effort estimates are design choices in this document. Save actual release identifiers, source/document digests, and fixture evidence during implementation. Main-branch documentation changes over time; historical candidate versions and outdated recovery assumptions are not support commitments.
 
 [R1] Spec Kit workflow reference. Custom steps, gates, loops, fan-out/fan-in, execution tree, normal resume, and execution trust boundary. Accessed 19 October 2026.
-https://gitspecrunway.com/gitspecrunway/spec-kit/blob/main/docs/reference/workflows.md
+https://github.com/github/spec-kit/blob/main/docs/reference/workflows.md
 
 [R2] OpenSpec Stores beta guide. Store registration, Git synchronization, and workset boundaries. Accessed 19 October 2026.
-https://gitspecrunway.com/Fission-AI/OpenSpec/blob/main/docs/stores-beta/user-guide.md
+https://github.com/Fission-AI/OpenSpec/blob/main/docs/stores-beta/user-guide.md
 
 [R3] OpenSpec CLI reference. Status, instructions, validation, archive, and planning versus implementation completion. Accessed 19 October 2026.
-https://gitspecrunway.com/Fission-AI/OpenSpec/blob/main/docs/cli.md
+https://github.com/Fission-AI/OpenSpec/blob/main/docs/cli.md

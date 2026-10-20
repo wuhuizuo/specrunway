@@ -10,7 +10,7 @@ coding-agent CLI). No server, database, broker, or team component is used.
 python3 -m venv .venv
 .venv/bin/python -m pip install specrunway-0.1.0-py3-none-any.whl   # or: pip install .
 .venv/bin/specrunway --version
-.venv/bin/python -m pip install "specify-cli @ git+https://gitspecrunway.com/gitspecrunway/spec-kit.git@v1.2.1"
+.venv/bin/python -m pip install "specify-cli @ git+https://github.com/github/spec-kit.git@v1.2.1"
 ```
 
 The OpenSpec CLI is pinned by `tooling/openspec/package.json`; install it
@@ -30,6 +30,11 @@ repos:
     remote_identity: https://example.org/repo-a.git
 agent_profile: primary-coding-agent
 max_workers: 1
+integration_profiles:              # executable combined check, trusted config
+  quota-e2e:
+    command: ["go", "test", "./test/e2e/..."]
+    repo: operator                 # worktree to run from (default: first repo)
+    timeout_seconds: 900
 ```
 
 ```bash
@@ -72,10 +77,15 @@ Execution order:
    frozen base OID, bounded prompt, agent CLI (argv only), trusted tests,
    result identity/ancestry/path validation, result + receipt persistence.
 4. `verify-round` re-runs trusted tests; `repair-round` retries only failing
-   repos with prior test feedback, bounded by `repo_max_attempts` /
-   `integration_max_repairs`, stopping on no-progress or exhaustion.
-5. `accept-tasks` flips only the mapped tasks.md checkboxes (single writer).
-6. Native implementation gate pauses for the implementation approval bound
+   repos with prior test feedback, bounded by `repo_max_attempts`.
+5. `integration-round` writes `matrix.json` (accepted head/result per repo),
+   exports `SPECRUNWAY_MATRIX` + `SPECRUNWAY_HEAD_<REPO>`, and runs the frozen
+   integration command. Failure is fed back to the last repository and
+   retried within `integration_max_repairs`; a repeated failure at the same
+   matrix head stops as `no-progress`. `ready_for_review` requires a passed
+   receipt bound to the current matrix.
+6. `accept-tasks` flips only the mapped tasks.md checkboxes (single writer).
+7. Native implementation gate pauses for the implementation approval bound
    to the accepted-results digest; after approval `resume` completes at
    `ready_for_review`.
 

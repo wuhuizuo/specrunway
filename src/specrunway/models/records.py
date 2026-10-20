@@ -57,6 +57,7 @@ def validate_snapshot(snapshot: dict) -> dict:
         "repos",
         "tools",
         "created_at",
+        "integration",
     }
     err = ErrorCollector()
     if not _base_check(snapshot, err, keys, "snapshot"):
@@ -133,6 +134,51 @@ def validate_snapshot(snapshot: dict) -> dict:
                 isinstance(tools.get(tool_key), str) and bool(tools.get(tool_key).strip()),
                 "tool-version",
                 f"tools.{tool_key} must be a non-empty version string",
+            )
+    integration = snapshot.get("integration")
+    if integration is not None:
+        err.require(
+            isinstance(integration, dict),
+            "integration-type",
+            "integration must be a mapping when present",
+        )
+        if isinstance(integration, dict):
+            err.require(
+                set(integration)
+                <= {"profile", "command", "cwd_repo", "timeout_seconds", "config_digest"},
+                "unknown-key",
+                f"unknown integration keys: {sorted(set(integration) - {'profile', 'command', 'cwd_repo', 'timeout_seconds', 'config_digest'})}",
+            )
+            err.require(
+                isinstance(integration.get("profile"), str)
+                and bool(integration["profile"].strip()),
+                "integration-profile",
+                "integration.profile must be a non-empty string",
+            )
+            command = integration.get("command")
+            err.require(
+                isinstance(command, list)
+                and len(command) > 0
+                and all(isinstance(part, str) and part.strip() for part in command),
+                "integration-command",
+                "integration.command must be a non-empty argv list of strings",
+            )
+            err.require(
+                isinstance(integration.get("cwd_repo"), str)
+                and is_slug(integration.get("cwd_repo")),
+                "integration-cwd",
+                "integration.cwd_repo must be a repository id",
+            )
+            timeout = integration.get("timeout_seconds")
+            err.require(
+                isinstance(timeout, int) and not isinstance(timeout, bool) and timeout > 0,
+                "integration-timeout",
+                "integration.timeout_seconds must be a positive integer",
+            )
+            err.require(
+                is_sha256_hex(integration.get("config_digest")),
+                "digest-format",
+                "integration.config_digest must be lowercase sha256 hex",
             )
     err.require(
         isinstance(snapshot.get("created_at"), str)

@@ -37,7 +37,9 @@ def main() -> int:
     base_oid = _field(prompt, "base_oid")
     repo_order = ast.literal_eval(_field(prompt, "repo_order"))
     allowed_paths = ast.literal_eval(_field(prompt, "allowed_paths"))
-    repo_id = re.search(r"# SpecRunway execution prompt: .* / (.+)$", prompt, re.MULTILINE).group(1)
+    repo_id = re.search(
+        r"# SpecRunway execution prompt: .* / (.+)$", prompt, re.MULTILINE
+    ).group(1)
     attempt = int(_field(prompt, "attempt"))
     tasks = TASK_RE.findall(prompt)
 
@@ -51,13 +53,22 @@ def main() -> int:
             encoding="utf-8",
         )
     scenario = os.environ.get("SPECRUNWAY_FAKE_SCENARIO", "pass")
+    if scenario == "pass" and attempt >= 2:
+        scenario = "marker-after-first"
     fail_before = int(os.environ.get("SPECRUNWAY_FAKE_FAIL_BEFORE", "0"))
     failed_run = (
         scenario == "fail"
         or (scenario == "noop")
         or (scenario == "fail-until-pass" and attempt <= fail_before)
     )
-    if scenario == "noop":
+    if scenario == "marker-after-first":
+        (target_dir / "integration_ready.py").write_text(
+            "INTEGRATION_READY = True\n", encoding="utf-8"
+        )
+    if scenario == "no-commit":
+        head = base_oid
+        changed = []
+    elif scenario == "noop":
         # no commit at all: the next attempt produces the same head
         (target_dir / "test_fake_failure.py").write_text(
             "def test_never():\n    assert False, 'noop scenario failure'\n", encoding="utf-8"

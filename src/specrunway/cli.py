@@ -79,7 +79,9 @@ def cmd_plan(args: argparse.Namespace) -> int:
     if control_root is None:
         payload = _error_envelope(
             "plan",
-            RuntimeError("no control checkout found; run specrunway from the control workspace"),
+            RuntimeError(
+                "no control checkout found; run specrunway from the control workspace"
+            ),
         )
         code = payload["error"]["code"]
         message = payload["error"]["message"]
@@ -405,7 +407,9 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     doc = sub.add_parser("doctor", help="Check control checkout, Store, and repo wiring")
-    doc.add_argument("--json", action="store_true", help="Emit the specrunway/v1 envelope as JSON")
+    doc.add_argument(
+        "--json", action="store_true", help="Emit the specrunway/v1 envelope as JSON"
+    )
     doc.add_argument(
         "--root", help="Explicit control checkout root (default: walk up from cwd)"
     )
@@ -421,7 +425,9 @@ def build_parser() -> argparse.ArgumentParser:
         sub_parser.add_argument(
             "--root", help="Explicit control root (default: walk up from cwd)"
         )
-        sub_parser.add_argument("--json", action="store_true", help="Emit specrunway/v1 JSON envelope")
+        sub_parser.add_argument(
+            "--json", action="store_true", help="Emit specrunway/v1 JSON envelope"
+        )
         sub_parser.set_defaults(func=handler)
 
     archive_parser = sub.add_parser("archive", help="Archive a completed change explicitly")
@@ -439,7 +445,9 @@ def build_parser() -> argparse.ArgumentParser:
     archive_parser.add_argument(
         "--root", help="Explicit control root (default: walk up from cwd)"
     )
-    archive_parser.add_argument("--json", action="store_true", help="Emit specrunway/v1 JSON envelope")
+    archive_parser.add_argument(
+        "--json", action="store_true", help="Emit specrunway/v1 JSON envelope"
+    )
     archive_parser.set_defaults(func=cmd_archive)
 
     run_parser = sub.add_parser(
@@ -454,7 +462,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Resume the paused run after the implementation approval receipt exists",
     )
     run_parser.add_argument("--root", help="Explicit control root (default: walk up from cwd)")
-    run_parser.add_argument("--json", action="store_true", help="Emit specrunway/v1 JSON envelope")
+    run_parser.add_argument(
+        "--json", action="store_true", help="Emit specrunway/v1 JSON envelope"
+    )
     run_parser.set_defaults(func=cmd_run)
 
     plan_parser = sub.add_parser(
@@ -467,7 +477,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--manifest", help="Routing manifest YAML (validated at plan time)"
     )
     plan_parser.add_argument("--root", help="Explicit control root (default: walk up from cwd)")
-    plan_parser.add_argument("--json", action="store_true", help="Emit specrunway/v1 JSON envelope")
+    plan_parser.add_argument(
+        "--json", action="store_true", help="Emit specrunway/v1 JSON envelope"
+    )
     plan_parser.set_defaults(func=cmd_plan)
 
     approve_parser = sub.add_parser(
@@ -486,7 +498,9 @@ def build_parser() -> argparse.ArgumentParser:
     approve_parser.add_argument(
         "--root", help="Explicit control root (default: walk up from cwd)"
     )
-    approve_parser.add_argument("--json", action="store_true", help="Emit specrunway/v1 JSON envelope")
+    approve_parser.add_argument(
+        "--json", action="store_true", help="Emit specrunway/v1 JSON envelope"
+    )
     approve_parser.set_defaults(func=cmd_approve)
 
     return parser

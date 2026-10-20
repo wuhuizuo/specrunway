@@ -114,6 +114,7 @@ def freeze_execution(
     manifest: dict,
     repos_config: dict,
     tool_versions: dict,
+    integration: dict | None = None,
 ) -> dict:
     """Build and machine-validate snapshot.json content for the execution.
 
@@ -145,6 +146,18 @@ def freeze_execution(
         "tools": tool_versions,
         "created_at": _now(),
     }
+    if integration is not None:
+        frozen = dict(integration)
+        frozen.setdefault(
+            "config_digest",
+            json_digest(
+                {
+                    key: frozen.get(key)
+                    for key in ("profile", "command", "cwd_repo", "timeout_seconds")
+                }
+            ),
+        )
+        snapshot["integration"] = frozen
     validate_snapshot(snapshot)
     return snapshot
 
