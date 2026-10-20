@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:hub:approval:v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["api_version", "execution_id", "kind", "decision",
+    "subject_digest", "scope", "actor", "auth_level", "timestamp"],
+  "properties": {
+    "api_version": {"const": "hub/v1"},
+    "execution_id": {"type": "string", "format": "uuid"},
+    "kind": {"enum": ["plan", "implementation", "archive"]},
+    "decision": {"enum": ["approve", "reject"]},
+    "subject_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "scope": {"type": "string", "minLength": 1},
+    "actor": {"type": "string", "minLength": 1},
+    "auth_level": {"enum": ["self_asserted", "authenticated"]},
+    "timestamp": {"type": "string", "format": "date-time"}
+  }
+}

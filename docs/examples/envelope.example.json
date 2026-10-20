@@ -1,0 +1,16 @@
+{
+  "api_version": "hub/v1",
+  "action": "run-repo",
+  "ok": true,
+  "store_uid": "67f80512-00d1-4b0f-b5cd-3a1aad009002",
+  "change_uid": "b7c9aeb5-0cd5-4ea5-a66e-0f3414b9a244",
+  "execution_id": "32fc760b-0c61-4d10-a4d1-79989eadad67",
+  "data": {
+    "repo_id": "api-server",
+    "task_ids": ["T001"],
+    "passed": true,
+    "result_ref": "artifact:repo-result-1"
+  },
+  "evidence": ["artifact:unit-tests-1"],
+  "warnings": []
+}

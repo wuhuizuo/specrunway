@@ -1,0 +1,25 @@
+schema_version: "1.0"
+workflow:
+  id: l01-probe-interrupt
+  name: L01 Graceful-Interrupt Probe
+  version: "1.0.0"
+inputs:
+  execution: {type: string, required: true}
+steps:
+  - id: early-note
+    type: hub
+    action: note
+    label: early-note
+    scratch: probe-interrupt.ndjson
+    execution: "{{ inputs.execution }}"
+  - id: hold
+    type: hub
+    action: wait
+    seconds: 30
+    scratch: probe-interrupt.ndjson
+  - id: after-note
+    type: hub
+    action: note
+    label: after-interrupt-note
+    scratch: probe-interrupt.ndjson
+    execution: "{{ inputs.execution }}"

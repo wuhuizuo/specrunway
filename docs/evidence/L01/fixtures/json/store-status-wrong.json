@@ -1,0 +1,11 @@
+{
+  "status": [
+    {
+      "severity": "error",
+      "code": "unknown_store",
+      "message": "Unknown store 'no-such-store'. Registered stores: lt01store.",
+      "target": "store.id",
+      "fix": "Pass a registered store id, or run openspec store list."
+    }
+  ]
+}

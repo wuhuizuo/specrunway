@@ -1,0 +1,30 @@
+schema_version: "1.0"
+workflow:
+  id: l01-probe-orphan
+  name: L01 Abrupt-Exit Orphan Probe
+  version: "1.0.0"
+inputs:
+  execution: {type: string, required: true}
+steps:
+  - id: prepare
+    type: hub
+    action: prepare
+    repos: [repo-a]
+    execution: "{{ inputs.execution }}"
+    scratch: probe-orphan.ndjson
+  - id: spawn-children
+    type: hub
+    action: spawn-children
+    seconds: 300
+    scratch: probe-orphan.ndjson
+  - id: hold
+    type: hub
+    action: wait
+    seconds: 600
+    scratch: probe-orphan.ndjson
+  - id: never-note
+    type: hub
+    action: note
+    label: should-not-run
+    scratch: probe-orphan.ndjson
+    execution: "{{ inputs.execution }}"

@@ -1,0 +1,6 @@
+step:
+  type_key: hub
+  name: Local and Team Hub Bridge
+  version: "0.1.0"
+  author: Engineering
+  description: Typed OpenSpec and execution operations (L01 probe implementation)

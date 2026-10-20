@@ -1,0 +1,28 @@
+schema_version: "1.0"
+workflow:
+  id: l01-probe-fail-resume
+  name: L01 Failed-Step Resume Probe
+  version: "1.0.0"
+inputs:
+  execution: {type: string, required: true}
+  fail_now: {type: boolean, default: false}
+steps:
+  - id: early-note
+    type: hub
+    action: note
+    label: early-note
+    scratch: probe-fail.ndjson
+    execution: "{{ inputs.execution }}"
+  - id: repo-run
+    type: hub
+    action: failed-when
+    label: repo
+    fail_now: "{{ inputs.fail_now }}"
+    scratch: probe-fail.ndjson
+    execution: "{{ inputs.execution }}"
+  - id: complete-note
+    type: hub
+    action: note
+    label: complete-note
+    scratch: probe-fail.ndjson
+    execution: "{{ inputs.execution }}"

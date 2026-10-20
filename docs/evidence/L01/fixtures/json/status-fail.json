@@ -1,0 +1,14 @@
+{
+  "run_id": "l01fail",
+  "workflow_id": "l01-probe-fail-resume",
+  "status": "failed",
+  "current_step_id": "repo-run",
+  "current_step_index": 1,
+  "error": "probe simulation: failing on demand (fail_now=true)",
+  "created_at": "2026-10-19T11:37:56.850593+00:00",
+  "updated_at": "2026-10-19T11:37:56.860674+00:00",
+  "steps": {
+    "early-note": "completed",
+    "repo-run": "failed"
+  }
+}

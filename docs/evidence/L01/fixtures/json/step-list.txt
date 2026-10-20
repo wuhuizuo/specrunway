@@ -1,0 +1,23 @@
+
+Installed Step Types:
+
+  Built-in:
+    • command
+    • do-while
+    • fan-in
+    • fan-out
+    • gate
+    • github
+    • if
+    • init
+    • prompt
+    • shell
+    • slot
+    • switch
+    • while
+    • workflow
+
+  Custom (installed):
+    • Local and Team Hub Bridge (hub) v0.1.0
+
+  Install a new step type with: specify workflow step add <id>

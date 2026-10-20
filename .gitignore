@@ -1,0 +1,13 @@
+# Imported from spec-coordinator-handoff .gitignore.fragment
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.hub/
+local.yaml
+tooling/openspec/node_modules/
+.specify/workflows/runs/
+docs/evidence/**/raw/
+
+.opencode/
+*.zip

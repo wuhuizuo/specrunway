@@ -1,0 +1,23 @@
+schema: spec-driven
+context: |
+  Project: Central Store Coordinator, local v1 first.
+  Use English for every proposal, specification, design, task, and evidence report.
+  This repository's OpenSpec files manage development of the coordinator itself.
+  Product runtime: central OpenSpec Store, Python coordinator, Specify workflow,
+  a thin custom step bridge, one coding-agent CLI, and trusted test execution.
+  Central Store and cross-repository changes are essential. Specstride is excluded.
+  Implement required L01-L15 only. v2, local parallelism, and Jenkins are deferred.
+  Read AGENTS.md and docs/DECISIONS.md before editing. Keep one authoritative plan.
+rules:
+  proposal:
+    - Name every new or modified capability and preserve the current change boundary.
+  specs:
+    - Use observable requirements with SHALL or MUST and WHEN/THEN scenarios.
+    - Include invalid input, drift, recovery, and partial-success behavior when applicable.
+  design:
+    - Preserve local-first scope and the explicit Store, worktree, approval, and archive boundaries.
+    - Record upstream compatibility evidence; do not assume main-branch documentation matches a release.
+  tasks:
+    - Keep the source Lxx ID in each implementation task and state its concrete verification.
+    - Include tests and documentation with the task that introduces behavior.
+    - Do not check a task before its evidence exists; archive is an untracked workflow follow-up.

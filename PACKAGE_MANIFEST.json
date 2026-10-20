@@ -1,0 +1,312 @@
+{
+  "format": "handoff-manifest/v1",
+  "date": "2026-10-19",
+  "self_excluded": true,
+  "files": [
+    {
+      "path": ".gitignore.fragment",
+      "bytes": 203,
+      "sha256": "f6fac03cac2404ae3ea7fcb68e1e8c86720812959ee00130b4842f104ea08eb2"
+    },
+    {
+      "path": "AGENTS.md",
+      "bytes": 6026,
+      "sha256": "baa1eb5f04604434cb13299e8853124466ee65b3a18323f2ab2c94fa3891b5c4"
+    },
+    {
+      "path": "README.md",
+      "bytes": 4926,
+      "sha256": "996b8c416da6a4c5952bb27edd3e585ddd011150a3b724f38b94958eb68c3a5c"
+    },
+    {
+      "path": "docs/ACCEPTANCE.md",
+      "bytes": 15379,
+      "sha256": "e2b95b8096d22ac5bb05d0ae25b6ebade137d7ae331d960422e8b1bf28d52409"
+    },
+    {
+      "path": "docs/DECISIONS.md",
+      "bytes": 2441,
+      "sha256": "5f20c0344fdc60244350fba6d124296b5fc16c5959bcee918fbebe640dccbaff"
+    },
+    {
+      "path": "docs/DESIGN.md",
+      "bytes": 48046,
+      "sha256": "b29453c5623b6835a24d7d90e44b0b1c684704189196bfe463bfea450fc170c8"
+    },
+    {
+      "path": "docs/HANDOFF.md",
+      "bytes": 3548,
+      "sha256": "8797950cd0918c0e746379798b4469b154ee1fe65292b3b2d7cd5aca41dc4957"
+    },
+    {
+      "path": "docs/HANDOFF_STATE.md",
+      "bytes": 1868,
+      "sha256": "f96d9d768ef7a1cbecb9a6815b9c04222fffc01ab89c2fed85661240cea8a391"
+    },
+    {
+      "path": "docs/IMPLEMENTATION_PLAN.md",
+      "bytes": 18041,
+      "sha256": "1cbe355c6f4227f1b9f2714c27658457edf152a4a22f7c350fe8d4738ffc7f96"
+    },
+    {
+      "path": "docs/PACKAGE_VALIDATION.md",
+      "bytes": 2374,
+      "sha256": "b918d55a6c32c34e74b267c874594fc081f969940bdf10b769df35f9016b7cd0"
+    },
+    {
+      "path": "docs/SOURCE_PROVENANCE.md",
+      "bytes": 698,
+      "sha256": "a3cdb8d1e503f0c0985a783faea2a60e97eb2ba306cf0da59ec08d81a019501e"
+    },
+    {
+      "path": "docs/TOOLCHAIN.md",
+      "bytes": 4579,
+      "sha256": "7b0b5844c268f737d11628baa35e3185a8ad4084363c0554bd23b79e2f3242cd"
+    },
+    {
+      "path": "docs/assets/local.png",
+      "bytes": 52447,
+      "sha256": "cbb1d3ea3f7145413ccce9427485838542b26f27d34fcf81f1d5da6ab8b76010"
+    },
+    {
+      "path": "docs/assets/team.png",
+      "bytes": 88226,
+      "sha256": "7086241c53ed67ed5a1b3276bc56bd6b5c0d3f543770f35c8e98b84a35e499d6"
+    },
+    {
+      "path": "docs/evidence/README.md",
+      "bytes": 503,
+      "sha256": "bbd4f1fff8743e4d42586a6ad2c924f375b5c2b9813adaa8c1e7b8118acd3795"
+    },
+    {
+      "path": "docs/evidence/handoff-format-check.json",
+      "bytes": 5533,
+      "sha256": "07cf3cc66879f46c483930fb4d75ec4d3baf6afa7ec05f602e3241a4c1cf238b"
+    },
+    {
+      "path": "docs/examples/README.md",
+      "bytes": 412,
+      "sha256": "656408db982748d2c266de68e434426e400aa95e6eb01780f2cea63c6f3fbcc2"
+    },
+    {
+      "path": "docs/examples/approval-schema.example.json",
+      "bytes": 806,
+      "sha256": "2d19cf820fa6b31572a516d9951d77392615e70a7e483519097c3acb37f3bc82"
+    },
+    {
+      "path": "docs/examples/envelope.example.json",
+      "bytes": 431,
+      "sha256": "9efdcafa681c53da5555ac6d6bb4176562487a430a40b059342e65afb47c2189"
+    },
+    {
+      "path": "docs/examples/local-cli.example.sh",
+      "bytes": 442,
+      "sha256": "b29128fa3eb02fbcff9a63153dd24590a32a6a7041c09c43c944304c089a8094"
+    },
+    {
+      "path": "docs/examples/local-config.example.yaml",
+      "bytes": 347,
+      "sha256": "24e53bfdcf0373adb04dc8658d238820f16d54ae983b7a62f1169feb1b513636"
+    },
+    {
+      "path": "docs/examples/manifest.example.yaml",
+      "bytes": 760,
+      "sha256": "99d446513a7f09ad989335e7e4765e080867446713b7cc33f9b02d94b618e30d"
+    },
+    {
+      "path": "docs/examples/ports.example.py",
+      "bytes": 479,
+      "sha256": "ab3f442e91418b74acc48207e50b21172721167a70dee8f561695001a7ec7f2f"
+    },
+    {
+      "path": "docs/examples/step-metadata.example.yaml",
+      "bytes": 152,
+      "sha256": "76f2edc069064dd3bd55917bea7b02af257d268c827c2e0993e1f7530e2e3e6f"
+    },
+    {
+      "path": "docs/examples/upstream-cli.example.sh",
+      "bytes": 446,
+      "sha256": "c672c39291fb29f3de7321a0ca97b22297d0bf82f641c238b22294d09ccb8441"
+    },
+    {
+      "path": "docs/examples/workflow.example.yaml",
+      "bytes": 1472,
+      "sha256": "aae4ad147f3c6da5ec357ea0a269caa75240dd0efa304100353333aa059f2eb7"
+    },
+    {
+      "path": "openspec/changes/01-verify-upstream-contracts/.openspec.yaml",
+      "bytes": 40,
+      "sha256": "b552ab6519df8f66b705724100f565c5cd842bc9389aeaa177da9cec3d02a685"
+    },
+    {
+      "path": "openspec/changes/01-verify-upstream-contracts/design.md",
+      "bytes": 2512,
+      "sha256": "5b383b56dbd02154f38d6031c70b1e43c6a7c1563fdc9f94ac4d32061748e4e1"
+    },
+    {
+      "path": "openspec/changes/01-verify-upstream-contracts/proposal.md",
+      "bytes": 1078,
+      "sha256": "069172a82d4d51108137d8eeec62392da0bdfebc402ff0bb3d1278cf7bec9b70"
+    },
+    {
+      "path": "openspec/changes/01-verify-upstream-contracts/specs/toolchain-compatibility/spec.md",
+      "bytes": 1794,
+      "sha256": "45ffada5bcf8213dc3d6f14fbbbead0d130114b8da9c3ee143fee9135ff2a1cf"
+    },
+    {
+      "path": "openspec/changes/01-verify-upstream-contracts/tasks.md",
+      "bytes": 1305,
+      "sha256": "35508d9cef24e7d705468aa2b199e8a3c6daf930bf4cb2f18d4db1bd0266f514"
+    },
+    {
+      "path": "openspec/changes/02-build-local-foundation/.openspec.yaml",
+      "bytes": 40,
+      "sha256": "b552ab6519df8f66b705724100f565c5cd842bc9389aeaa177da9cec3d02a685"
+    },
+    {
+      "path": "openspec/changes/02-build-local-foundation/design.md",
+      "bytes": 3182,
+      "sha256": "491632858eab80faeda7ddd0bfc406ec6c3047f577f21f5749daeff86c6a5f36"
+    },
+    {
+      "path": "openspec/changes/02-build-local-foundation/proposal.md",
+      "bytes": 1366,
+      "sha256": "1f859b9cf30bca18aa719949c78a57c6e4f808c03599233dcbbfc8844d159e71"
+    },
+    {
+      "path": "openspec/changes/02-build-local-foundation/specs/change-routing/spec.md",
+      "bytes": 1168,
+      "sha256": "74a785f0a3d6d3223e6fcfa7316c6f382ed4cd87a016d1d3235dda076ec63dd7"
+    },
+    {
+      "path": "openspec/changes/02-build-local-foundation/specs/local-project/spec.md",
+      "bytes": 1263,
+      "sha256": "38fdf6fef9cf3f7d1960294d1858c872a6aed67d63196190c7cb90e07af84d62"
+    },
+    {
+      "path": "openspec/changes/02-build-local-foundation/specs/local-state/spec.md",
+      "bytes": 1167,
+      "sha256": "c91bfefe40e81ee86fd57d57c3954e31b8aeb603bc2e83c2bba9cda3b1ee8f1f"
+    },
+    {
+      "path": "openspec/changes/02-build-local-foundation/tasks.md",
+      "bytes": 1669,
+      "sha256": "e98e679d3c5040dea92cbbcc1788673698e35bb60845b2c4a941e560cca4879c"
+    },
+    {
+      "path": "openspec/changes/03-deliver-two-repo-loop/.openspec.yaml",
+      "bytes": 40,
+      "sha256": "b552ab6519df8f66b705724100f565c5cd842bc9389aeaa177da9cec3d02a685"
+    },
+    {
+      "path": "openspec/changes/03-deliver-two-repo-loop/design.md",
+      "bytes": 3806,
+      "sha256": "486fc969fba68c3ca4a0e925ea86c9b01761c7480d1426f16feb9e4b5159ae7f"
+    },
+    {
+      "path": "openspec/changes/03-deliver-two-repo-loop/proposal.md",
+      "bytes": 1422,
+      "sha256": "710e0ec5eb69e733cb4be0ccda1048da63ff89b579020198d937d4b39492f996"
+    },
+    {
+      "path": "openspec/changes/03-deliver-two-repo-loop/specs/context-approval/spec.md",
+      "bytes": 1666,
+      "sha256": "7cbeaaface91e150b6e673d7c90678177d306d62704330a9dd19091e59c28d77"
+    },
+    {
+      "path": "openspec/changes/03-deliver-two-repo-loop/specs/local-change-execution/spec.md",
+      "bytes": 1640,
+      "sha256": "4136bfde19ad8d0272c99d2b7f5e8f9101bb479c7faf008429eba72b344cb332"
+    },
+    {
+      "path": "openspec/changes/03-deliver-two-repo-loop/specs/trusted-verification/spec.md",
+      "bytes": 1573,
+      "sha256": "37c8a14c4fcd922aecd63ba4d7eb4abba4e429d549d6b8ace9ce6605d0a00a55"
+    },
+    {
+      "path": "openspec/changes/03-deliver-two-repo-loop/tasks.md",
+      "bytes": 2177,
+      "sha256": "54e0148e71629bca563e7e564394bf8684eb0ac399eb4f9b05975bcf76d27677"
+    },
+    {
+      "path": "openspec/changes/04-harden-recovery-and-archive/.openspec.yaml",
+      "bytes": 40,
+      "sha256": "b552ab6519df8f66b705724100f565c5cd842bc9389aeaa177da9cec3d02a685"
+    },
+    {
+      "path": "openspec/changes/04-harden-recovery-and-archive/design.md",
+      "bytes": 2796,
+      "sha256": "60fad661762c77fedba61f03d9573bc9a956fd560b9c084a9a0b3712d9bf0f47"
+    },
+    {
+      "path": "openspec/changes/04-harden-recovery-and-archive/proposal.md",
+      "bytes": 1231,
+      "sha256": "d34eb4b75d4b4822842791c6dd468e5b35b364aa1361ebea1f2f0311f25617c0"
+    },
+    {
+      "path": "openspec/changes/04-harden-recovery-and-archive/specs/change-completion/spec.md",
+      "bytes": 1443,
+      "sha256": "bca1eba55ff0daa8fc90cf23159fe96e0c86ccf3d4d5d6b762a1844b8dfe0c5e"
+    },
+    {
+      "path": "openspec/changes/04-harden-recovery-and-archive/specs/execution-recovery/spec.md",
+      "bytes": 1248,
+      "sha256": "c7f3a810a920ba1d65b9f45f91766ce64b9c357abb6cb89fd839ff7b9bf972ec"
+    },
+    {
+      "path": "openspec/changes/04-harden-recovery-and-archive/tasks.md",
+      "bytes": 1146,
+      "sha256": "0b3d1ca386d66eace63789f613145dee30024b9cd69a6e0111cc07964f620323"
+    },
+    {
+      "path": "openspec/changes/05-release-local-v1/.openspec.yaml",
+      "bytes": 40,
+      "sha256": "b552ab6519df8f66b705724100f565c5cd842bc9389aeaa177da9cec3d02a685"
+    },
+    {
+      "path": "openspec/changes/05-release-local-v1/design.md",
+      "bytes": 2571,
+      "sha256": "5ca2802a3b1b1f9cf8dd316d969b35360fc2e4699d3f3e102559781ad188e1cb"
+    },
+    {
+      "path": "openspec/changes/05-release-local-v1/proposal.md",
+      "bytes": 1060,
+      "sha256": "f63383d7456546f06ca5c7aafc5903a0d8d3fa476f42d106972814d0c36268b5"
+    },
+    {
+      "path": "openspec/changes/05-release-local-v1/specs/local-release/spec.md",
+      "bytes": 1360,
+      "sha256": "ccd59a1670363b4930c9ed06fe64ead218f2fbd9c709f939dafadfaed8ab3623"
+    },
+    {
+      "path": "openspec/changes/05-release-local-v1/tasks.md",
+      "bytes": 1021,
+      "sha256": "af43242d1b33a58d399c5fb1b9765e10bc17e3e7407e2b6e417a1f7dbc4f1700"
+    },
+    {
+      "path": "openspec/config.yaml",
+      "bytes": 1441,
+      "sha256": "ccd1cc3390f323026584012d3b78beec187e5abca07720c82142be2d1399ea5d"
+    },
+    {
+      "path": "openspec/specs/.gitkeep",
+      "bytes": 1,
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "scripts/check_handoff.py",
+      "bytes": 2739,
+      "sha256": "ce32e300d3c5f3ad1f139df4587093f96be865cc6e884a70622c8bebf2a279b3"
+    },
+    {
+      "path": "scripts/openspec.sh",
+      "bytes": 335,
+      "sha256": "73cbbb1f84dc72556061bd96381ff8bf4df1ac0b5a88c666201d6ddf643a9168"
+    },
+    {
+      "path": "tooling/openspec/package.json",
+      "bytes": 235,
+      "sha256": "bebbedda3843f3cb770fe900446287f7f8da6e98be1a1966f2b774e200d58392"
+    }
+  ]
+}

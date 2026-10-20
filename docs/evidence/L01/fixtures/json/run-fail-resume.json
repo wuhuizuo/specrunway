@@ -1,0 +1,7 @@
+{
+  "run_id": "l01fail",
+  "workflow_id": "l01-probe-fail-resume",
+  "status": "completed",
+  "current_step_id": "complete-note",
+  "current_step_index": 2
+}

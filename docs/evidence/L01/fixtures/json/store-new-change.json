@@ -1,0 +1,13 @@
+{
+  "change": {
+    "id": "probe-root",
+    "path": "/private<tmp>/store/openspec/changes/probe-root",
+    "metadataPath": "/private<tmp>/store/openspec/changes/probe-root/.openspec.yaml",
+    "schema": "spec-driven"
+  },
+  "root": {
+    "path": "/private<tmp>/store",
+    "source": "store",
+    "store_id": "lt01store"
+  }
+}

@@ -1,0 +1,6 @@
+step:
+  type_key: hub
+  name: Local and Team Hub Bridge
+  version: "1.0.0"
+  author: Engineering
+  description: Typed OpenSpec and execution operations

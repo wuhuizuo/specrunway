@@ -1,0 +1,9 @@
+{
+  "name": "central-store-coordinator-development-tools",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pinned OpenSpec CLI for repository development only",
+  "dependencies": {
+    "@fission-ai/openspec": "1.14.3"
+  }
+}

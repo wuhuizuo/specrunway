@@ -1,0 +1,48 @@
+{
+  "changeName": "probe-root",
+  "changeDir": "/private<tmp>/store/openspec/changes/probe-root",
+  "schemaName": "spec-driven",
+  "contextFiles": {
+    "proposal": [
+      "/private<tmp>/store/openspec/changes/probe-root/proposal.md"
+    ],
+    "specs": [
+      "/private<tmp>/store/openspec/changes/probe-root/specs/probe-capability/spec.md"
+    ],
+    "design": [
+      "/private<tmp>/store/openspec/changes/probe-root/design.md"
+    ],
+    "tasks": [
+      "/private<tmp>/store/openspec/changes/probe-root/tasks.md"
+    ]
+  },
+  "progress": {
+    "total": 2,
+    "complete": 0,
+    "remaining": 2
+  },
+  "tasks": [
+    {
+      "id": "1",
+      "description": "1.1 [L01] Demonstrates an unchecked implementation task with a verify step.",
+      "done": false,
+      "sourcePath": "/private<tmp>/store/openspec/changes/probe-root/tasks.md",
+      "line": 5
+    },
+    {
+      "id": "2",
+      "description": "1.2 [L01] Demonstrates a second unchecked implementation task with a verify step.",
+      "done": false,
+      "sourcePath": "/private<tmp>/store/openspec/changes/probe-root/tasks.md",
+      "line": 6
+    }
+  ],
+  "taskTrackingConfigured": true,
+  "state": "ready",
+  "instruction": "Read context files, work through pending tasks, mark complete as you go.\nPause if you hit blockers or need clarification.",
+  "root": {
+    "path": "/private<tmp>/store",
+    "source": "store",
+    "store_id": "lt01store"
+  }
+}

@@ -1,0 +1,105 @@
+{
+  "changeName": "probe-root",
+  "schemaName": "spec-driven",
+  "planningHome": {
+    "kind": "repo",
+    "root": "/private<tmp>/store",
+    "changesDir": "/private<tmp>/store/openspec/changes",
+    "defaultSchema": "spec-driven"
+  },
+  "changeRoot": "/private<tmp>/store/openspec/changes/probe-root",
+  "artifactPaths": {
+    "proposal": {
+      "outputPath": "proposal.md",
+      "resolvedOutputPath": "/private<tmp>/store/openspec/changes/probe-root/proposal.md",
+      "existingOutputPaths": [
+        "/private<tmp>/store/openspec/changes/probe-root/proposal.md"
+      ]
+    },
+    "specs": {
+      "outputPath": "specs/**/*.md",
+      "resolvedOutputPath": "/private<tmp>/store/openspec/changes/probe-root/specs/**/*.md",
+      "existingOutputPaths": [
+        "/private<tmp>/store/openspec/changes/probe-root/specs/probe-capability/spec.md"
+      ]
+    },
+    "design": {
+      "outputPath": "design.md",
+      "resolvedOutputPath": "/private<tmp>/store/openspec/changes/probe-root/design.md",
+      "existingOutputPaths": [
+        "/private<tmp>/store/openspec/changes/probe-root/design.md"
+      ]
+    },
+    "tasks": {
+      "outputPath": "tasks.md",
+      "resolvedOutputPath": "/private<tmp>/store/openspec/changes/probe-root/tasks.md",
+      "existingOutputPaths": [
+        "/private<tmp>/store/openspec/changes/probe-root/tasks.md"
+      ]
+    }
+  },
+  "isPlanningComplete": true,
+  "isComplete": true,
+  "applyRequires": [
+    "tasks"
+  ],
+  "nextSteps": [
+    "All planning artifacts are complete. Run openspec instructions apply --change \"probe-root\" --store lt01store --json to inspect implementation progress."
+  ],
+  "actionContext": {
+    "mode": "repo-local",
+    "sourceOfTruth": "repo",
+    "planningArtifacts": [
+      "proposal",
+      "specs",
+      "design",
+      "tasks"
+    ],
+    "linkedContext": [],
+    "allowedEditRoots": [
+      "/private<tmp>/store"
+    ],
+    "requiresAffectedAreaSelection": false,
+    "constraints": [
+      "Change artifacts live in store 'lt01store' (/private<tmp>/store). OpenSpec could not determine which repository implements this change; ask the user which repository to edit, and make implementation edits there."
+    ]
+  },
+  "artifacts": [
+    {
+      "id": "proposal",
+      "outputPath": "proposal.md",
+      "status": "done",
+      "requires": []
+    },
+    {
+      "id": "specs",
+      "outputPath": "specs/**/*.md",
+      "status": "done",
+      "requires": [
+        "proposal"
+      ]
+    },
+    {
+      "id": "design",
+      "outputPath": "design.md",
+      "status": "done",
+      "requires": [
+        "proposal"
+      ]
+    },
+    {
+      "id": "tasks",
+      "outputPath": "tasks.md",
+      "status": "done",
+      "requires": [
+        "specs",
+        "design"
+      ]
+    }
+  ],
+  "root": {
+    "path": "/private<tmp>/store",
+    "source": "store",
+    "store_id": "lt01store"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "run_id": "l01orphan",
+  "workflow_id": "l01-probe-orphan",
+  "status": "running",
+  "current_step_id": "hold",
+  "current_step_index": 2,
+  "created_at": "2026-10-19T11:41:43.953564+00:00",
+  "updated_at": "2026-10-19T11:41:43.967170+00:00",
+  "steps": {
+    "prepare": "completed",
+    "spawn-children": "completed"
+  }
+}

@@ -1,0 +1,13 @@
+# local.yaml: machine-only, excluded from Git
+store:
+  id: engineering
+  path: /work/plans/engineering
+repos:
+  api-server:
+    path: /work/src/api-server
+    remote_identity: github:example-org/api-server
+  operator:
+    path: /work/src/operator
+    remote_identity: github:example-org/operator
+agent_profile: primary-coding-agent
+max_workers: 1

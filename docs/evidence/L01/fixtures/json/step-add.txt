@@ -1,0 +1,2 @@
+✓ Step type 'Local and Team Hub Bridge' (hub) installed
+  Use specify workflow step list to verify the installation.

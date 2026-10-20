@@ -1,0 +1,19 @@
++zsh:5> node --version
++zsh:5> echo 'node: v24.4.1'
+node: v24.4.1
++zsh:6> npm --version
++zsh:6> echo 'npm: 11.4.2'
+npm: 11.4.2
++zsh:7> /opt/homebrew/bin/python3 --version
++zsh:7> echo 'python3(host): Python 3.14.5'
+python3(host): Python 3.14.5
++zsh:8> git --version
++zsh:8> echo 'git: git version 2.50.1 (Apple Git-155)'
+git: git version 2.50.1 (Apple Git-155)
++zsh:9> sw_vers -productVersion
++zsh:9> uname -m
++zsh:9> echo 'os: 26.6.2 arm64'
+os: 26.6.2 arm64
++zsh:10> bash scripts/openspec.sh --version
++zsh:10> echo 'openspec: 1.14.3'
+openspec: 1.14.3

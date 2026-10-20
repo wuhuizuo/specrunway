@@ -1,0 +1,28 @@
+api_version: hub/v1
+store_uid: 67f80512-00d1-4b0f-b5cd-3a1aad009002
+change_id: add-global-rate-limit
+change_uid: b7c9aeb5-0cd5-4ea5-a66e-0f3414b9a244
+repo_order: [api-server, operator]
+repos:
+  - repo_id: api-server
+    base_ref: main
+    task_ids: [T001]
+    depends_on: []
+    allowed_paths: [src/ratelimit/, tests/]
+    test_profile: api-unit
+  - repo_id: operator
+    base_ref: main
+    task_ids: [T002]
+    depends_on: [api-server]
+    allowed_paths: [controllers/, tests/]
+    test_profile: operator-unit
+acceptance:
+  - id: AC01
+    requirement: Requests over quota are rejected.
+    verifies: [T001, T002]
+integration_profile: quota-e2e
+completion_policy: merged_commits
+budget:
+  repo_max_attempts: 3
+  integration_max_repairs: 2
+  total_minutes: 120

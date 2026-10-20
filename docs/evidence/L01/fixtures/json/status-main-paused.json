@@ -1,0 +1,23 @@
+{
+  "run_id": "l01main",
+  "workflow_id": "l01-probe-main",
+  "status": "paused",
+  "current_step_id": "plan-review",
+  "current_step_index": 2,
+  "gate": {
+    "step_id": "plan-review",
+    "message": "Review the plan summary.",
+    "options": [
+      "approve",
+      "reject"
+    ],
+    "choice": null
+  },
+  "created_at": "2026-10-19T11:36:46.652500+00:00",
+  "updated_at": "2026-10-19T11:36:46.668081+00:00",
+  "steps": {
+    "prepare-note": "completed",
+    "prepare": "completed",
+    "plan-review": "paused"
+  }
+}

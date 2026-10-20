@@ -1,0 +1,91 @@
+{
+  "format": "toolchain-lock/v1",
+  "recorded_at": "2026-10-19",
+  "decision": "pass",
+  "supported_os": [
+    {
+      "system": "Darwin",
+      "release": "Darwin 25.6.0 (macOS 26.6.2)",
+      "arch": "arm64",
+      "probed": true
+    },
+    {
+      "system": "Linux",
+      "release": "untested in L01",
+      "arch": "x86_64",
+      "probed": false
+    }
+  ],
+  "interpreters": {
+    "node": "v24.4.1",
+    "npm": "11.4.2",
+    "python_development": "3.14.5",
+    "python_runtime_venv": "3.14.5",
+    "git": "git version 2.50.1 (Apple Git-155)"
+  },
+  "openspec": {
+    "package": "@fission-ai/openspec",
+    "version": "1.14.3",
+    "source": "npm registry",
+    "pinned_by": "tooling/openspec/package.json",
+    "lockfile_commit_evidence": "tooling/openspec/package-lock.json",
+    "registry_resolved": "https://registry.npmjs.org/@fission-ai/openspec/-/openspec-1.14.3.tgz",
+    "integrity": "sha512-ALFW1d5bSm6t27Kmcle93SDFuqUc8fLwy5ZdBfIiNffo0Yk9AEOJxw6xDqBv38eMM7l7TeOZBB/7C08luxYGfg==",
+    "fresh_environment_repro": "1.14.3 from a clean npm install"
+  },
+  "specify": {
+    "distribution": "specify-cli",
+    "version": "1.2.1",
+    "source": "git+https://github.com/github/spec-kit.git@v1.2.1",
+    "upstream_repository": "https://github.com/github/spec-kit",
+    "upstream_tag": "v1.2.1",
+    "installed_commit_id": "9dca9bf42a031765ee5e5f2371137f2f26967e11",
+    "install_command": "python -m pip install \"specify-cli @ git+https://github.com/github/spec-kit.git@v1.2.1\"",
+    "fresh_environment_repro": "1.2.1 from a clean venv, same commit id from direct_url.json"
+  },
+  "step_packages": [
+    {
+      "id": "hub",
+      "name": "Local and Team Hub Bridge",
+      "version": "0.1.0",
+      "install_command": "specify workflow step add hub --dev <package-directory>",
+      "digests": {
+        "step.yml": "41e95ad1fade076af5858e4746190c72ba849456b7ece0ff95445ae3e54d1af4",
+        "__init__.py": "c483f5e42960b28a760ea74ceab429b8f6f80f03baa0dfe0416711f36c2054fa",
+        "actions.py": "c777a55b242be1b09150a9be8b318773d44254cd733720bf0dfdea150ed87cc9",
+        "kb": "sha256"
+      }
+    }
+  ],
+  "probe_workflows": [
+    {
+      "id": "probe-main",
+      "file": "docs/evidence/L01/fixtures/probe-workflows/probe-main.yaml",
+      "digest": "003e5c873e4ad1116dc127fd69c91a0b01bd7a83683d31c8851e161f08e51d17"
+    },
+    {
+      "id": "probe-loop2",
+      "file": "docs/evidence/L01/fixtures/probe-workflows/probe-loop2.yaml",
+      "digest": "4728ac97291d92646964fa4acd6975d69df85bc64fcac0d3c27b6b8083293770"
+    },
+    {
+      "id": "probe-fail-resume",
+      "file": "docs/evidence/L01/fixtures/probe-workflows/probe-fail-resume.yaml",
+      "digest": "8bed33feb029ccc7ffaf187ad8d5dade9a24abfd4d60ca67b33934bcdb5468d5"
+    },
+    {
+      "id": "probe-interrupt",
+      "file": "docs/evidence/L01/fixtures/probe-workflows/probe-interrupt.yaml",
+      "digest": "2e50a097de531473b6bff1ae767ad71c607f8b4b2aa3a417970077fc200dc6ce"
+    },
+    {
+      "id": "probe-orphan",
+      "file": "docs/evidence/L01/fixtures/probe-workflows/probe-orphan.yaml",
+      "digest": "48944766c56eb9ee1e91bb32580ff4fdd27927f2db00d1ed80173650afeaa24e"
+    }
+  ],
+  "openspec_change_validation": {
+    "tool": "openspec validate --all --strict --json",
+    "result": "5/5 changes valid, exit 0"
+  }
+}

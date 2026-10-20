@@ -1,0 +1,29 @@
+{
+  "changeName": "probe-root",
+  "changeDir": "/private<tmp>/store/openspec/changes/probe-root",
+  "schemaName": "spec-driven",
+  "contextFiles": {},
+  "progress": {
+    "total": 0,
+    "complete": 0,
+    "remaining": 0
+  },
+  "tasks": [],
+  "taskTrackingConfigured": true,
+  "state": "blocked",
+  "missingArtifacts": [
+    "tasks"
+  ],
+  "missingPrerequisites": [
+    "proposal",
+    "specs",
+    "design",
+    "tasks"
+  ],
+  "instruction": "Cannot apply this change yet. Missing artifacts: tasks.\nNot created yet, in build order: proposal, specs, design, tasks. Build the ones this change needs before applying - the schema says which are conditional.\nCreate each with `openspec instructions <artifact> --change probe-root` (`openspec status --change probe-root` shows what is left).",
+  "root": {
+    "path": "/private<tmp>/store",
+    "source": "store",
+    "store_id": "lt01store"
+  }
+}

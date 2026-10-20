@@ -1,0 +1,4 @@
+{"event": "note", "execution_id": "cc1147d0e5fa4327b62e71f6d04b8f30", "label": "early-note", "time": 1792410030.568685, "value": null}
+{"event": "wait", "seconds": 30.0, "time": 1792410030.570189}
+{"event": "wait", "seconds": 30.0, "time": 1792410046.477986}
+{"event": "note", "execution_id": "cc1147d0e5fa4327b62e71f6d04b8f30", "label": "after-interrupt-note", "time": 1792410076.483191, "value": null}

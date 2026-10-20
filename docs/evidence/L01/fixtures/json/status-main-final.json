@@ -1,0 +1,25 @@
+{
+  "run_id": "l01main",
+  "workflow_id": "l01-probe-main",
+  "status": "completed",
+  "current_step_id": "ready",
+  "current_step_index": 8,
+  "created_at": "2026-10-19T11:36:46.652500+00:00",
+  "updated_at": "2026-10-19T11:37:02.165883+00:00",
+  "steps": {
+    "prepare-note": "completed",
+    "prepare": "completed",
+    "plan-review": "completed",
+    "implement": "completed",
+    "implement:repo:0": "completed",
+    "implement:repo:1": "completed",
+    "collect": "completed",
+    "integration": "completed",
+    "verify-round": "completed",
+    "integration:verify-round:1": "completed",
+    "integration:verify-round:2": "completed",
+    "require-green": "completed",
+    "implementation-review": "completed",
+    "ready": "completed"
+  }
+}

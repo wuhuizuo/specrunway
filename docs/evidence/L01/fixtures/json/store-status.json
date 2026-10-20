@@ -1,0 +1,107 @@
+{
+  "changeName": "probe-root",
+  "schemaName": "spec-driven",
+  "planningHome": {
+    "kind": "repo",
+    "root": "/private<tmp>/store",
+    "changesDir": "/private<tmp>/store/openspec/changes",
+    "defaultSchema": "spec-driven"
+  },
+  "changeRoot": "/private<tmp>/store/openspec/changes/probe-root",
+  "artifactPaths": {
+    "proposal": {
+      "outputPath": "proposal.md",
+      "resolvedOutputPath": "/private<tmp>/store/openspec/changes/probe-root/proposal.md",
+      "existingOutputPaths": []
+    },
+    "specs": {
+      "outputPath": "specs/**/*.md",
+      "resolvedOutputPath": "/private<tmp>/store/openspec/changes/probe-root/specs/**/*.md",
+      "existingOutputPaths": []
+    },
+    "design": {
+      "outputPath": "design.md",
+      "resolvedOutputPath": "/private<tmp>/store/openspec/changes/probe-root/design.md",
+      "existingOutputPaths": []
+    },
+    "tasks": {
+      "outputPath": "tasks.md",
+      "resolvedOutputPath": "/private<tmp>/store/openspec/changes/probe-root/tasks.md",
+      "existingOutputPaths": []
+    }
+  },
+  "isPlanningComplete": false,
+  "isComplete": false,
+  "applyRequires": [
+    "tasks"
+  ],
+  "nextSteps": [
+    "Run openspec instructions proposal --change \"probe-root\" --store lt01store --json before writing that artifact."
+  ],
+  "actionContext": {
+    "mode": "repo-local",
+    "sourceOfTruth": "repo",
+    "planningArtifacts": [
+      "proposal",
+      "specs",
+      "design",
+      "tasks"
+    ],
+    "linkedContext": [],
+    "allowedEditRoots": [
+      "/private<tmp>/store"
+    ],
+    "requiresAffectedAreaSelection": false,
+    "constraints": [
+      "Change artifacts live in store 'lt01store' (/private<tmp>/store). OpenSpec could not determine which repository implements this change; ask the user which repository to edit, and make implementation edits there."
+    ]
+  },
+  "artifacts": [
+    {
+      "id": "proposal",
+      "outputPath": "proposal.md",
+      "status": "ready",
+      "requires": []
+    },
+    {
+      "id": "specs",
+      "outputPath": "specs/**/*.md",
+      "status": "blocked",
+      "requires": [
+        "proposal"
+      ],
+      "missingDeps": [
+        "proposal"
+      ]
+    },
+    {
+      "id": "design",
+      "outputPath": "design.md",
+      "status": "blocked",
+      "requires": [
+        "proposal"
+      ],
+      "missingDeps": [
+        "proposal"
+      ]
+    },
+    {
+      "id": "tasks",
+      "outputPath": "tasks.md",
+      "status": "blocked",
+      "requires": [
+        "specs",
+        "design"
+      ],
+      "missingDeps": [
+        "specs",
+        "design"
+      ]
+    }
+  ],
+  "root": {
+    "path": "/private<tmp>/store",
+    "source": "store",
+    "store_id": "lt01store"
+  }
+}
