@@ -4,7 +4,7 @@ Prerequisite: 02-build-local-foundation. Source task IDs: L06, L07, L08, L09, L1
 
 ## 1. L06 Implement the planning entry point
 
-- [ ] 1.1 [L06] Implement planning generation and manual-plan loading; verify the complete artifact set and stable task routing on one central change.
+- [x] 1.1 [L06] Implement planning generation and manual-plan loading; verify the complete artifact set and stable task routing on one central change.
 
 Acceptance linkage: V1-A04.
 

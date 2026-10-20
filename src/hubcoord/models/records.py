@@ -17,8 +17,9 @@ from hubcoord.models.manifest import validate_manifest
 
 RECORD_API_VERSION = "hub/v1"
 
-APPROVAL_KINDS = {"plan", "implementation"}
+APPROVAL_KINDS = {"plan", "implementation", "archive"}
 DECISIONS = {"approve", "reject"}
+AUTH_LEVELS = {"self_asserted", "authenticated"}
 RESULT_DECISIONS = {"implemented", "skipped", "blocked"}
 TEST_STATUSES = {"not-run", "passed", "failed", "error"}
 OPERATION_STATUSES = {"pending", "recorded", "uncertain", "reconciled"}
@@ -255,18 +256,17 @@ def validate_result(result: dict) -> dict:
 
 
 def validate_approval(approval: dict) -> dict:
-    """Local approval records always carry auth_level self_asserted."""
+    """Approval v1 (urn:hub:approval:v1): exact keys, additionalProperties false."""
     keys = {
         "api_version",
-        "kind",
         "execution_id",
+        "kind",
         "decision",
         "subject_digest",
-        "subject_kind",
-        "approver",
+        "scope",
+        "actor",
         "auth_level",
-        "created_at",
-        "note",
+        "timestamp",
     }
     err = ErrorCollector()
     if not _base_check(approval, err, keys, "approval"):
@@ -286,30 +286,33 @@ def validate_approval(approval: dict) -> dict:
         "digest-format",
         "subject_digest must be lowercase sha256 hex of the approved subject",
     )
-    subject_kind = approval.get("subject_kind")
     err.require(
-        isinstance(subject_kind, str) and bool(subject_kind.strip()),
-        "subject-kind",
-        "subject_kind must be a short name (e.g. planning_snapshot)",
+        isinstance(approval.get("scope"), str) and bool(approval["scope"].strip()),
+        "scope",
+        "scope must be a non-empty string (e.g. planning_snapshot:repo-a/T001)",
     )
     err.require(
-        isinstance(approval.get("approver"), str) and bool(approval["approver"].strip()),
-        "approver",
-        "approver must be a non-empty operator name",
+        isinstance(approval.get("actor"), str) and bool(approval["actor"].strip()),
+        "actor",
+        "actor must be a non-empty operator name",
     )
     err.require(
-        approval.get("auth_level") == "self_asserted",
+        approval.get("auth_level") in AUTH_LEVELS,
         "auth-level",
-        'local approvals must carry auth_level="self_asserted"',
+        f"auth_level must be one of {sorted(AUTH_LEVELS)}; v1 records are self_asserted",
     )
-    created_at = approval.get("created_at")
+    if approval.get("auth_level") == "authenticated":
+        err.require(
+            False,
+            "auth-level",
+            "authenticated approvals require the team service; v1 records self_asserted only",
+        )
+    timestamp = approval.get("timestamp")
     err.require(
-        isinstance(created_at, str) and bool(created_at.strip()),
+        isinstance(timestamp, str) and bool(timestamp.strip()),
         "timestamp",
-        "created_at must be an RFC 3339 timestamp string",
+        "timestamp must be an RFC 3339 date-time string",
     )
-    note = approval.get("note", "")
-    err.require(isinstance(note, str), "note", "note must be a string")
     if err.errors:
         raise GroupedValidationError(err.errors)
     return approval

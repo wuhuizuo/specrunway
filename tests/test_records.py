@@ -162,40 +162,49 @@ def test_decision_authorized_skipped_and_blocked():
     )
 
 
-def test_approval():
-    validation_ok = validate_approval(
-        {
-            "api_version": "hub/v1",
-            "kind": "plan",
-            "execution_id": "0d1f8d02-01d4-4d5d-8df5-ecda48c01001",
-            "decision": "approve",
-            "subject_digest": sha256_bytes(b"snapshot"),
-            "subject_kind": "planning_snapshot",
-            "approver": "operator@example.org",
-            "auth_level": "self_asserted",
-            "created_at": "2026-10-20T00:00:00Z",
-            "note": "",
-        }
-    )
-    assert validation_ok["auth_level"] == "self_asserted"
+def approval():
+    return {
+        "api_version": "hub/v1",
+        "kind": "plan",
+        "execution_id": "0d1f8d02-01d4-4d5d-8df5-ecda48c01001",
+        "decision": "approve",
+        "subject_digest": sha256_bytes(b"snapshot"),
+        "scope": "planning_snapshot:repo-a/T001",
+        "actor": "operator@example.org",
+        "auth_level": "self_asserted",
+        "timestamp": "2026-10-20T00:00:00Z",
+    }
 
 
-def test_approval_rejects_team_auth():
+def test_approval_schema_exact():
+    validated = validate_approval(approval())
+    assert validated["auth_level"] == "self_asserted"
+    assert validated["scope"] == "planning_snapshot:repo-a/T001"
+
+
+def test_approval_kind_supports_archive():
+    record = {**approval(), "kind": "archive"}
+    assert validate_approval(record)["kind"] == "archive"
+
+
+def test_approval_rejects_authenticated_in_v1():
     with pytest.raises(GroupedValidationError) as excinfo:
-        validate_approval(
-            {
-                "api_version": "hub/v1",
-                "kind": "plan",
-                "execution_id": "0d1f8d02-01d4-4d5d-8df5-ecda48c01001",
-                "decision": "approve",
-                "subject_digest": sha256_bytes(b"snapshot"),
-                "subject_kind": "planning_snapshot",
-                "approver": "bot",
-                "auth_level": "authenticated",
-                "created_at": "2026-10-20T00:00:00Z",
-            }
-        )
+        validate_approval({**approval(), "auth_level": "authenticated"})
     assert any(e["code"] == "auth-level" for e in excinfo.value.errors)
+
+
+def test_approval_rejects_unknown_context():
+    with pytest.raises(GroupedValidationError) as excinfo:
+        validate_approval({**approval(), "note": "extra field not in schema"})
+    assert any(e["code"] == "unknown-key" for e in excinfo.value.errors)
+
+
+def test_approval_rejects_missing_required():
+    record = approval()
+    record.pop("actor")
+    with pytest.raises(GroupedValidationError) as excinfo:
+        validate_approval(record)
+    assert any(e["code"] == "actor" for e in excinfo.value.errors)
 
 
 def test_operation_key_and_status():

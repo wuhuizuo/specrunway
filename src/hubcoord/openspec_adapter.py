@@ -204,6 +204,7 @@ class OpenSpecAdapter:
         return {
             "change_name": payload["changeName"],
             "schema": payload.get("schemaName"),
+            "change_root": payload.get("changeRoot"),
             "planning_complete": bool(payload.get("isPlanningComplete")),
             "is_complete": bool(payload.get("isComplete")),
             "artifacts": artifact_name,
