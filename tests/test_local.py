@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from hubcoord.models import (
+from specrunway.models import (
     GroupedValidationError,
     load_local_config,
     validate_checkout_wiring,
@@ -22,7 +22,7 @@ def local_payload(tmp_path: Path) -> dict:
         "repos": {
             "repo-a": {
                 "path": str(tmp_path / "repo-a"),
-                "remote_identity": "github:example.org/repo-a",
+                "remote_identity": "gitspecrunway:example.org/repo-a",
             }
         },
         "agent_profile": "primary-coding-agent",
@@ -41,11 +41,11 @@ def test_validate_local_config_ok(tmp_path):
         ({"store": {}}, "store-id"),
         ({"store": {"id": "x", "path": "relative/path"}}, "store-path"),
         (
-            {"repos": {"BAD-ID!": {"path": "/tmp/x", "remote_identity": "github:a/b"}}},
+            {"repos": {"BAD-ID!": {"path": "/tmp/x", "remote_identity": "gitspecrunway:a/b"}}},
             "repo-id-format",
         ),
         (
-            {"repos": {"re": {"path": "relative/path", "remote_identity": "github:a/b"}}},
+            {"repos": {"re": {"path": "relative/path", "remote_identity": "gitspecrunway:a/b"}}},
             "repo-path",
         ),
         ({"repos": {"re": {"path": "/tmp/x"}}}, "remote-identity"),
@@ -73,7 +73,7 @@ def test_load_local_config_resolves_relative_paths(tmp_path):
         yaml.safe_dump(
             {
                 "store": {"id": "fixstore", "path": "store"},
-                "repos": {"repo-a": {"path": "./repo-a", "remote_identity": "github:a/b"}},
+                "repos": {"repo-a": {"path": "./repo-a", "remote_identity": "gitspecrunway:a/b"}},
                 "agent_profile": "primary-coding-agent",
             }
         )
@@ -91,11 +91,11 @@ def test_wiring_happy(control_workspace):
         "repos": {
             "repo-a": {
                 "path": str(control_workspace["repos"][0]),
-                "remote_identity": "github:example.org/repo-a",
+                "remote_identity": "gitspecrunway:example.org/repo-a",
             },
             "repo-b": {
                 "path": str(control_workspace["repos"][1]),
-                "remote_identity": "github:example.org/repo-b",
+                "remote_identity": "gitspecrunway:example.org/repo-b",
             },
         },
     }
@@ -109,14 +109,14 @@ def test_wiring_wrong_checkout_detected(control_workspace):
     swap.mkdir()
     subprocess.run(["git", "init", "-q"], cwd=swap, check=True)
     subprocess.run(
-        ["git", "config", "remote.origin.url", "https://github.com/example.org/other.git"],
+        ["git", "config", "remote.origin.url", "https://gitspecrunway.com/example.org/other.git"],
         cwd=swap,
         check=True,
     )
     config = {
         "store": {"id": "fixstore", "path": str(control_workspace["store"])},
         "repos": {
-            "repo-a": {"path": str(swap), "remote_identity": "github:example.org/repo-a"}
+            "repo-a": {"path": str(swap), "remote_identity": "gitspecrunway:example.org/repo-a"}
         },
     }
     errors = validate_checkout_wiring(config)
@@ -126,7 +126,7 @@ def test_wiring_wrong_checkout_detected(control_workspace):
 
 def test_wiring_cross_manifest(control_workspace):
     manifest = {
-        "api_version": "hub/v1",
+        "api_version": "specrunway/v1",
         "store_uid": "67f80512-00d1-4b0f-b5cd-3a1aad009002",
         "change_id": "add-global-rate-limit",
         "change_uid": "b7c9aeb5-0cd5-4ea5-a66e-0f3414b9a244",
@@ -149,7 +149,7 @@ def test_wiring_cross_manifest(control_workspace):
         "repos": {
             "repo-a": {
                 "path": str(control_workspace["repos"][0]),
-                "remote_identity": "github:example.org/repo-a",
+                "remote_identity": "gitspecrunway:example.org/repo-a",
             }
         },
         "_manifest": manifest,
@@ -162,7 +162,7 @@ def test_wiring_cross_manifest(control_workspace):
 def test_wiring_manifest_repo_missing_local(control_workspace):
 
     manifest = {
-        "api_version": "hub/v1",
+        "api_version": "specrunway/v1",
         "store_uid": "67f80512-00d1-4b0f-b5cd-3a1aad009002",
         "change_id": "add-global-rate-limit",
         "change_uid": "b7c9aeb5-0cd5-4ea5-a66e-0f3414b9a244",
@@ -193,7 +193,7 @@ def test_wiring_manifest_repo_missing_local(control_workspace):
         "repos": {
             "repo-a": {
                 "path": str(control_workspace["repos"][0]),
-                "remote_identity": "github:example.org/repo-a",
+                "remote_identity": "gitspecrunway:example.org/repo-a",
             }
         },
         "_manifest": manifest,

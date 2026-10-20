@@ -9,16 +9,16 @@ from pathlib import Path
 
 import pytest
 
-from hubcoord import launcher
-from hubcoord.bridge.actions import (
-    HubActionError,
+from specrunway import launcher
+from specrunway.bridge.actions import (
+    SpecRunwayActionError,
     action_complete,
     action_repair_round,
     action_run_repo,
     action_verify_round,
 )
-from hubcoord.freezer import freeze_execution, new_execution_id
-from hubcoord.runstore import FileRunStore, atomic_write_json
+from specrunway.freezer import freeze_execution, new_execution_id
+from specrunway.runstore import FileRunStore, atomic_write_json
 
 REPO = Path(__file__).resolve().parents[1]
 FAKE_AGENT = Path(__file__).with_name("fake_agent_cli.py")
@@ -27,7 +27,7 @@ TOOLS = {"openspec": "1.14.3", "spec_kit": "1.2.1", "agent_profile": "fake-agent
 
 def _manifest(budget: dict | None = None) -> dict:
     manifest = {
-        "api_version": "hub/v1",
+        "api_version": "specrunway/v1",
         "store_uid": "67f80512-00d1-4b0f-b5cd-3a1aad009072",
         "change_id": "budget-demo",
         "change_uid": "9c3e5e4e-2c2e-4b6e-8f9c-000000000072",
@@ -55,7 +55,7 @@ def _manifest(budget: dict | None = None) -> dict:
 @pytest.fixture
 def budgeted(tmp_path, monkeypatch):
     control = tmp_path / "control"
-    (control / ".hub").mkdir(parents=True)
+    (control / ".specrunway").mkdir(parents=True)
     repo = tmp_path / "repo-a"
     repo.mkdir()
     subprocess.run(
@@ -119,12 +119,12 @@ def budgeted(tmp_path, monkeypatch):
             timeout_seconds=120.0,
         ),
     )
-    monkeypatch.setenv("HUB_FAKE_SCENARIO", "pass")
+    monkeypatch.setenv("SPECRUNWAY_FAKE_SCENARIO", "pass")
     return {"control": control, "plans": plans, "repos": repos_cfg}
 
 
 def _freeze(budgeted, budget: dict | None = None, execution_id: str | None = None):
-    store = FileRunStore(budgeted["control"] / ".hub")
+    store = FileRunStore(budgeted["control"] / ".specrunway")
     execution_id = execution_id or new_execution_id()
     store.ensure_run(execution_id, "budget-demo")
     snapshot = freeze_execution(
@@ -145,8 +145,8 @@ def _cfg(budgeted, store, execution_id, action: str, **extra) -> dict:
 
 
 def test_repair_round_repairs_and_feedback_reaches_agent(budgeted, monkeypatch):
-    monkeypatch.setenv("HUB_FAKE_SCENARIO", "fail-until-pass")
-    monkeypatch.setenv("HUB_FAKE_FAIL_BEFORE", "1")
+    monkeypatch.setenv("SPECRUNWAY_FAKE_SCENARIO", "fail-until-pass")
+    monkeypatch.setenv("SPECRUNWAY_FAKE_FAIL_BEFORE", "1")
     store, execution_id, _snapshot = _freeze(budgeted)
     first = action_run_repo(
         _cfg(budgeted, store, execution_id, "run-repo", repo="repo-a"), None
@@ -174,14 +174,14 @@ def test_repair_round_repairs_and_feedback_reaches_agent(budgeted, monkeypatch):
 
 
 def test_budget_exhausted_stops_and_counters_survive_restart(budgeted, monkeypatch):
-    monkeypatch.setenv("HUB_FAKE_SCENARIO", "fail")
+    monkeypatch.setenv("SPECRUNWAY_FAKE_SCENARIO", "fail")
     store, execution_id, _snapshot = _freeze(
         budgeted, budget={"repo_max_attempts": 2, "integration_max_repairs": 2}
     )
     action_run_repo(_cfg(budgeted, store, execution_id, "run-repo", repo="repo-a"), None)
     action_verify_round(_cfg(budgeted, store, execution_id, "verify-round", round=1), None)
 
-    with pytest.raises(HubActionError) as exhausted:
+    with pytest.raises(SpecRunwayActionError) as exhausted:
         action_repair_round(_cfg(budgeted, store, execution_id, "repair-round"), None)
     assert exhausted.value.output["error"]["code"] == "budget-exhausted"
     state = store.read_state(execution_id)
@@ -189,9 +189,9 @@ def test_budget_exhausted_stops_and_counters_survive_restart(budgeted, monkeypat
     assert state["budgets"]["repo-a"]["attempts_used"] == 2
 
     # restart: a fresh store handle sees the same persistent counters and stops
-    restarted = FileRunStore(budgeted["control"] / ".hub")
+    restarted = FileRunStore(budgeted["control"] / ".specrunway")
     assert restarted.read_state(execution_id)["budgets"]["repo-a"]["attempts_used"] == 2
-    with pytest.raises(HubActionError) as stopped:
+    with pytest.raises(SpecRunwayActionError) as stopped:
         action_run_repo(
             _cfg(budgeted, restarted, execution_id, "run-repo", repo="repo-a"), None
         )
@@ -200,12 +200,12 @@ def test_budget_exhausted_stops_and_counters_survive_restart(budgeted, monkeypat
 
 
 def test_no_progress_stops_before_burning_budget(budgeted, monkeypatch):
-    monkeypatch.setenv("HUB_FAKE_SCENARIO", "noop")
+    monkeypatch.setenv("SPECRUNWAY_FAKE_SCENARIO", "noop")
     store, execution_id, _snapshot = _freeze(budgeted, budget={"repo_max_attempts": 3})
     action_run_repo(_cfg(budgeted, store, execution_id, "run-repo", repo="repo-a"), None)
     action_verify_round(_cfg(budgeted, store, execution_id, "verify-round", round=1), None)
 
-    with pytest.raises(HubActionError) as stopped:
+    with pytest.raises(SpecRunwayActionError) as stopped:
         action_repair_round(_cfg(budgeted, store, execution_id, "repair-round"), None)
     assert stopped.value.output["error"]["code"] == "no-progress"
     state = store.read_state(execution_id)
@@ -214,27 +214,27 @@ def test_no_progress_stops_before_burning_budget(budgeted, monkeypatch):
 
 
 def test_failed_verification_cannot_become_ready(budgeted, monkeypatch):
-    monkeypatch.setenv("HUB_FAKE_SCENARIO", "fail")
+    monkeypatch.setenv("SPECRUNWAY_FAKE_SCENARIO", "fail")
     store, execution_id, _snapshot = _freeze(budgeted)
     action_run_repo(_cfg(budgeted, store, execution_id, "run-repo", repo="repo-a"), None)
     action_verify_round(_cfg(budgeted, store, execution_id, "verify-round", round=1), None)
 
-    with pytest.raises(HubActionError) as refused:
+    with pytest.raises(SpecRunwayActionError) as refused:
         action_complete(_cfg(budgeted, store, execution_id, "complete"), None)
     assert refused.value.output["error"]["code"] == "verification-failed"
     assert store.read_state(execution_id)["phase"] != "ready_for_review"
 
 
 def test_total_minutes_budget_refuses_attempt(budgeted, monkeypatch):
-    monkeypatch.setenv("HUB_FAKE_SCENARIO", "pass")
+    monkeypatch.setenv("SPECRUNWAY_FAKE_SCENARIO", "pass")
     store, execution_id, _snapshot = _freeze(budgeted, budget={"total_minutes": 1})
-    from hubcoord.runstore import atomic_write_json as write_json
+    from specrunway.runstore import atomic_write_json as write_json
 
     state = store.read_state(execution_id)
     state["created_at"] = "2020-01-01T00:00:00Z"
     write_json(store.run_dir(execution_id) / "state.json", state)
 
-    with pytest.raises(HubActionError) as stopped:
+    with pytest.raises(SpecRunwayActionError) as stopped:
         action_run_repo(_cfg(budgeted, store, execution_id, "run-repo", repo="repo-a"), None)
     assert stopped.value.output["error"]["code"] == "budget-exhausted"
     assert "total budget" in stopped.value.output["error"]["message"]

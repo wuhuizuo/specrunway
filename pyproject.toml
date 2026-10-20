@@ -3,15 +3,15 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "hub-cli"
+name = "specrunway"
 version = "0.1.0"
-description = "Central Store Coordinator local v1: hub CLI and Spec Kit hub step bridge"
+description = "Central Store Coordinator local v1: specrunway CLI and Spec Kit specrunway step bridge"
 requires-python = ">=3.11"
 dependencies = ["PyYAML>=6.0"]
 license = { text = "MIT" }
 
 [project.scripts]
-hub = "hubcoord.cli:main"
+specrunway = "specrunway.cli:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.4"]
@@ -20,7 +20,7 @@ dev = ["pytest>=8", "ruff>=0.4"]
 where = ["src"]
 
 [tool.setuptools.package-data]
-"hubcoord.schemas" = ["*.json"]
+"specrunway.schemas" = ["*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

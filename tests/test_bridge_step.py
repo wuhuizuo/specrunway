@@ -8,22 +8,22 @@ from pathlib import Path
 
 import pytest
 
-from hubcoord.approvals import record_approval
-from hubcoord.bridge.actions import (
-    HubActionError,
+from specrunway.approvals import record_approval
+from specrunway.bridge.actions import (
+    SpecRunwayActionError,
     action_collect_summary,
     action_complete,
     action_gate_check,
     action_prepare,
 )
-from hubcoord.freezer import freeze_execution, new_execution_id
-from hubcoord.runstore import FileRunStore, atomic_write_json
+from specrunway.freezer import freeze_execution, new_execution_id
+from specrunway.runstore import FileRunStore, atomic_write_json
 
 REPO = Path(__file__).resolve().parents[1]
 SPECIFY = REPO / ".venv" / "bin" / "specify"
 TOOLS = {"openspec": "1.14.3", "spec_kit": "1.2.1", "agent_profile": "primary-coding-agent"}
 MANIFEST = {
-    "api_version": "hub/v1",
+    "api_version": "specrunway/v1",
     "store_uid": "67f80512-00d1-4b0f-b5cd-3a1aad009002",
     "change_id": "bridge-demo",
     "change_uid": "9c3e5e4e-2c2e-4b6e-8f9c-000000000001",
@@ -47,7 +47,7 @@ MANIFEST = {
 def executed(tmp_path):
     """Control checkout + a real git repo + a frozen execution in the run store."""
     control = tmp_path / "control"
-    (control / ".hub").mkdir(parents=True)
+    (control / ".specrunway").mkdir(parents=True)
     repo = tmp_path / "repo-a"
     repo.mkdir()
     subprocess.run(
@@ -106,7 +106,7 @@ def executed(tmp_path):
     )
 
     execution_id = new_execution_id()
-    store = FileRunStore(control / ".hub")
+    store = FileRunStore(control / ".specrunway")
     store.ensure_run(execution_id, "bridge-demo")
     snapshot = freeze_execution(execution_id, plans, MANIFEST, repos_cfg, TOOLS)
     atomic_write_json(store.run_dir(execution_id) / "snapshot.json", snapshot)
@@ -131,17 +131,17 @@ def _cfg(executed, action, **extra) -> dict:
 def test_prepare_returns_ordered_repos_with_base_oid(executed):
     envelope = action_prepare(_cfg(executed, "prepare"), None)
     assert envelope["ok"] is True
-    assert envelope["api_version"] == "hub/v1"
+    assert envelope["api_version"] == "specrunway/v1"
     assert envelope["data"]["repos"][0]["repo_id"] == "repo-a"
     assert len(envelope["data"]["repos"][0]["base_oid"]) == 40
     assert envelope["data"]["change_id"] == "bridge-demo"
 
 
 def test_gate_check_refuses_then_accepts_receipt(executed):
-    from hubcoord.approvals import record_approval
+    from specrunway.approvals import record_approval
 
     config = _cfg(executed, "gate-check", kinds=["plan"])
-    with pytest.raises(HubActionError) as refused:
+    with pytest.raises(SpecRunwayActionError) as refused:
         action_gate_check(config, None)
     assert refused.value.output["error"]["code"] == "no-approval"
 
@@ -177,7 +177,7 @@ def test_collect_summary_aggregates_layers(executed):
 
     executed["store"].update_state(executed["execution_id"], mutate, approved["revision"])
     result_record = {
-        "api_version": "hub/v1",
+        "api_version": "specrunway/v1",
         "execution_id": executed["execution_id"],
         "repo_id": "repo-a",
         "attempt": 1,
@@ -239,7 +239,7 @@ def test_complete_sets_ready_for_review(executed):
 
 @pytest.fixture
 def specify_control(tmp_path, executed):
-    """Initialize Specify + install the hub step shim from tooling/hubstep."""
+    """Initialize Specify + install the specrunway step shim from tooling/specrunwaystep."""
     init = subprocess.run(
         [
             str(SPECIFY),
@@ -261,9 +261,9 @@ def specify_control(tmp_path, executed):
             "workflow",
             "step",
             "add",
-            "hub",
+            "specrunway",
             "--dev",
-            str(REPO / "tooling" / "hubstep"),
+            str(REPO / "tooling" / "specrunwaystep"),
         ],
         cwd=str(executed["control"]),
         capture_output=True,
@@ -290,7 +290,7 @@ def test_installed_bridge_runs_and_finishes_ready_for_review(specify_control):
     workflow = """schema_version: "1.0"
 workflow:
   id: bridge-probe
-  name: Hub bridge probe
+  name: SpecRunway bridge probe
   version: "1.0.0"
 inputs:
   execution: {type: string, required: true}
@@ -298,7 +298,7 @@ inputs:
   plan_verdict: {type: string, default: ""}
 steps:
   - id: prepare
-    type: hub
+    type: specrunway
     action: prepare
     root: "{{ inputs.control_root }}"
     execution: "{{ inputs.execution }}"
@@ -309,7 +309,7 @@ steps:
     on_reject: abort
     verdict_input: plan_verdict
   - id: complete
-    type: hub
+    type: specrunway
     action: complete
     root: "{{ inputs.control_root }}"
     execution: "{{ inputs.execution }}"
@@ -339,7 +339,7 @@ steps:
     )
     combined = run.stdout + run.stderr
     assert run.returncode == 0, combined[-3000:]
-    # engine reports completed at the final hub step; the envelope data landed
+    # engine reports completed at the final specrunway step; the envelope data landed
     # in the coordinator run state (output.data -> FileRunStore, pinned CLI)
     assert '"status": "completed"' in run.stdout and combined
     state = store.read_state(execution_id)
@@ -347,7 +347,7 @@ steps:
 
 
 def test_prompt_states_trusted_test_command(executed):
-    from hubcoord.bridge.prompt import build_prompt
+    from specrunway.bridge.prompt import build_prompt
 
     snapshot = executed["snapshot"]
     prompt = build_prompt(

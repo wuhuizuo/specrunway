@@ -8,16 +8,16 @@ from pathlib import Path
 
 import pytest
 
-from hubcoord.freezer import freeze_execution, new_execution_id
-from hubcoord.results import (
+from specrunway.freezer import freeze_execution, new_execution_id
+from specrunway.results import (
     ResultRejected,
     accept_result,
     compute_result_digest,
     persist_result,
 )
-from hubcoord.runstore import FileRunStore, atomic_write_json
-from hubcoord.testprofiles import resolve_test_profile, run_test_command
-from hubcoord.worktrees import (
+from specrunway.runstore import FileRunStore, atomic_write_json
+from specrunway.testprofiles import resolve_test_profile, run_test_command
+from specrunway.worktrees import (
     WorktreeError,
     assert_original_preserved,
     commit_all,
@@ -28,7 +28,7 @@ from hubcoord.worktrees import (
 
 TOOLS = {"openspec": "1.14.3", "spec_kit": "1.2.1", "agent_profile": "primary-coding-agent"}
 MANIFEST = {
-    "api_version": "hub/v1",
+    "api_version": "specrunway/v1",
     "store_uid": "67f80512-00d1-4b0f-b5cd-3a1aad009002",
     "change_id": "loop-demo",
     "change_uid": "9c3e5e4e-2c2e-4b6e-8f9c-000000000001",
@@ -95,7 +95,7 @@ def loop(tmp_path):
         encoding="utf-8",
     )
 
-    store = FileRunStore(tmp_path / "control" / ".hub")
+    store = FileRunStore(tmp_path / "control" / ".specrunway")
     execution_id = new_execution_id()
     store.ensure_run(execution_id, "loop-demo")
     snapshot = freeze_execution(
@@ -122,7 +122,7 @@ def _write_result(
     worktree: Path, execution_id: str, base_oid: str, head: str, **overrides
 ) -> Path:
     result = {
-        "api_version": "hub/v1",
+        "api_version": "specrunway/v1",
         "execution_id": execution_id,
         "repo_id": "repo-a",
         "attempt": 1,
@@ -252,7 +252,7 @@ def test_wrong_execution_and_untasked_result_rejected(loop):
     stray = _write_result(loop["worktree"], execution_id, loop["base_oid"], head)
     # overwrite with an extra task id the manifest never declared
     stray_record = {
-        "api_version": "hub/v1",
+        "api_version": "specrunway/v1",
         "execution_id": execution_id,
         "repo_id": "repo-a",
         "attempt": 1,

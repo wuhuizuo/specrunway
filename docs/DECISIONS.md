@@ -11,8 +11,10 @@ Decision date: 19 October 2026. These decisions supplement the revision 2 design
 | D05 | Use OpenSpec to manage this repository's development | Maintain one set of proposal/spec/design/tasks artifacts for each change |
 | D06 | Bootstrap with upstream tools directly | Product self-hosting is unnecessary for initial development |
 | D07 | Keep portable business contracts and replaceable execution | Product business state does not depend on private engine state layout |
-| D08 | Preserve provisional `hub` / `hub/v1` identifiers | The proposed SpecRunway name is not a prerequisite or an approved rename |
+| D08 | ~~Preserve provisional `hub` / `hub/v1` identifiers~~ Superseded by D10 | Historical: the pre-release names were provisional |
 | D09 | English files; no PDF deliverable | Repository-readable Markdown is the primary code-agent handoff |
+| D10 | Rename the pre-release product to **SpecRunway** (20 October 2026, supersedes D08) | CLI `specrunway`, Python package `specrunway`, schema `specrunway/v1`, control directory `.specrunway/`, workflow step type `specrunway`, step package `tooling/specrunwaystep`. Full rename with no compatibility shims: v1 has not shipped, stored runs are disposable fixtures, and mixed identifiers would be worse than a clean break. Historical L01 probe fixtures keep their original `hub` text because they record what upstream was invoked with at that time; future replays use the new names. |
+ 
 
 ## Source of truth
 

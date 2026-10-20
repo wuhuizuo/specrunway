@@ -1,12 +1,12 @@
-"""Doctor behavior against disposable fixture wiring (hub/v1 model-backed)."""
+"""Doctor behavior against disposable fixture wiring (specrunway/v1 model-backed)."""
 
 from __future__ import annotations
 
 import yaml
 from tests.test_manifest import manifest as sample_manifest
 
-from hubcoord.doctor import run_doctor
-from hubcoord.models import load_local_config
+from specrunway.doctor import run_doctor
+from specrunway.models import load_local_config
 
 
 def _severities(report):
@@ -33,7 +33,7 @@ def test_doctor_ok_on_fixture(control_workspace):
 
 def test_doctor_walks_up_from_control_child(control_workspace, monkeypatch):
 
-    child = control_workspace["control"] / ".hub" / "runs"
+    child = control_workspace["control"] / ".specrunway" / "runs"
     child.mkdir(parents=True)
     monkeypatch.chdir(child)
     report = run_doctor()
@@ -122,7 +122,7 @@ def test_doctor_wrong_remote_identity(control_workspace):
                 **p["repos"],
                 "repo-a": {
                     **p["repos"]["repo-a"],
-                    "remote_identity": "github:example.org/other-repo",
+                    "remote_identity": "gitspecrunway:example.org/other-repo",
                 },
             },
         },
@@ -153,7 +153,7 @@ def test_doctor_agent_profile_missing_is_model_error(control_workspace):
 
 
 def test_manifest_samples_valid_against_models():
-    from hubcoord.models import validate_manifest
+    from specrunway.models import validate_manifest
 
     assert sample_manifest() == validate_manifest(sample_manifest())
 

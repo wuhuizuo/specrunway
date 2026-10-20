@@ -10,7 +10,7 @@ Before v1 release, run installed-package replays on disposable repositories. Bin
 
 ## V1-A01 Pinned tool and step contracts
 Version: v1; scope: Required.
-**Steps:** Capture --version/--help and JSON. Install the hub step. Exercise non-TTY gates, loops, fan-out, normal resume, and a killed running process.
+**Steps:** Capture --version/--help and JSON. Install the specrunway step. Exercise non-TTY gates, loops, fan-out, normal resume, and a killed running process.
 **Pass criteria:** Record behavior of the selected release. Distinguish valid and malformed responses. Main-branch documentation alone is insufficient.
 **Expected evidence:** Compatibility report; fixtures; SDK trace
 **Status:** Passed (compatibility-gate scope, open-spec/dev side; replayed at release via V1-A14)
@@ -18,7 +18,7 @@ Version: v1; scope: Required.
 
 ## V1-A02 Standalone local use and repo changes
 Version: v1; scope: Required.
-**Steps:** Install one Hub package, agreed upstream tools, and one agent. Run two Git checkouts; compare diff and untracked files before/after.
+**Steps:** Install one SpecRunway package, agreed upstream tools, and one agent. Run two Git checkouts; compare diff and untracked files before/after.
 **Pass criteria:** No server, database, or v2 dependency is needed. Business repositories contain only intended code/test changes.
 **Expected evidence:** Installation log; Git diff/status
 **Status:** Passed (live `opencode` 1.18.33 / `deepseek-flash` and fixture modes)
@@ -86,7 +86,7 @@ Version: v1; scope: Required.
 **Pass criteria:** Paused/failed runs follow upstream resume. Do not force-edit running state. A new native run may reuse verified receipts under the same execution.
 **Expected evidence:** Native-run mapping; receipt reuse
 **Status:** Passed
-**Actual evidence:** `tests/test_recovery.py` (stale plan, receipt reuse/evidence conflict, orphan dead vs live, old-run preservation); `tests/test_runner_flow.py` (`hub resume`)
+**Actual evidence:** `tests/test_recovery.py` (stale plan, receipt reuse/evidence conflict, orphan dead vs live, old-run preservation); `tests/test_runner_flow.py` (`specrunway resume`)
 
 ## V1-A11 Explicit archive and code acceptance
 Version: v1; scope: Required.

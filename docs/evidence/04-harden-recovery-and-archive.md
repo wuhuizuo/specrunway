@@ -1,5 +1,8 @@
 # Change 04 evidence: recovery and archive
 
+
+> Naming note (decision D10): transcripts below predate the SpecRunway rename. `hub`/`hubcoord` names in commands and paths are historical; current commands use `specrunway`.
+
 Commands run from the repository root with the pinned toolchain
 (specify-cli 1.2.1, OpenSpec 1.14.3). Fixtures are disposable local
 repositories; no network, database, or v2 component is involved.

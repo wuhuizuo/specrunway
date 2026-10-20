@@ -6,7 +6,7 @@ Implement local v1 of the Central Store Coordinator. The defining use case is on
 
 The confirmed stack is OpenSpec Store for authoritative specifications, our coordinator for cross-repository business rules, Specify workflow for runtime control flow, and one real coding-agent CLI for code execution. Specstride is excluded: add no dependency, adapter, prototype, or benchmark for it.
 
-Use the existing `hub` CLI and `hub/v1` data names as provisional implementation contracts. SpecRunway was only a naming candidate. Do not consume the first milestone on a brand rename.
+The product is **SpecRunway**: `specrunway` CLI, `specrunway` Python package, `specrunway/v1` data schema, `.specrunway/` control directory, and workflow step type `specrunway`. Decision D10 supersedes the earlier provisional-name rule; keep code, docs, and fixtures on the new names.
 
 ## Read before editing
 

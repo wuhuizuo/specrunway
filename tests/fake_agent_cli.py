@@ -37,7 +37,7 @@ def main() -> int:
     base_oid = _field(prompt, "base_oid")
     repo_order = ast.literal_eval(_field(prompt, "repo_order"))
     allowed_paths = ast.literal_eval(_field(prompt, "allowed_paths"))
-    repo_id = re.search(r"# Hub execution prompt: .* / (.+)$", prompt, re.MULTILINE).group(1)
+    repo_id = re.search(r"# SpecRunway execution prompt: .* / (.+)$", prompt, re.MULTILINE).group(1)
     attempt = int(_field(prompt, "attempt"))
     tasks = TASK_RE.findall(prompt)
 
@@ -50,8 +50,8 @@ def main() -> int:
             f"# implemented by the fake agent for {task_id}\nVALUE = {{'task': '{task_id}'}}\n",
             encoding="utf-8",
         )
-    scenario = os.environ.get("HUB_FAKE_SCENARIO", "pass")
-    fail_before = int(os.environ.get("HUB_FAKE_FAIL_BEFORE", "0"))
+    scenario = os.environ.get("SPECRUNWAY_FAKE_SCENARIO", "pass")
+    fail_before = int(os.environ.get("SPECRUNWAY_FAKE_FAIL_BEFORE", "0"))
     failed_run = (
         scenario == "fail"
         or (scenario == "noop")
@@ -102,7 +102,7 @@ def main() -> int:
             text=True,
         ).stdout.split()
     record = {
-        "api_version": "hub/v1",
+        "api_version": "specrunway/v1",
         "execution_id": execution_id,
         "repo_id": repo_id,
         "attempt": attempt,

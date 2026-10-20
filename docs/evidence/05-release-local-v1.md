@@ -1,5 +1,8 @@
 # Change 05 evidence: local v1 release replays
 
+
+> Naming note (decision D10): transcripts below predate the SpecRunway rename. `hub`/`hubcoord` names in commands and paths are historical; current commands use `specrunway`.
+
 Pinned toolchain: OpenSpec 1.14.3 (npm lock in `tooling/openspec/`),
 specify-cli 1.2.1 (`v1.2.1`, commit 9dca9bf42), Python 3.14.5, real agent
 CLI profile `opencode` 1.18.33 (default model `deepseek-flash`; argv `opencode run --auto --pure "<fixed message>" --file <prompt>`).

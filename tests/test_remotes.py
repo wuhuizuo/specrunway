@@ -4,16 +4,16 @@ from __future__ import annotations
 
 import pytest
 
-from hubcoord.remotes import normalize_identity, normalize_remote_url, remote_matches
+from specrunway.remotes import normalize_identity, normalize_remote_url, remote_matches
 
 CASES = [
-    ("github:example.org/repo-a", "https://github.com/example.org/repo-a.git", True),
-    ("github:example.org/repo-a", "git@github.com:example.org/repo-b.git", False),
-    ("github:example.org/repo-a", "ssh://git@github.com/example.org/repo-a.git", True),
+    ("gitspecrunway:example.org/repo-a", "https://gitspecrunway.com/example.org/repo-a.git", True),
+    ("gitspecrunway:example.org/repo-a", "git@gitspecrunway.com:example.org/repo-b.git", False),
+    ("gitspecrunway:example.org/repo-a", "ssh://git@gitspecrunway.com/example.org/repo-a.git", True),
     ("https://example.org/acme/lib.git", "https://example.org/acme/lib.git", True),
     ("https://example.org/acme/lib.git", "https://example.org/acme/other.git", False),
-    ("git@github.com:example.org/repo-b.git", "git@github.com:example.org/repo-b.git", True),
-    ("github:example.org/repo-a", "https://github.com/example.org/repo-a", True),
+    ("git@gitspecrunway.com:example.org/repo-b.git", "git@gitspecrunway.com:example.org/repo-b.git", True),
+    ("gitspecrunway:example.org/repo-a", "https://gitspecrunway.com/example.org/repo-a", True),
 ]
 
 
@@ -23,14 +23,14 @@ def test_matches(identity: str, url: str, expected: bool):
 
 
 def test_normalize_identity_shorthand():
-    assert normalize_identity("github:example.org/repo-a") == (
-        "github.com",
+    assert normalize_identity("gitspecrunway:example.org/repo-a") == (
+        "gitspecrunway.com",
         "example.org/repo-a",
     )
 
 
 def test_normalize_url_scp():
-    assert normalize_remote_url("git@github.com:example.org/repo-b.git") == (
-        "github.com",
+    assert normalize_remote_url("git@gitspecrunway.com:example.org/repo-b.git") == (
+        "gitspecrunway.com",
         "example.org/repo-b.git",
     )

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from hubcoord.launcher import (
+from specrunway.launcher import (
     PROFILES,
     AgentProfile,
     cancel,
@@ -17,13 +17,13 @@ from hubcoord.launcher import (
     resolve_profile,
     run_agent,
 )
-from hubcoord.models.common import ValidationError
+from specrunway.models.common import ValidationError
 
 FAKE_OK_TEMPLATE = """
 import json, pathlib
 prompt = pathlib.Path({prompt_path!r}).read_text()
 pathlib.Path("wrote.txt").write_text("seen:" + prompt[:20])
-result = {{"api_version": "hub/v1", "status": "done"}}
+result = {{"api_version": "specrunway/v1", "status": "done"}}
 pathlib.Path("result.json").write_text(json.dumps(result))
 print("fake agent ok")
 """

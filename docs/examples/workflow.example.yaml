@@ -1,6 +1,6 @@
 schema_version: "1.0"
 workflow:
-  id: hub-local-feature
+  id: specrunway-local-feature
   name: Local OpenSpec Feature
   version: "1.0.0"
 inputs:
@@ -9,7 +9,7 @@ inputs:
   implementation_verdict: {type: string, default: ""}
 steps:
   - id: prepare
-    type: hub
+    type: specrunway
     action: prepare
     execution: "{{ inputs.execution }}"
   - id: plan-review
@@ -24,7 +24,7 @@ steps:
     max_concurrency: 1
     step:
       id: repo
-      type: hub
+      type: specrunway
       action: run-repo
       execution: "{{ inputs.execution }}"
       repo: "{{ item }}"
@@ -38,11 +38,11 @@ steps:
     max_iterations: 3
     steps:
       - id: verify-round
-        type: hub
+        type: specrunway
         action: verify-round
         execution: "{{ inputs.execution }}"
   - id: require-green
-    type: hub
+    type: specrunway
     action: assert-green
     execution: "{{ inputs.execution }}"
   - id: implementation-review
@@ -52,6 +52,6 @@ steps:
     on_reject: abort
     verdict_input: implementation_verdict
   - id: ready
-    type: hub
+    type: specrunway
     action: record-ready
     execution: "{{ inputs.execution }}"

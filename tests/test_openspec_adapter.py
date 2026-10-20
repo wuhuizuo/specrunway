@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-import hubcoord.openspec_adapter as adapter_module
-from hubcoord.openspec_adapter import OpenSpecAdapter, OpenSpecProtocolError
+import specrunway.openspec_adapter as adapter_module
+from specrunway.openspec_adapter import OpenSpecAdapter, OpenSpecProtocolError
 
 REPO = Path(__file__).resolve().parents[1]
 OPENSPEC_BIN = REPO / "tooling" / "openspec" / "node_modules" / ".bin" / "openspec"

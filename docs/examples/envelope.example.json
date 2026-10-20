@@ -1,5 +1,5 @@
 {
-  "api_version": "hub/v1",
+  "api_version": "specrunway/v1",
   "action": "run-repo",
   "ok": true,
   "store_uid": "67f80512-00d1-4b0f-b5cd-3a1aad009002",

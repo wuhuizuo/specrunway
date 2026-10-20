@@ -1,11 +1,11 @@
-hub doctor
-hub plan add-global-rate-limit --store engineering --request request.txt
-hub run add-global-rate-limit --store engineering
+specrunway doctor
+specrunway plan add-global-rate-limit --store engineering --request request.txt
+specrunway run add-global-rate-limit --store engineering
 # Inspect the review pack, approve its digest, then continue.
-hub approve <execution-id> --kind plan
-hub resume <execution-id>
-hub status <execution-id>
-hub approve <execution-id> --kind implementation
-hub resume <execution-id>
+specrunway approve <execution-id> --kind plan
+specrunway resume <execution-id>
+specrunway status <execution-id>
+specrunway approve <execution-id> --kind implementation
+specrunway resume <execution-id>
 # After the selected completion policy is satisfied:
-hub archive <execution-id>
+specrunway archive <execution-id>

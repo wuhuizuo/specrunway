@@ -31,7 +31,7 @@ Sharing v1 configuration through Git does not provide coordinated team execution
 
 ### 1.2 Responsibilities and invariants
 
-OpenSpec Store is the source of truth for specifications and change plans. Spec Kit controls workflow execution. Hub is the proposed CLI, thin adapters, and business data contracts. Hub does not run the default speckit.specify/plan/tasks flow to generate a competing specification set. Complete planning artifacts do not prove that implementation is complete. Task acceptance needs real code and test evidence; archive needs an explicit completion decision.
+OpenSpec Store is the source of truth for specifications and change plans. Spec Kit controls workflow execution. SpecRunway is the proposed CLI, thin adapters, and business data contracts. SpecRunway does not run the default speckit.specify/plan/tasks flow to generate a competing specification set. Complete planning artifacts do not prove that implementation is complete. Task acceptance needs real code and test evidence; archive needs an explicit completion decision.
 
 Use stable store_uid, change_uid, repo_id, and task_id values. Each business execution has its own execution_id. A Spec Kit run_id identifies one native orchestration run; an interrupted execution may later reference another native run. Absolute repository paths belong to machine configuration and never to the portable Store manifest.
 
@@ -41,7 +41,7 @@ The official main-branch documentation checked on 19 October 2026 describes cust
 
 Use OpenSpec Store as a separate planning repository and pass --store explicitly in production calls. Git synchronization remains an operator action in v1 and a publisher responsibility in v2. Worksets control working-directory visibility; they do not replace task routing or authorization. Record planning status separately from implementation evidence. Archive applies specification deltas and moves the change into history. [R2][R3]
 
-All hub commands, type: hub actions, hub/v1 fields, and team API routes in this document are interfaces to implement. Examples define the intended contract. L01 confirms the exact SDK/CLI integration at pinned versions; documentation on main alone is not a compatibility guarantee for a released package.
+All specrunway commands, type: specrunway actions, specrunway/v1 fields, and team API routes in this document are interfaces to implement. Examples define the intended contract. L01 confirms the exact SDK/CLI integration at pinned versions; documentation on main alone is not a compatibility guarantee for a released package.
 
 ## 2 v1: local implementation design
 
@@ -49,20 +49,20 @@ All hub commands, type: hub actions, hub/v1 fields, and team API routes in this 
 
 ### 2.1 Installation and directory layout
 
-Install one Python package that provides the hub CLI and its Spec Kit step bridge. External tools are Git, OpenSpec, Spec Kit, and one coding-agent CLI actually used by the implementer. Support that one agent profile first. Initialize Spec Kit and install type: hub once in the central control repository; do not initialize the tools inside every business repository.
+Install one Python package that provides the specrunway CLI and its Spec Kit step bridge. External tools are Git, OpenSpec, Spec Kit, and one coding-agent CLI actually used by the implementer. Support that one agent profile first. Initialize Spec Kit and install type: specrunway once in the central control repository; do not initialize the tools inside every business repository.
 
-Use two Git repositories: engineering-control holds the Hub package, workflows, rules, schemas, and profiles; engineering-plans holds OpenSpec specifications and changes. They can live in adjacent local directories linked by local.yaml. Runtime data lives in an ignored .hub directory under the control checkout. v1 has no listening port, resident service, database, broker, or account system.
+Use two Git repositories: engineering-control holds the SpecRunway package, workflows, rules, schemas, and profiles; engineering-plans holds OpenSpec specifications and changes. They can live in adjacent local directories linked by local.yaml. Runtime data lives in an ignored .specrunway directory under the control checkout. v1 has no listening port, resident service, database, broker, or account system.
 
 | Location | Contents | In Git? |
 | --- | --- | --- |
-| control/workflows and Hub package | Workflows, typed adapters, profiles, schemas | Yes |
+| control/workflows and SpecRunway package | Workflows, typed adapters, profiles, schemas | Yes |
 | plans/openspec | Configuration, specifications, changes, archive | Yes |
-| plans/hub/changes/<change> | Hub execution.yaml and selected final summaries | Yes |
+| plans/specrunway/changes/<change> | SpecRunway execution.yaml and selected final summaries | Yes |
 | control/local.yaml | Store/repo paths and agent executable mapping | No |
-| control/.hub/runs/<execution_id> | Snapshots, state, approvals, receipts, logs, worktrees | No |
+| control/.specrunway/runs/<execution_id> | Snapshots, state, approvals, receipts, logs, worktrees | No |
 | control/.specify/workflows/runs | Native Spec Kit private execution state | No |
 
-Keep Hub extensions under hub/ in the planning repository. Do not add unsupported fields to upstream .openspec.yaml. A stable change_uid maintains the association when OpenSpec moves a change during archive. Use verified single-level capability IDs such as api-rate-limit; do not assume nested specification namespaces are supported.
+Keep SpecRunway extensions under specrunway/ in the planning repository. Do not add unsupported fields to upstream .openspec.yaml. A stable change_uid maintains the association when OpenSpec moves a change during archive. Use verified single-level capability IDs such as api-rate-limit; do not assume nested specification namespaces are supported.
 
 ### 2.2 Minimum package modules
 
@@ -73,7 +73,7 @@ Keep Hub extensions under hub/ in the planning repository. Do not add unsupporte
 | openspec | Explicit-Store CLI calls and response mapping | argv calls; preserve raw response references |
 | local_runtime | File state, exclusion, worktrees, processes | Atomic JSON; one active execution; synchronous waits |
 | agent and tests | Context, agent invocation, independent tests | One agent profile; explicit test argv |
-| speckit_bridge | One type: hub step package | Delegate actions to package functions and return one envelope |
+| speckit_bridge | One type: specrunway step package | Delegate actions to package functions and return one envelope |
 
 These are modules within one package. Retain only three narrow ports: RunStore, Executor, and ArtifactStore. v1 implements FileRunStore, LocalExecutor, and LocalArtifacts. Add durable team implementations in v2. Do not build a provider plugin system, general scheduler, or empty microservices for future capabilities.
 
@@ -84,7 +84,7 @@ The planner explicitly identifies affected repositories, tasks per repository, a
 v1 permits one-way cross-repository dependencies. A repo depends_on entry must point to an earlier repository in repo_order. Within a repository, task instructions define any local ordering. Split a change that needs cross-repository backtracking or multiple waves, or defer that scenario to the explicit v2 DAG. Downstream work consumes an accepted upstream commit and contract, rather than a mutable branch name.
 
 ```yaml
-api_version: hub/v1
+api_version: specrunway/v1
 store_uid: 67f80512-00d1-4b0f-b5cd-3a1aad009002
 change_id: add-global-rate-limit
 change_uid: b7c9aeb5-0cd5-4ea5-a66e-0f3414b9a244
@@ -114,7 +114,7 @@ budget:
   total_minutes: 120
 ```
 
-This manifest belongs to Hub; it is not an OpenSpec native schema. tasks.md owns task wording and checkbox state. The manifest owns routing and does not duplicate completion checkboxes. Reject duplicate/missing/unmapped task IDs, unknown repositories/profiles, invalid dependency order, unsafe paths, and missing acceptance coverage. v2 reads the same fields and may add optional task_edges for finer dependencies.
+This manifest belongs to SpecRunway; it is not an OpenSpec native schema. tasks.md owns task wording and checkbox state. The manifest owns routing and does not duplicate completion checkboxes. Reject duplicate/missing/unmapped task IDs, unknown repositories/profiles, invalid dependency order, unsafe paths, and missing acceptance coverage. v2 reads the same fields and may add optional task_edges for finer dependencies.
 
 ```yaml
 # local.yaml: machine-only, excluded from Git
@@ -124,10 +124,10 @@ store:
 repos:
   api-server:
     path: /work/src/api-server
-    remote_identity: github:example-org/api-server
+    remote_identity: gitspecrunway:example-org/api-server
   operator:
     path: /work/src/operator
-    remote_identity: github:example-org/operator
+    remote_identity: gitspecrunway:example-org/operator
 agent_profile: primary-coding-agent
 max_workers: 1
 ```
@@ -137,33 +137,33 @@ Test profiles use argv arrays, for example ["go", "test", "./controllers/..."]. 
 ### 2.4 Commands and user flow
 
 ```bash
-hub doctor
-hub plan add-global-rate-limit --store engineering --request request.txt
-hub run add-global-rate-limit --store engineering
+specrunway doctor
+specrunway plan add-global-rate-limit --store engineering --request request.txt
+specrunway run add-global-rate-limit --store engineering
 # Inspect the review pack, approve its digest, then continue.
-hub approve <execution-id> --kind plan
-hub resume <execution-id>
-hub status <execution-id>
-hub approve <execution-id> --kind implementation
-hub resume <execution-id>
+specrunway approve <execution-id> --kind plan
+specrunway resume <execution-id>
+specrunway status <execution-id>
+specrunway approve <execution-id> --kind implementation
+specrunway resume <execution-id>
 # After the selected completion policy is satisfied:
-hub archive <execution-id>
+specrunway archive <execution-id>
 ```
 
 plan creates the change, follows upstream status/instructions to generate missing planning artifacts, validates them, and stops. A user may also prepare the plan manually or with an existing OpenSpec agent and start with run. run freezes the manifest/context, creates the execution, and starts the Spec Kit workflow. The first gate pauses for plan review. approve displays the subject digest and records local confirmation; resume checks it before supplying a native gate verdict.
 
-After implementation and trusted verification, Hub builds a code review pack. A second approval allows the workflow to finish at ready_for_review. This means the implementation evidence was reviewed; code merging, specification archive, and deployment remain separate actions. archive is an explicit command. Rejection, failure, or exhausted budget preserves worktrees and reports for human takeover.
+After implementation and trusted verification, SpecRunway builds a code review pack. A second approval allows the workflow to finish at ready_for_review. This means the implementation evidence was reviewed; code merging, specification archive, and deployment remain separate actions. archive is an explicit command. Rejection, failure, or exhausted budget preserves worktrees and reports for human takeover.
 
 ### 2.5 Reuse Spec Kit control flow
 
-One type: hub package implements a small set of actions: prepare, run-repo, verify-round, assert-green, and record-ready. Keep native approval gates outside fan-out. Default max_concurrency to 1 and aggregate repository results through fan-in. A bounded loop runs the initial integration test and at most two repair rounds. An ordinary failed test returns a completed step with data.passed=false; launch failures, protocol errors, and exhausted budgets return failed.
+One type: specrunway package implements a small set of actions: prepare, run-repo, verify-round, assert-green, and record-ready. Keep native approval gates outside fan-out. Default max_concurrency to 1 and aggregate repository results through fan-in. A bounded loop runs the initial integration test and at most two repair rounds. An ordinary failed test returns a completed step with data.passed=false; launch failures, protocol errors, and exhausted budgets return failed.
 
-The following proposed workflow begins from a prepared plan. prepare returns frozen context and ordered repositories. run-repo synchronously waits for the local agent and independent tests. verify-round only tests on its first round, then performs targeted repairs before retesting. Persist rounds and budgets in Hub state so resume cannot reset them.
+The following proposed workflow begins from a prepared plan. prepare returns frozen context and ordered repositories. run-repo synchronously waits for the local agent and independent tests. verify-round only tests on its first round, then performs targeted repairs before retesting. Persist rounds and budgets in SpecRunway state so resume cannot reset them.
 
 ```yaml
 schema_version: "1.0"
 workflow:
-  id: hub-local-feature
+  id: specrunway-local-feature
   name: Local OpenSpec Feature
   version: "1.0.0"
 inputs:
@@ -172,7 +172,7 @@ inputs:
   implementation_verdict: {type: string, default: ""}
 steps:
   - id: prepare
-    type: hub
+    type: specrunway
     action: prepare
     execution: "{{ inputs.execution }}"
   - id: plan-review
@@ -187,7 +187,7 @@ steps:
     max_concurrency: 1
     step:
       id: repo
-      type: hub
+      type: specrunway
       action: run-repo
       execution: "{{ inputs.execution }}"
       repo: "{{ item }}"
@@ -201,11 +201,11 @@ steps:
     max_iterations: 3
     steps:
       - id: verify-round
-        type: hub
+        type: specrunway
         action: verify-round
         execution: "{{ inputs.execution }}"
   - id: require-green
-    type: hub
+    type: specrunway
     action: assert-green
     execution: "{{ inputs.execution }}"
   - id: implementation-review
@@ -215,7 +215,7 @@ steps:
     on_reject: abort
     verdict_input: implementation_verdict
   - id: ready
-    type: hub
+    type: specrunway
     action: record-ready
     execution: "{{ inputs.execution }}"
 ```
@@ -224,9 +224,9 @@ L01 tests loop alias visibility, fan-out item order, outputs, and resume semanti
 
 ### 2.6 Worktrees, context, and result acceptance
 
-Create a separate Git worktree for each repository under .hub/runs/<execution>/worktrees. Resolve base_ref to a commit OID when freezing. Do not copy uncommitted changes from the original checkout or overwrite them. Pass the agent only its tasks, approved plan, organization rules, existing repository instructions, dependency results, and test feedback. Set cwd explicitly. No /opsx installation is required in business repositories.
+Create a separate Git worktree for each repository under .specrunway/runs/<execution>/worktrees. Resolve base_ref to a commit OID when freezing. Do not copy uncommitted changes from the original checkout or overwrite them. Pass the agent only its tasks, approved plan, organization rules, existing repository instructions, dependency results, and test feedback. Set cwd explicitly. No /opsx installation is required in business repositories.
 
-The agent writes result.json. The CLI independently checks execution/repo/task IDs, context digest, head commit, Git ancestry, changed paths, and test receipts. Tests run through the CLI or a trusted CI runner. Agent prose claiming success is insufficient. Once evidence is accepted, one Hub writer updates the matching tasks.md checkboxes. Cross-repository integration tasks are accepted only after the final combined matrix passes.
+The agent writes result.json. The CLI independently checks execution/repo/task IDs, context digest, head commit, Git ancestry, changed paths, and test receipts. Tests run through the CLI or a trusted CI runner. Agent prose claiming success is insufficient. Once evidence is accepted, one SpecRunway writer updates the matching tasks.md checkboxes. Cross-repository integration tasks are accepted only after the final combined matrix passes.
 
 v1 assumes a trusted local operator and agent. A worktree keeps ordinary edits separate but does not sandbox a malicious process running as the same OS user. Local approval provides confirmation and drift detection, not enterprise identity or tamper-resistant audit. Enforced isolation requires actual OS/container controls or the team worker boundary; manifest path declarations alone are not permissions.
 
@@ -246,9 +246,9 @@ Allow one active execution per control/Store checkout. Every mutating CLI comman
 
 ### 2.8 Normal resume and abnormal recovery
 
-For a native gate pause or retryable failure, hub resume uses the upstream resume API. The currently documented contract allows paused/failed runs and retains completed occurrences. Revalidate frozen resources and reusable external results. A persistent execution tree does not make an external effect exactly once when a crash occurs before the corresponding native or Hub receipt. [R1]
+For a native gate pause or retryable failure, specrunway resume uses the upstream resume API. The currently documented contract allows paused/failed runs and retains completed occurrences. Revalidate frozen resources and reusable external results. A persistent execution tree does not make an external effect exactly once when a crash occurs before the corresponding native or SpecRunway receipt. [R1]
 
-After an abrupt exit, inspect process groups and process creation identity before assuming the agent/tests stopped. If native state remains running, hub recover neither edits its private state.json nor starts duplicate work. Reconcile first, mark the Hub execution interrupted, then create a new native run associated with the same execution_id. The custom step reuses verified approvals and repository results through stable operation keys. Retain the old native run for diagnosis.
+After an abrupt exit, inspect process groups and process creation identity before assuming the agent/tests stopped. If native state remains running, specrunway recover neither edits its private state.json nor starts duplicate work. Reconcile first, mark the SpecRunway execution interrupted, then create a new native run associated with the same execution_id. The custom step reuses verified approvals and repository results through stable operation keys. Retain the old native run for diagnosis.
 
 Record only the small set of actual local side effects. An operation key contains execution, action, repo/task scope, attempt, and input_digest. Write intent before starting a recoverable repository attempt, accepting tasks, or archiving. Reconcile uncertain results against Git, result files, and archive state. When an agent attempt cannot be proven complete, preserve its worktree for a human retry decision. Do not promise exact continuation of an arbitrary model conversation.
 
@@ -264,7 +264,7 @@ Before archive, verify task evidence, completion policy, final confirmation, a c
 
 ### 2.10 v1 release gate
 
-- A fresh installation of one Hub package and the agreed external tools completes planning, sequential work in two repositories, and integration verification.
+- A fresh installation of one SpecRunway package and the agreed external tools completes planning, sequential work in two repositories, and integration verification.
 - Both local approvals, bounded repair, normal resume, abnormal takeover, and explicit archive work without any team service.
 - Business repositories need no new tool scaffolding. Original checkouts stay intact. Approval and tests bind to actual content.
 - All V1-A01 through V1-A14 cases pass. Keep replays for a normal run, a deliberate failure/repair, and abnormal recovery.
@@ -291,7 +291,7 @@ The first deployment may place API, publisher, and orchestrator management on on
 
 ### 3.2 Shared core and backend selection
 
-Keep the user intent of plan/run/status/approve/resume/archive. --backend local calls the local core; --backend team calls the API. Reuse hub/v1 manifests, snapshots, tasks, results, and approval shapes. The server independently validates schema, identity, project permission, scope/digest, and budgets, even when client preflight succeeded.
+Keep the user intent of plan/run/status/approve/resume/archive. --backend local calls the local core; --backend team calls the API. Reuse specrunway/v1 manifests, snapshots, tasks, results, and approval shapes. The server independently validates schema, identity, project permission, scope/digest, and budgets, even when client preflight succeeded.
 
 Replacing JSON with database tables alone does not create a team service. v2 adds trusted identity, durable jobs, orchestrator ownership, remote paths, a single Store publisher, and shared evidence. Do not translate Spec Kit private state into PostgreSQL. Store its run ID, workspace, owner, image/version, and digest indexes in PostgreSQL while preserving native state in its own workspace.
 
@@ -307,7 +307,7 @@ Replacing JSON with database tables alone does not create a team service. v2 add
 | POST .../{e}/archive | Final approval and completion digest | Publisher rechecks Store and code digests |
 | GET .../{e}/artifacts/{a} | Authorized ref; returns bytes or temporary access | Project/hash checks; no arbitrary local path |
 
-Product v2 uses transport API /api/v1; business data remains hub/v1. Return 401 for unauthenticated calls, 403 for denied access, 409 for revision/digest conflicts, and 422 for invalid input. Quota decisions return explicit queued or rate-limited responses. Include request_id, execution_id, and a stable error code. Do not expose secrets, raw internal command lines, or private state trees as API output.
+Product v2 uses transport API /api/v1; business data remains specrunway/v1. Return 401 for unauthenticated calls, 403 for denied access, 409 for revision/digest conflicts, and 422 for invalid input. Quota decisions return explicit queued or rate-limited responses. Include request_id, execution_id, and a stable error code. Do not expose secrets, raw internal command lines, or private state trees as API output.
 
 Minimum roles are viewer, operator, reviewer, and project-admin. Viewers read project data. Operators submit and resume permitted work. Reviewers approve within an assigned scope. Administrators manage repository/profile bindings and membership. A project policy decides whether an initiator may self-review, enforced on every relevant server action. Request bodies cannot choose a trusted actor or promote local self_asserted approval into authorization.
 
@@ -324,7 +324,7 @@ Minimum roles are viewer, operator, reviewer, and project-admin. Viewers read pr
 
 Write execution/job records and outbox entries in one transaction. A dispatcher publishes pending messages; a consumer looks up the logical job key and attaches to existing work on duplicate delivery. Commit accepted-result receipts and state updates consistently. Broker acknowledgement does not prove business completion, and worker success does not mean a task was accepted. Cancellation, timeout, and retry each produce explicit attempt or terminal state.
 
-Each execution has one orchestrator owner at a time, holding an epoch. It uses an exclusive persistent .specify workspace and pinned tool/step image. A gate pause may exit the process; resume remounts the same workspace. An orphan running run follows the native contract plus Hub reconciliation. Never resume it concurrently on two machines. Confirm the old process stopped before takeover, then increment the epoch and reject every stale-owner publication request.
+Each execution has one orchestrator owner at a time, holding an epoch. It uses an exclusive persistent .specify workspace and pinned tool/step image. A gate pause may exit the process; resume remounts the same workspace. An orphan running run follows the native contract plus SpecRunway reconciliation. Never resume it concurrently on two machines. Confirm the old process stopped before takeover, then increment the epoch and reject every stale-owner publication request.
 
 Do not let orchestrators share a writable native run directory. Do not build team state on network-shared SQLite or assume an upstream remote state backend exists. Backups need the database, native workspaces, frozen context bytes, and artifact index. Database backup alone cannot restore an unfinished native workflow.
 
@@ -363,11 +363,11 @@ Before release, run normal, repair, pause, and owner-rebuild paths with two peop
 | OperationReceipt | Operation key, input digest, intent/status, before/after, evidence | v1 files; v2 durable idempotency records |
 | Completion | Accepted code matrix, tests, approvals, policy, archive receipt | Separate historical records from executable state |
 
-OpenSpec owns planning artifacts and checkboxes. Spec Kit owns native step position. Hub owns external results and operation receipts; v2 adds jobs and owners. Do not reproduce a complete business state machine in tasks.md. Public Hub phases are planned, awaiting_plan_review, implementing, verifying, awaiting_implementation_review, ready_for_review, and archived, with blocked/interrupted/cancelled outcomes. Report native-run and job status separately.
+OpenSpec owns planning artifacts and checkboxes. Spec Kit owns native step position. SpecRunway owns external results and operation receipts; v2 adds jobs and owners. Do not reproduce a complete business state machine in tasks.md. Public SpecRunway phases are planned, awaiting_plan_review, implementing, verifying, awaiting_implementation_review, ready_for_review, and archived, with blocked/interrupted/cancelled outcomes. Report native-run and job status separately.
 
 ```json
 {
-  "api_version": "hub/v1",
+  "api_version": "specrunway/v1",
   "action": "run-repo",
   "ok": true,
   "store_uid": "67f80512-00d1-4b0f-b5cd-3a1aad009002",
@@ -506,13 +506,13 @@ Deliver machine-checkable manifest, snapshot, result, approval, and receipt sche
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:hub:approval:v1",
+  "$id": "urn:specrunway:approval:v1",
   "type": "object",
   "additionalProperties": false,
   "required": ["api_version", "execution_id", "kind", "decision",
     "subject_digest", "scope", "actor", "auth_level", "timestamp"],
   "properties": {
-    "api_version": {"const": "hub/v1"},
+    "api_version": {"const": "specrunway/v1"},
     "execution_id": {"type": "string", "format": "uuid"},
     "kind": {"enum": ["plan", "implementation", "archive"]},
     "decision": {"enum": ["approve", "reject"]},
@@ -534,16 +534,16 @@ openspec new change add-global-rate-limit --store engineering --json
 openspec status --change add-global-rate-limit --store engineering --json
 openspec instructions apply --change add-global-rate-limit --store engineering --json
 openspec validate add-global-rate-limit --type change --store engineering --strict --json
-# Archive only after Hub checks explicit completion approval.
+# Archive only after SpecRunway checks explicit completion approval.
 openspec archive add-global-rate-limit --store engineering --yes
 ```
 
-Invoke actual commands with argv arrays. Parse JSON stdout and retain stderr for diagnosis. Verify archive output flags against the selected --help; do not assume every command accepts a uniform --json option. Install one type: hub package with step.yml and __init__.py at its root. Its Python execute maps config/context to typed requests and calls core functions in the same package. [R1][R3]
+Invoke actual commands with argv arrays. Parse JSON stdout and retain stderr for diagnosis. Verify archive output flags against the selected --help; do not assume every command accepts a uniform --json option. Install one type: specrunway package with step.yml and __init__.py at its root. Its Python execute maps config/context to typed requests and calls core functions in the same package. [R1][R3]
 
 ```yaml
 step:
-  type_key: hub
-  name: Local and Team Hub Bridge
+  type_key: specrunway
+  name: Local and Team SpecRunway Bridge
   version: "1.0.0"
   author: Engineering
   description: Typed OpenSpec and execution operations
@@ -554,10 +554,10 @@ step:
 These sources support upstream capability statements. The local/team architecture, proposed interfaces, budgets, stages, and effort estimates are design choices in this document. Save actual release identifiers, source/document digests, and fixture evidence during implementation. Main-branch documentation changes over time; historical candidate versions and outdated recovery assumptions are not support commitments.
 
 [R1] Spec Kit workflow reference. Custom steps, gates, loops, fan-out/fan-in, execution tree, normal resume, and execution trust boundary. Accessed 19 October 2026.
-https://github.com/github/spec-kit/blob/main/docs/reference/workflows.md
+https://gitspecrunway.com/gitspecrunway/spec-kit/blob/main/docs/reference/workflows.md
 
 [R2] OpenSpec Stores beta guide. Store registration, Git synchronization, and workset boundaries. Accessed 19 October 2026.
-https://github.com/Fission-AI/OpenSpec/blob/main/docs/stores-beta/user-guide.md
+https://gitspecrunway.com/Fission-AI/OpenSpec/blob/main/docs/stores-beta/user-guide.md
 
 [R3] OpenSpec CLI reference. Status, instructions, validation, archive, and planning versus implementation completion. Accessed 19 October 2026.
-https://github.com/Fission-AI/OpenSpec/blob/main/docs/cli.md
+https://gitspecrunway.com/Fission-AI/OpenSpec/blob/main/docs/cli.md

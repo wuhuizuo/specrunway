@@ -9,24 +9,24 @@ from pathlib import Path
 import pytest
 import yaml
 
-from hubcoord.approvals import (
+from specrunway.approvals import (
     GateError,
     approval_path,
     record_approval,
     require_gate,
     verify_frozen_approval,
 )
-from hubcoord.cli import main as hub_main
-from hubcoord.freezer import (
+from specrunway.cli import main as specrunway_main
+from specrunway.freezer import (
     compute_context_digest,
     compute_planning_digest,
     freeze_execution,
     is_snapshot_immutable,
     new_execution_id,
 )
-from hubcoord.models.common import json_digest, strip_checkbox_markers
-from hubcoord.models.records import validate_result
-from hubcoord.runstore import FileRunStore, atomic_write_json
+from specrunway.models.common import json_digest, strip_checkbox_markers
+from specrunway.models.records import validate_result
+from specrunway.runstore import FileRunStore, atomic_write_json
 
 REPO = Path(__file__).resolve().parents[1]
 OPENSPEC_BIN = REPO / "tooling" / "openspec" / "node_modules" / ".bin" / "openspec"
@@ -80,7 +80,7 @@ def frozen(tmp_path):
     )
 
     control = tmp_path / "control"
-    (control / ".hub").mkdir(parents=True)
+    (control / ".specrunway").mkdir(parents=True)
     repos = {}
     for repo_id in ("repo-a", "repo-b"):
         path = tmp_path / repo_id
@@ -125,7 +125,7 @@ def frozen(tmp_path):
         encoding="utf-8",
     )
     manifest = {
-        "api_version": "hub/v1",
+        "api_version": "specrunway/v1",
         "store_uid": "67f80512-00d1-4b0f-b5cd-3a1aad009002",
         "change_id": "freeze-demo",
         "change_uid": "9c3e5e4e-2c2e-4b6e-8f9c-000000000001",
@@ -152,7 +152,7 @@ def frozen(tmp_path):
         "integration_profile": "e2e",
     }
 
-    store = FileRunStore(control / ".hub")
+    store = FileRunStore(control / ".specrunway")
     execution_id = new_execution_id()
     state_dir = store.ensure_run(execution_id, "freeze-demo")
     snapshot = freeze_execution(execution_id, change_path, manifest, repos, TOOLS)
@@ -241,7 +241,7 @@ def test_approve_records_self_asserted_receipt(frozen):
     )
     assert record["auth_level"] == "self_asserted"
     assert record["subject_digest"] == frozen["snapshot"]["planning_digest"]
-    expected = approval_path(store.hub_root, execution_id, "plan")
+    expected = approval_path(store.specrunway_root, execution_id, "plan")
     assert expected.is_file()
     state = store.read_state(execution_id)
     assert state["approvals"]["plan"]["subject_digest"] == frozen["snapshot"]["planning_digest"]
@@ -300,7 +300,7 @@ def test_changed_approved_input_invalidates_approval(frozen):
         tasks_file.read_text(encoding="utf-8").replace("First work item.", "Dangerous edit"),
         encoding="utf-8",
     )
-    from hubcoord.freezer import compute_planning_digest
+    from specrunway.freezer import compute_planning_digest
 
     recomputed = compute_planning_digest(frozen["change_path"], frozen["manifest"])
     assert recomputed != frozen["snapshot"]["planning_digest"]
@@ -310,13 +310,13 @@ def test_changed_approved_input_invalidates_approval(frozen):
 
 
 def test_implementation_approval_binds_result_digest(frozen):
-    from hubcoord.approvals import subject_digest_for_results
+    from specrunway.approvals import subject_digest_for_results
 
     store = frozen["store"]
     execution_id = frozen["execution_id"]
     result = validate_result(
         {
-            "api_version": "hub/v1",
+            "api_version": "specrunway/v1",
             "execution_id": execution_id,
             "repo_id": "repo-a",
             "attempt": 1,
@@ -348,10 +348,10 @@ def test_implementation_approval_binds_result_digest(frozen):
     )
 
 
-def test_hub_approve_cli_records_and_refuses(frozen, capsys):
+def test_specrunway_approve_cli_records_and_refuses(frozen, capsys):
     control = frozen["control"]
     execution_id = frozen["execution_id"]
-    rc = hub_main(
+    rc = specrunway_main(
         [
             "approve",
             "--execution",
@@ -372,7 +372,7 @@ def test_hub_approve_cli_records_and_refuses(frozen, capsys):
 
     # implementation kind without accepted results must refuse; JSON to stdout
     assert (
-        hub_main(
+        specrunway_main(
             [
                 "approve",
                 "--execution",

@@ -1,4 +1,4 @@
-# Hub v1 runbook (local coordinator)
+# SpecRunway v1 runbook (local coordinator)
 
 Reproducible local operation of the Central Store Coordinator at pinned
 tool versions (OpenSpec 1.14.3, specify-cli 1.2.1, Python 3.14, one real
@@ -8,9 +8,9 @@ coding-agent CLI). No server, database, broker, or team component is used.
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install hub_cli-0.1.0-py3-none-any.whl   # or: pip install .
-.venv/bin/hub --version
-.venv/bin/python -m pip install "specify-cli @ git+https://github.com/github/spec-kit.git@v1.2.1"
+.venv/bin/python -m pip install specrunway-0.1.0-py3-none-any.whl   # or: pip install .
+.venv/bin/specrunway --version
+.venv/bin/python -m pip install "specify-cli @ git+https://gitspecrunway.com/gitspecrunway/spec-kit.git@v1.2.1"
 ```
 
 The OpenSpec CLI is pinned by `tooling/openspec/package.json`; install it
@@ -33,16 +33,16 @@ max_workers: 1
 ```
 
 ```bash
-hub doctor --json                   # wiring findings, exit 1 on errors
+specrunway doctor --json                   # wiring findings, exit 1 on errors
 openspec store setup my-store --path /abs/path/to/store --json
 specify init --here --force --non-interactive --ignore-agent-tools
-specify workflow step add hub --dev <path-to>/tooling/hubstep
+specify workflow step add specrunway --dev <path-to>/tooling/specrunwaystep
 ```
 
 ## 3. Plan
 
 ```bash
-hub plan my-change --store my-store --request request.md --json
+specrunway plan my-change --store my-store --request request.md --json
 ```
 
 - Generates proposal/design/tasks/spec deltas in the Store when the change
@@ -56,10 +56,10 @@ hub plan my-change --store my-store --request request.md --json
 ## 4. Run and approve
 
 ```bash
-hub run --change my-change --json          # freezes snapshot + starts native run
-hub approve --execution <id> --kind plan --actor <you> --json
-hub resume --execution <id> --json         # or: hub run --execution <id> --continue
-hub status --execution <id> --json
+specrunway run --change my-change --json          # freezes snapshot + starts native run
+specrunway approve --execution <id> --kind plan --actor <you> --json
+specrunway resume --execution <id> --json         # or: specrunway run --execution <id> --continue
+specrunway status --execution <id> --json
 ```
 
 Execution order:
@@ -83,22 +83,22 @@ Execution order:
 
 | Situation | Command | Behavior |
 |---|---|---|
-| Gate pause | `hub resume` | Checks receipt + digests, resumes native run |
-| Retryable native failure | `hub resume` | Native resume; completed steps are not re-run |
-| Blocked budget/no-progress | — | `hub status` shows `blocked`; preserve worktrees for takeover |
-| Orphan `running`, owner dead | `hub recover` | Old run preserved `abandoned-running`, new native run same execution, verified receipts reused |
-| Orphan `running`, owner alive | — | `hub recover` refuses `orphan-alive`; stop the process first |
-| Archive outcome unknown | `hub recover` | Path-based reconciliation records the proven result; mixed state stays blocked |
+| Gate pause | `specrunway resume` | Checks receipt + digests, resumes native run |
+| Retryable native failure | `specrunway resume` | Native resume; completed steps are not re-run |
+| Blocked budget/no-progress | — | `specrunway status` shows `blocked`; preserve worktrees for takeover |
+| Orphan `running`, owner dead | `specrunway recover` | Old run preserved `abandoned-running`, new native run same execution, verified receipts reused |
+| Orphan `running`, owner alive | — | `specrunway recover` refuses `orphan-alive`; stop the process first |
+| Archive outcome unknown | `specrunway recover` | Path-based reconciliation records the proven result; mixed state stays blocked |
 
 Counters (`budgets`), accepted results, verification rows, and operation
-intents/receipts live in `<control>/.hub/runs/<execution>/` and survive
+intents/receipts live in `<control>/.specrunway/runs/<execution>/` and survive
 process restarts. Never edit Specify's private run state.
 
 ## 6. Archive
 
 ```bash
-hub archive --execution <id> --json                             # merged_commits (default)
-hub archive --execution <id> --policy validated_commits \
+specrunway archive --execution <id> --json                             # merged_commits (default)
+specrunway archive --execution <id> --policy validated_commits \
             --confirm-validated --json                          # reviewed commits only
 ```
 
@@ -111,7 +111,7 @@ selection plus `--confirm-validated` and never claims a main-branch merge.
 
 Archive writes intent + backup before applying OpenSpec deltas, verifies the
 resulting path/specs, and records a receipt. A successful archive is never
-replayed. Backup: `<control>/.hub/runs/<execution>/archive-backup/<stamp>/`
+replayed. Backup: `<control>/.specrunway/runs/<execution>/archive-backup/<stamp>/`
 (`change/` tree, `before.json`, `after.json`).
 
 Restore drill: copy `archive-backup/<stamp>/change` back to the Store change
@@ -122,7 +122,7 @@ for the recorded execution (it returns `already_archived`).
 
 ```bash
 openspec store unregister my-store --json   # disposable fixtures only
-rm -rf <control>/.hub/runs/<execution>      # after evidence is captured
+rm -rf <control>/.specrunway/runs/<execution>      # after evidence is captured
 ```
 
 Preserve a usable failure scene (worktrees, logs, receipts) before cleanup

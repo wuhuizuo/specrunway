@@ -1,4 +1,4 @@
-# specrunway
+# SpecRunway
 Spec-driven execution across repositories.
 
 ---
@@ -68,4 +68,4 @@ All five change directories are prepared, but application tasks remain unchecked
 
 Inspect the active change with `status` and `instructions apply`, implement its next unchecked task, run the task's meaningful checks, and update the checkbox only after the evidence exists. Record verification details under `docs/evidence/` without secrets or machine-specific paths in portable records. Update `docs/HANDOFF_STATE.md` at checkpoints. Run OpenSpec strict validation and the applicable code checks before finishing a change.
 
-Archive a development change only after its work and required review are complete. Development-change archive and the future product's `hub archive` command are separate operations. No push, merge, deployment, or product Store archive follows merely from a green test.
+Archive a development change only after its work and required review are complete. Development-change archive and the future product's `specrunway archive` command are separate operations. No push, merge, deployment, or product Store archive follows merely from a green test.

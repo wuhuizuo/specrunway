@@ -1,20 +1,20 @@
-"""Tests for hubcoord.cli command surface and stub behavior."""
+"""Tests for specrunway.cli command surface and stub behavior."""
 
 from __future__ import annotations
 
 import pytest
 
-from hubcoord.cli import main
+from specrunway.cli import main
 
 
 def test_version(capsys):
-    import hubcoord
+    import specrunway
 
     try:
         main(["--version"])
     except SystemExit as exc:
         assert exc.code == 0
-    assert hubcoord.__version__ in capsys.readouterr().out
+    assert specrunway.__version__ in capsys.readouterr().out
 
 
 def test_doctor_json_ok(control_workspace):

@@ -8,7 +8,7 @@ from multiprocessing import Process
 
 import pytest
 
-from hubcoord.runstore import (
+from specrunway.runstore import (
     ExecutionConflictError,
     FileRunStore,
     LockTimeoutError,
@@ -26,7 +26,7 @@ def _lock_and_release(store_path: str) -> None:
 
 @pytest.fixture
 def store(tmp_path) -> FileRunStore:
-    return FileRunStore(tmp_path / "control" / ".hub")
+    return FileRunStore(tmp_path / "control" / ".specrunway")
 
 
 EXEC = "0d1f8d02-01d4-4d5d-8df5-ecda48c01001"
@@ -157,14 +157,14 @@ def test_lock_excludes_other_writer(store):
         pass  # non-existing exclusive take
     with pytest.raises(LockTimeoutError) as once:
         store.lock(timeout=0.05, blocking=False).__enter__()
-    assert "locked by another hub process" in str(once.value)
+    assert "locked by another specrunway process" in str(once.value)
     leave.set()
     thread.join()
     assert holder_handoff == ["acquired"]
 
 
 def test_lock_reusable_after_holder_exits(tmp_path):
-    store_path = tmp_path / "control" / ".hub"
+    store_path = tmp_path / "control" / ".specrunway"
     proc = Process(target=_lock_and_release, args=(str(store_path),))
     proc.start()
     proc.join()
@@ -180,7 +180,7 @@ def test_intent_before_receipt(store):
     intent = store.write_intent(
         EXEC,
         {
-            "api_version": "hub/v1",
+            "api_version": "specrunway/v1",
             "operation_key": f"{EXEC}:checkbox:repo-a/T001:1:deadbeef",
             "action": "checkbox-update",
             "scope": {"repo_id": "repo-a", "task_id": "T001", "attempt": 1},
@@ -195,7 +195,7 @@ def test_intent_before_receipt(store):
 
 def test_receipt_without_intent_rejected(store):
     store.ensure_run(EXEC, "change-x")
-    from hubcoord.runstore import RunStoreError
+    from specrunway.runstore import RunStoreError
 
     with pytest.raises(RunStoreError) as excinfo:
         store.record_receipt(EXEC, f"{EXEC}:checkbox:repo-a/T001:1:deadbeef", after={})
@@ -204,7 +204,7 @@ def test_receipt_without_intent_rejected(store):
 
 def test_intent_requires_pending(store):
     store.ensure_run(EXEC, "change-x")
-    from hubcoord.runstore import RunStoreError
+    from specrunway.runstore import RunStoreError
 
     with pytest.raises(RunStoreError) as excinfo:
         store.write_intent(
@@ -245,7 +245,7 @@ def test_uncertain_operation_key_reuse_rejected(store):
     store.ensure_run(EXEC, "change-x")
     key = f"{EXEC}:w:1:e"
     store.write_intent(EXEC, {"operation_key": key, "intent": {"input_digest": "e" * 64}})
-    from hubcoord.runstore import RunStoreError
+    from specrunway.runstore import RunStoreError
 
     with pytest.raises(RunStoreError) as excinfo:
         store.write_intent(EXEC, {"operation_key": key, "intent": {"input_digest": "e" * 64}})

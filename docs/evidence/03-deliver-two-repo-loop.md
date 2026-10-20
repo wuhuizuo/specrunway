@@ -1,6 +1,9 @@
 # Evidence: change 03 — L06 planning, L07 freeze/approvals, L08 launcher,
 # L09 worktrees/tests/results, L10 hub step bridge
 
+> Naming note (decision D10): transcripts below predate the SpecRunway rename. `hub`/`hubcoord` names in commands and paths are historical; current commands use `specrunway`.
+
+
 Change: `03-deliver-two-repo-loop` source tasks L06 (task 1.1, V1-A04),
 L07 (task 2.1, V1-A05), L08 (task 3.1, V1-A06), L09 (task 4.1, V1-A06 + V1-A07),
 L10 (task 5.1, V1-A01).

@@ -24,13 +24,13 @@ Work on one change at a time. The dependency column is an implementation gate ev
 
 ### L02 Create the single-package CLI and central layout
 - Stage: L1 Local foundation; estimate: 0.5 person-days; dependencies: L01.
-- Deliverable: hub CLI; control and Store checkouts; ignored runtime files.
-- Definition of done: Commands find the Hub. Business repositories need no new tool configuration. No server or database is introduced.
+- Deliverable: specrunway CLI; control and Store checkouts; ignored runtime files.
+- Definition of done: Commands find the SpecRunway. Business repositories need no new tool configuration. No server or database is introduced.
 - Acceptance: V1-A02.
 
 ### L03 Validate the manifest and machine repo mappings
 - Stage: L1 Local foundation; estimate: 1 person-days; dependencies: L02.
-- Deliverable: hub/v1 object schemas; manifest and local.yaml validation.
+- Deliverable: specrunway/v1 object schemas; manifest and local.yaml validation.
 - Definition of done: Define manifest/snapshot/result/approval/receipt schemas. Validate IDs, repo/dependency order, remote identity, paths, profiles, and acceptance coverage.
 - Acceptance: V1-A03.
 
@@ -48,7 +48,7 @@ Work on one change at a time. The dependency column is an implementation gate ev
 
 ### L06 Implement the planning entry point
 - Stage: L2 End-to-end loop; estimate: 0.75 person-days; dependencies: L03, L04, L05.
-- Deliverable: hub plan; artifact generation and validation.
+- Deliverable: specrunway plan; artifact generation and validation.
 - Definition of done: A request produces complete OpenSpec planning artifacts and explicit repo/task routing. Manually prepared plans are also accepted.
 - Acceptance: V1-A04.
 
@@ -70,9 +70,9 @@ Work on one change at a time. The dependency column is an implementation gate ev
 - Definition of done: Preserve original checkouts. Runner tests bind evidence to commits. Reject invalid results, unexpected paths, and unverified success claims.
 - Acceptance: V1-A06 V1-A07.
 
-### L10 Package one Spec Kit hub step
+### L10 Package one Spec Kit specrunway step
 - Stage: L2 End-to-end loop; estimate: 0.75 person-days; dependencies: L04, L05, L09.
-- Deliverable: type: hub bridge; standardized output.data.
+- Deliverable: type: specrunway bridge; standardized output.data.
 - Definition of done: One step package delegates to functions in the same package. Do not mutate private SDK context or build another workflow engine.
 - Acceptance: V1-A01.
 
@@ -91,7 +91,7 @@ Work on one change at a time. The dependency column is an implementation gate ev
 ### L13 Implement normal resume and explicit recovery
 - Stage: L3 Release reliability; estimate: 1 person-days; dependencies: L12, L05.
 - Deliverable: Paused/failed resume; orphan-running reconciliation.
-- Definition of done: Do not edit Spec Kit private state. Recover an orphan running run through reconciliation and a new native run under the same Hub execution, reusing verified receipts.
+- Definition of done: Do not edit Spec Kit private state. Recover an orphan running run through reconciliation and a new native run under the same SpecRunway execution, reusing verified receipts.
 - Acceptance: V1-A08 V1-A10.
 
 ### L14 Implement explicit archive and local backup
@@ -103,7 +103,7 @@ Work on one change at a time. The dependency column is an implementation gate ev
 ### L15 Replay, package, and hand over v1
 - Stage: L3 Release reliability; estimate: 1.5 person-days; dependencies: L14.
 - Deliverable: Installable package; README; fixture replays; v1 release.
-- Definition of done: Pass every required v1 case. Demonstrate installation with the Hub, agreed upstream tools, and one agent; backup/restore and stop/takeover procedures work.
+- Definition of done: Pass every required v1 case. Demonstrate installation with the SpecRunway, agreed upstream tools, and one agent; backup/restore and stop/takeover procedures work.
 - Acceptance: V1-A01 through V1-A14.
 
 ## Deferred work
@@ -184,7 +184,7 @@ Deliverable: Object storage; hashes; authorized access; retention.
 Done: Authorize evidence by project. Keep permanent refs and hashes beyond temporary URLs. Exclude secrets from logs.
 
 ### S12 Implement the remote CLI backend
-Deliverable: hub --backend team; command-to-API mapping.
+Deliverable: specrunway --backend team; command-to-API mapping.
 Done: Select local/team with the same user intent. The server repeats semantic and authorization checks independently of the client.
 
 ### S13 Export portable data and import read-only history
@@ -223,8 +223,8 @@ Done: Reuse the same API and authorization. Do not duplicate scheduling, approva
 
 | ID | Content | v1 source | v2 treatment | Constraint | Tasks | Acceptance |
 | --- | --- | --- | --- | --- | --- | --- |
-| M01 | Shared rules and specifications | Hub and Store Git repositories | Retain Git and stable identities; register them to the project | Never treat a personal absolute path as a runner path | S13 | MIG-A01 |
-| M02 | Terminal execution results | hub/v1 results, completion, artifact hashes | Import a portable bundle as read-only history | Import creates no executable job | S13 | MIG-A01, A02 |
+| M01 | Shared rules and specifications | SpecRunway and Store Git repositories | Retain Git and stable identities; register them to the project | Never treat a personal absolute path as a runner path | S13 | MIG-A01 |
+| M02 | Terminal execution results | specrunway/v1 results, completion, artifact hashes | Import a portable bundle as read-only history | Import creates no executable job | S13 | MIG-A01, A02 |
 | M03 | Local approvals | auth_level=self_asserted | Preserve provenance; reapprove new team executions | Never upgrade history to authenticated authorization | S09 S13 | MIG-A03 |
 | M04 | Active changes | Run/execution state and owner | Finish or cancel locally; create a new team execution | Do not continue a copied private SDK run from the shared queue | S13 | MIG-A04 |
 | M05 | Machine paths and agent configuration | local.yaml and credentials | Replace with repo identities, remotes, and platform profiles | Credentials belong in the server secret store | S06 S13 | MIG-A01 |

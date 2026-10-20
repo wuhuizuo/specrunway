@@ -9,15 +9,15 @@ from pathlib import Path
 
 import pytest
 
-from hubcoord.checkboxes import accept_tasks
-from hubcoord.cli import main as hub_main
-from hubcoord.runstore import FileRunStore
+from specrunway.checkboxes import accept_tasks
+from specrunway.cli import main as specrunway_main
+from specrunway.runstore import FileRunStore
 
 REPO = Path(__file__).resolve().parents[1]
 SPECIFY = REPO / ".venv" / "bin" / "specify"
 FAKE_AGENT = Path(__file__).with_name("fake_agent_cli.py")
 MANIFEST = {
-    "api_version": "hub/v1",
+    "api_version": "specrunway/v1",
     "store_uid": "67f80512-00d1-4b0f-b5cd-3a1aad009071",
     "change_id": "demo",
     "change_uid": "9c3e5e4e-2c2e-4b6e-8f9c-000000000071",
@@ -51,8 +51,8 @@ TASKS_MD = (
 )
 
 pytestmark = pytest.mark.skipif(
-    not (SPECIFY.is_file() and (REPO / "tooling" / "hubstep" / "step.yml").is_file()),
-    reason="pinned Specify CLI or hub step package is missing",
+    not (SPECIFY.is_file() and (REPO / "tooling" / "specrunwaystep" / "step.yml").is_file()),
+    reason="pinned Specify CLI or specrunway step package is missing",
 )
 
 
@@ -90,7 +90,7 @@ def _make_repo(tmp_path: Path, name: str) -> Path:
 @pytest.fixture
 def loop(tmp_path, monkeypatch):
     control = tmp_path / "control"
-    (control / ".hub").mkdir(parents=True)
+    (control / ".specrunway").mkdir(parents=True)
     repo_a = _make_repo(tmp_path, "repo-a")
     repo_b = _make_repo(tmp_path, "repo-b")
 
@@ -131,7 +131,7 @@ def loop(tmp_path, monkeypatch):
         ),
         encoding="utf-8",
     )
-    plans = control / ".hub" / "plans" / "demo"
+    plans = control / ".specrunway" / "plans" / "demo"
     plans.mkdir(parents=True)
     import yaml
 
@@ -171,9 +171,9 @@ def loop(tmp_path, monkeypatch):
             "workflow",
             "step",
             "add",
-            "hub",
+            "specrunway",
             "--dev",
-            str(REPO / "tooling" / "hubstep"),
+            str(REPO / "tooling" / "specrunwaystep"),
         ],
         cwd=str(control),
         capture_output=True,
@@ -202,13 +202,13 @@ def test_accept_tasks_marks_only_listed_tasks():
 
 def test_run_refuses_continue_without_approval(loop):
     # a fresh checkout has no native run and no receipts: refuse cleanly
-    rc = hub_main(["run", "--execution", "does-not-exist", "--continue", "--json"])
+    rc = specrunway_main(["run", "--execution", "does-not-exist", "--continue", "--json"])
     assert rc != 0
 
 
 def test_two_repo_loop_reaches_ready_for_review(loop, capsys):
     control = loop["control"]
-    rc = hub_main(
+    rc = specrunway_main(
         ["run", "--change", "demo", "--root", str(control), "--json"],
     )
     out = capsys.readouterr().out
@@ -219,7 +219,7 @@ def test_two_repo_loop_reaches_ready_for_review(loop, capsys):
     assert started["data"]["native_status"] == "paused"
     assert "- [ ]" in (loop["change"] / "tasks.md").read_text(encoding="utf-8")
 
-    rc = hub_main(
+    rc = specrunway_main(
         [
             "approve",
             "--execution",
@@ -236,13 +236,13 @@ def test_two_repo_loop_reaches_ready_for_review(loop, capsys):
     out = capsys.readouterr().out
     assert rc == 0, out
 
-    rc = hub_main(["resume", "--execution", execution_id, "--root", str(control), "--json"])
+    rc = specrunway_main(["resume", "--execution", execution_id, "--root", str(control), "--json"])
     out = capsys.readouterr().out
     assert rc == 0, out
     implemented = json.loads(out)
     assert implemented["data"]["paused_step_id"] == "implementation-gate"
 
-    store = FileRunStore(control / ".hub")
+    store = FileRunStore(control / ".specrunway")
     state = store.read_state(execution_id)
     assert sorted(state["results"]) == ["repo-a", "repo-b"]
     assert state["phase"] == "awaiting_implementation_review"
@@ -255,7 +255,7 @@ def test_two_repo_loop_reaches_ready_for_review(loop, capsys):
     assert "- repo-a:" in prompt_b
     assert state["results"]["repo-a"]["head_commit"] in prompt_b
 
-    rc = hub_main(
+    rc = specrunway_main(
         [
             "approve",
             "--execution",
@@ -272,7 +272,7 @@ def test_two_repo_loop_reaches_ready_for_review(loop, capsys):
     out = capsys.readouterr().out
     assert rc == 0, out
 
-    rc = hub_main(
+    rc = specrunway_main(
         ["run", "--execution", execution_id, "--continue", "--root", str(control), "--json"]
     )
     out = capsys.readouterr().out

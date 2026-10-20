@@ -9,12 +9,12 @@ from pathlib import Path
 
 import pytest
 
-from hubcoord import launcher, recovery
-from hubcoord.approvals import record_approval
-from hubcoord.freezer import freeze_execution, new_execution_id
-from hubcoord.models.common import json_digest
-from hubcoord.runstore import FileRunStore, atomic_write_json
-from hubcoord.worktrees import create_worktree, head_oid
+from specrunway import launcher, recovery
+from specrunway.approvals import record_approval
+from specrunway.freezer import freeze_execution, new_execution_id
+from specrunway.models.common import json_digest
+from specrunway.runstore import FileRunStore, atomic_write_json
+from specrunway.worktrees import create_worktree, head_oid
 
 REPO = Path(__file__).resolve().parents[1]
 FAKE_AGENT = Path(__file__).with_name("fake_agent_cli.py")
@@ -23,7 +23,7 @@ TOOLS = {"openspec": "1.14.3", "spec_kit": "1.2.1", "agent_profile": "fake-agent
 
 def _manifest() -> dict:
     return {
-        "api_version": "hub/v1",
+        "api_version": "specrunway/v1",
         "store_uid": "67f80512-00d1-4b0f-b5cd-3a1aad009094",
         "change_id": "resume-demo",
         "change_uid": "9c3e5e4e-2c2e-4b6e-8f9c-000000000094",
@@ -46,7 +46,7 @@ def _manifest() -> dict:
 @pytest.fixture
 def paused(tmp_path, monkeypatch):
     control = tmp_path / "control"
-    (control / ".hub").mkdir(parents=True)
+    (control / ".specrunway").mkdir(parents=True)
     (control / ".specify").mkdir()
     repo = tmp_path / "repo-a"
     repo.mkdir()
@@ -103,7 +103,7 @@ def paused(tmp_path, monkeypatch):
         ),
         encoding="utf-8",
     )
-    store = FileRunStore(control / ".hub")
+    store = FileRunStore(control / ".specrunway")
     execution_id = new_execution_id()
     store.ensure_run(execution_id, "resume-demo")
     snapshot = freeze_execution(execution_id, change, _manifest(), repos_cfg, TOOLS)
@@ -131,7 +131,7 @@ def paused(tmp_path, monkeypatch):
             timeout_seconds=120.0,
         ),
     )
-    monkeypatch.setenv("HUB_FAKE_SCENARIO", "pass")
+    monkeypatch.setenv("SPECRUNWAY_FAKE_SCENARIO", "pass")
     return {
         "control": control,
         "store": store,
@@ -190,7 +190,7 @@ def test_reusable_result_returns_verified_evidence(paused):
     )
     head = head_oid(worktree)
     result = {
-        "api_version": "hub/v1",
+        "api_version": "specrunway/v1",
         "execution_id": execution_id,
         "repo_id": "repo-a",
         "attempt": 1,
@@ -250,7 +250,7 @@ def test_orphan_running_recovery_preserves_old_run(paused, monkeypatch):
         calls.append(execution_id)
         return {"run_id": "native-new", "status": "paused", "current_step_id": "plan-gate"}
 
-    monkeypatch.setattr("hubcoord.runner.start_execution", fake_start)
+    monkeypatch.setattr("specrunway.runner.start_execution", fake_start)
     outcome = recovery.recover_execution(paused["control"], paused["execution_id"])
     assert outcome["run_id"] == "native-new"
     assert calls == [paused["execution_id"]]

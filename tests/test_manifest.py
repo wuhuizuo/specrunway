@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from hubcoord.models import GroupedValidationError, validate_manifest
+from specrunway.models import GroupedValidationError, validate_manifest
 
 REPO_A = {
     "repo_id": "repo-a",
@@ -29,7 +29,7 @@ ACCEPTANCE = [
 
 def manifest(**overrides) -> dict:
     base = {
-        "api_version": "hub/v1",
+        "api_version": "specrunway/v1",
         "store_uid": "67f80512-00d1-4b0f-b5cd-3a1aad009002",
         "change_id": "add-global-rate-limit",
         "change_uid": "b7c9aeb5-0cd5-4ea5-a66e-0f3414b9a244",
@@ -55,7 +55,7 @@ def test_valid_manifest_roundtrip():
         ("store_uid", "not-a-uuid", "store-uid"),
         ("change_id", "X!bad", "change-id"),
         ("change_uid", "67f80512", "change-uid"),
-        ("api_version", "hub/v2", "manifest-api-version"),
+        ("api_version", "specrunway/v2", "manifest-api-version"),
         ("integration_profile", "", "integration-profile"),
         ("completion_policy", "auto_squash", "completion-policy"),
     ],

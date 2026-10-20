@@ -12,13 +12,13 @@ Implement no optional or v2 behavior. Keep product business state and runtime en
 
 ## Decisions
 
-Use exact, measured upstream versions; one Python package; explicit repo ordering; separate worktrees; frozen inputs; trusted test execution; and coordinator-owned task acceptance. Preserve existing `hub` and `hub/v1` contracts. Use the public Specify custom-step API rather than private state or engine patches.
+Use exact, measured upstream versions; one Python package; explicit repo ordering; separate worktrees; frozen inputs; trusted test execution; and coordinator-owned task acceptance. Preserve existing `specrunway` and `specrunway/v1` contracts. Use the public Specify custom-step API rather than private state or engine patches.
 
 For the initial probes, prove custom-step import visibility inside the actual Specify Python environment. For later implementation, result evidence must bind repo/task/execution IDs, input digests and actual commits. Native running recovery creates a new native run only after reconciliation and confirmed process termination.
 
 ## Implementation slices
 
-- **L15**: Installable package; README; fixture replays; v1 release. Pass every required v1 case. Demonstrate installation with the Hub, agreed upstream tools, and one agent; backup/restore and stop/takeover procedures work.
+- **L15**: Installable package; README; fixture replays; v1 release. Pass every required v1 case. Demonstrate installation with the SpecRunway, agreed upstream tools, and one agent; backup/restore and stop/takeover procedures work.
 
 ## Verification
 

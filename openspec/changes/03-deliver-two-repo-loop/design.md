@@ -12,17 +12,17 @@ Implement no optional or v2 behavior. Keep product business state and runtime en
 
 ## Decisions
 
-Use exact, measured upstream versions; one Python package; explicit repo ordering; separate worktrees; frozen inputs; trusted test execution; and coordinator-owned task acceptance. Preserve existing `hub` and `hub/v1` contracts. Use the public Specify custom-step API rather than private state or engine patches.
+Use exact, measured upstream versions; one Python package; explicit repo ordering; separate worktrees; frozen inputs; trusted test execution; and coordinator-owned task acceptance. Preserve existing `specrunway` and `specrunway/v1` contracts. Use the public Specify custom-step API rather than private state or engine patches.
 
 For the initial probes, prove custom-step import visibility inside the actual Specify Python environment. For later implementation, result evidence must bind repo/task/execution IDs, input digests and actual commits. Native running recovery creates a new native run only after reconciliation and confirmed process termination.
 
 ## Implementation slices
 
-- **L06**: hub plan; artifact generation and validation. A request produces complete OpenSpec planning artifacts and explicit repo/task routing. Manually prepared plans are also accepted.
+- **L06**: specrunway plan; artifact generation and validation. A request produces complete OpenSpec planning artifacts and explicit repo/task routing. Manually prepared plans are also accepted.
 - **L07**: Snapshots; planning/result digests; self_asserted approvals. Bind approval to content. Text or rule changes invalidate it; checkbox-only changes preserve the planning digest. Do not claim team authentication.
 - **L08**: argv/cwd/prompt-file launcher; process groups; structured result. Support the first CLI actually used. Apply existing repository instructions. Never interpolate agent output into a shell command.
 - **L09**: Separate worktrees; test profiles; result validation. Preserve original checkouts. Runner tests bind evidence to commits. Reject invalid results, unexpected paths, and unverified success claims.
-- **L10**: type: hub bridge; standardized output.data. One step package delegates to functions in the same package. Do not mutate private SDK context or build another workflow engine.
+- **L10**: type: specrunway bridge; standardized output.data. One step package delegates to functions in the same package. Do not mutate private SDK context or build another workflow engine.
 - **L11**: Prepare; gates; fan-out with max=1; fan-in; review. Run repositories in explicit order. Reject invalid dependency order before execution. The workflow runs without any v2 component.
 - **L12**: Per-repo attempts; integration rounds; persisted budgets. Allow initial work plus at most two repairs. Test failures enter repair; exhausted budgets stop. Resume preserves counters and no-progress detection.
 

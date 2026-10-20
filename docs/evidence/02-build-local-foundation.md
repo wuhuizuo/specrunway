@@ -1,5 +1,8 @@
 # Change 02 Evidence: build-local-foundation (L02-L05)
 
+
+> Naming note (decision D10): transcripts below predate the SpecRunway rename. `hub`/`hubcoord` names in commands and paths are historical; current commands use `specrunway`.
+
 Date: 2026-10-20
 Branch: main @ d4357f9 (L01) → this change
 

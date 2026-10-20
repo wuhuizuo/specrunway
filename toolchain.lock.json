@@ -36,19 +36,19 @@
   "specify": {
     "distribution": "specify-cli",
     "version": "1.2.1",
-    "source": "git+https://github.com/github/spec-kit.git@v1.2.1",
-    "upstream_repository": "https://github.com/github/spec-kit",
+    "source": "git+https://gitspecrunway.com/gitspecrunway/spec-kit.git@v1.2.1",
+    "upstream_repository": "https://gitspecrunway.com/gitspecrunway/spec-kit",
     "upstream_tag": "v1.2.1",
     "installed_commit_id": "9dca9bf42a031765ee5e5f2371137f2f26967e11",
-    "install_command": "python -m pip install \"specify-cli @ git+https://github.com/github/spec-kit.git@v1.2.1\"",
+    "install_command": "python -m pip install \"specify-cli @ git+https://gitspecrunway.com/gitspecrunway/spec-kit.git@v1.2.1\"",
     "fresh_environment_repro": "1.2.1 from a clean venv, same commit id from direct_url.json"
   },
   "step_packages": [
     {
-      "id": "hub",
-      "name": "Local and Team Hub Bridge",
+      "id": "specrunway",
+      "name": "Local and Team SpecRunway Bridge",
       "version": "0.1.0",
-      "install_command": "specify workflow step add hub --dev <package-directory>",
+      "install_command": "specify workflow step add specrunway --dev <package-directory>",
       "digests": {
         "step.yml": "41e95ad1fade076af5858e4746190c72ba849456b7ece0ff95445ae3e54d1af4",
         "__init__.py": "c483f5e42960b28a760ea74ceab429b8f6f80f03baa0dfe0416711f36c2054fa",

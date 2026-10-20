@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from hubcoord.models import (
+from specrunway.models import (
     GroupedValidationError,
     json_digest,
     validate_approval,
@@ -12,10 +12,10 @@ from hubcoord.models import (
     validate_result,
     validate_snapshot,
 )
-from hubcoord.models.common import sha256_bytes, strip_checkbox_markers
+from specrunway.models.common import sha256_bytes, strip_checkbox_markers
 
 MANIFEST = {
-    "api_version": "hub/v1",
+    "api_version": "specrunway/v1",
     "store_uid": "67f80512-00d1-4b0f-b5cd-3a1aad009002",
     "change_id": "add-global-rate-limit",
     "change_uid": "b7c9aeb5-0cd5-4ea5-a66e-0f3414b9a244",
@@ -37,7 +37,7 @@ MANIFEST = {
 
 def snapshot(**overrides) -> dict:
     base = {
-        "api_version": "hub/v1",
+        "api_version": "specrunway/v1",
         "execution_id": "0d1f8d02-01d4-4d5d-8df5-ecda48c01001",
         "store_uid": MANIFEST["store_uid"],
         "change_id": MANIFEST["change_id"],
@@ -50,7 +50,7 @@ def snapshot(**overrides) -> dict:
             "repo-a": {
                 "base_ref": "main",
                 "base_oid": "0123456789012345678901234567890123456789",
-                "remote_identity": "github:example.org/repo-a",
+                "remote_identity": "gitspecrunway:example.org/repo-a",
             }
         },
         "tools": {
@@ -66,7 +66,7 @@ def snapshot(**overrides) -> dict:
 
 def result(**overrides) -> dict:
     base = {
-        "api_version": "hub/v1",
+        "api_version": "specrunway/v1",
         "execution_id": "0d1f8d02-01d4-4d5d-8df5-ecda48c01001",
         "repo_id": "repo-a",
         "attempt": 1,
@@ -106,7 +106,7 @@ def test_snapshot_base_oid_validation():
                     "repo-a": {
                         "base_ref": "main",
                         "base_oid": "xyz",
-                        "remote_identity": "github:a/b",
+                        "remote_identity": "gitspecrunway:a/b",
                     }
                 }
             )
@@ -164,7 +164,7 @@ def test_decision_authorized_skipped_and_blocked():
 
 def approval():
     return {
-        "api_version": "hub/v1",
+        "api_version": "specrunway/v1",
         "kind": "plan",
         "execution_id": "0d1f8d02-01d4-4d5d-8df5-ecda48c01001",
         "decision": "approve",
@@ -210,7 +210,7 @@ def test_approval_rejects_missing_required():
 def test_operation_key_and_status():
     validated = validate_operation(
         {
-            "api_version": "hub/v1",
+            "api_version": "specrunway/v1",
             "operation_key": "0d1f8d02-01d4-4d5d-8df5-ecda48c01001:checkbox:repo-a/T001:1:deadbeef",
             "execution_id": "0d1f8d02-01d4-4d5d-8df5-ecda48c01001",
             "action": "checkbox-update",
@@ -229,7 +229,7 @@ def test_operation_unknown_status():
     with pytest.raises(GroupedValidationError) as excinfo:
         validate_operation(
             {
-                "api_version": "hub/v1",
+                "api_version": "specrunway/v1",
                 "operation_key": "k1:x",
                 "execution_id": "0d1f8d02-01d4-4d5d-8df5-ecda48c01001",
                 "action": "x",

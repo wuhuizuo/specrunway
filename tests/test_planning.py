@@ -1,4 +1,4 @@
-"""Integration contract tests for hub plan (L06 task 1.1)."""
+"""Integration contract tests for specrunway plan (L06 task 1.1)."""
 
 from __future__ import annotations
 
@@ -8,9 +8,9 @@ from pathlib import Path
 import pytest
 import yaml
 
-from hubcoord.cli import main as hub_main
-from hubcoord.models.common import ValidationError
-from hubcoord.planning import (
+from specrunway.cli import main as specrunway_main
+from specrunway.models.common import ValidationError
+from specrunway.planning import (
     crosscheck_task_routing,
     extract_task_ids,
     parse_task_texts,
@@ -80,7 +80,7 @@ def workspace(tmp_path):
 
 def _manifest(tmp_path, change_id: str, store_uid: str) -> Path:
     manifest = {
-        "api_version": "hub/v1",
+        "api_version": "specrunway/v1",
         "store_uid": store_uid,
         "change_id": change_id,
         "change_uid": "9c3e5e4e-2c2e-4b6e-8f9c-000000000001",
@@ -116,7 +116,7 @@ def _manifest(tmp_path, change_id: str, store_uid: str) -> Path:
 def test_plan_generation_path(workspace, tmp_path):
     control, request_file, store_id = workspace
     manifest_file = _manifest(tmp_path, "gen-change", "67f80512-00d1-4b0f-b5cd-3a1aad009002")
-    rc = hub_main(
+    rc = specrunway_main(
         [
             "plan",
             "gen-change",
@@ -141,7 +141,7 @@ def test_plan_generation_path(workspace, tmp_path):
     assert (change_path / "design.md").is_file()
     assert (change_path / "specs" / "repo-a-delivery" / "spec.md").is_file()
 
-    plan_dir = control / ".hub" / "plans" / "gen-change"
+    plan_dir = control / ".specrunway" / "plans" / "gen-change"
     assert (plan_dir / "manifest.yaml").is_file()
     summary = (plan_dir / "plan-summary.json").read_text(encoding="utf-8")
     assert '"planning_complete": true' in summary
@@ -170,12 +170,12 @@ def test_plan_manual_acceptance_path(workspace):
         encoding="utf-8",
     )
 
-    rc = hub_main(
+    rc = specrunway_main(
         ["plan", "manual-change", "--store", store_id, "--root", str(control), "--json"]
     )
     assert rc == 0
 
-    plan_dir = control / ".hub" / "plans" / "manual-change"
+    plan_dir = control / ".specrunway" / "plans" / "manual-change"
     landing = yaml.safe_load((plan_dir / "manifest.yaml").read_text(encoding="utf-8"))
     found_ids = {task for repo in landing["repos"] for task in repo["task_ids"]}
     assert {"T101", "T102"} <= found_ids
@@ -189,7 +189,7 @@ def test_plan_rejects_routing_mismatch(workspace, tmp_path):
         tmp_path, "mismatch-change", "67f80512-00d1-4b0f-b5cd-3a1aad009002"
     )
     assert (
-        hub_main(
+        specrunway_main(
             [
                 "plan",
                 "mismatch-change",
@@ -210,7 +210,7 @@ def test_plan_rejects_routing_mismatch(workspace, tmp_path):
     mismatched.write_text(
         yaml.safe_dump(
             {
-                "api_version": "hub/v1",
+                "api_version": "specrunway/v1",
                 "store_uid": "67f80512-00d1-4b0f-b5cd-3a1aad009002",
                 "change_id": "mismatch-change",
                 "change_uid": "9c3e5e4e-2c2e-4b6e-8f9c-000000000001",
@@ -231,7 +231,7 @@ def test_plan_rejects_routing_mismatch(workspace, tmp_path):
         ),
         encoding="utf-8",
     )
-    from hubcoord.planning import plan
+    from specrunway.planning import plan
 
     with pytest.raises(ValidationError) as exc_info:
         plan(
@@ -247,7 +247,7 @@ def test_plan_rejects_routing_mismatch(workspace, tmp_path):
 
 def test_plan_requires_request_for_new_change(workspace):
     control, _request_file, store_id = workspace
-    from hubcoord.planning import plan
+    from specrunway.planning import plan
 
     with pytest.raises(ValidationError) as exc_info:
         plan(
@@ -269,7 +269,7 @@ def test_plan_rejects_incomplete_existing_change_without_request(workspace):
         text=True,
         check=True,
     )
-    from hubcoord.planning import plan
+    from specrunway.planning import plan
 
     with pytest.raises(ValidationError) as exc_info:
         plan(
@@ -283,7 +283,7 @@ def test_plan_rejects_incomplete_existing_change_without_request(workspace):
 
 def test_plan_rejects_unknown_store(workspace):
     control, _request_file, _store_id = workspace
-    from hubcoord.planning import plan
+    from specrunway.planning import plan
 
     with pytest.raises(ValidationError) as exc_info:
         plan(
@@ -298,7 +298,7 @@ def test_plan_rejects_unknown_store(workspace):
 def test_crosscheck_task_routing_labeled_tasks(workspace):
     _control, _request_file, _store_id = workspace
     good = {
-        "api_version": "hub/v1",
+        "api_version": "specrunway/v1",
         "store_uid": "1b2e8a0e-95f7-4e9a-8a4e-7f20a34b5678",
         "change_id": "cc-good",
         "change_uid": "7d5e5e4e-2c2e-4b6e-8f9c-000000000010",

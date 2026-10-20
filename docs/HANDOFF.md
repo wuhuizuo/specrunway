@@ -15,7 +15,7 @@ Confirmed requirements:
 - The product uses Specify workflow with a thin custom step bridge and one real agent CLI.
 - Specstride is excluded from the current implementation.
 - Build required local v1 tasks L01-L15 only. v2 and optional enhancements stay deferred.
-- Keep one authoritative specification set and preserve hub/v1 business contracts.
+- Keep one authoritative specification set and preserve specrunway/v1 business contracts.
 - Keep all repository documents and reports in English.
 
 Start with openspec/changes/01-verify-upstream-contracts (L01). Follow docs/TOOLCHAIN.md.

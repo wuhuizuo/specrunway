@@ -10,12 +10,12 @@ from pathlib import Path
 
 import pytest
 
-from hubcoord.approvals import record_approval
-from hubcoord.archive import ArchiveError, archive_execution, reconcile_pending_archive
-from hubcoord.freezer import freeze_execution, new_execution_id
-from hubcoord.models.common import json_digest
-from hubcoord.runstore import FileRunStore, atomic_write_json
-from hubcoord.worktrees import create_worktree, head_oid
+from specrunway.approvals import record_approval
+from specrunway.archive import ArchiveError, archive_execution, reconcile_pending_archive
+from specrunway.freezer import freeze_execution, new_execution_id
+from specrunway.models.common import json_digest
+from specrunway.runstore import FileRunStore, atomic_write_json
+from specrunway.worktrees import create_worktree, head_oid
 
 REPO = Path(__file__).resolve().parents[1]
 OPENSPEC = REPO / "tooling" / "openspec" / "node_modules" / ".bin" / "openspec"
@@ -30,7 +30,7 @@ def _git(repo: Path, *args: str) -> str:
 
 def _manifest(store_uid: str, policy: str | None = None) -> dict:
     manifest = {
-        "api_version": "hub/v1",
+        "api_version": "specrunway/v1",
         "store_uid": store_uid,
         "change_id": "ship-demo",
         "change_uid": "9c3e5e4e-2c2e-4b6e-8f9c-000000000093",
@@ -98,7 +98,7 @@ def completion(tmp_path):
         "init",
     )
     control = tmp_path / "control"
-    (control / ".hub").mkdir(parents=True)
+    (control / ".specrunway").mkdir(parents=True)
     repos_cfg = {"repo-a": {"path": str(repo), "remote_identity": "https://e/r.git"}}
     (control / "local.yaml").write_text(
         json.dumps(
@@ -112,7 +112,7 @@ def completion(tmp_path):
         encoding="utf-8",
     )
     execution_id = new_execution_id()
-    store = FileRunStore(control / ".hub")
+    store = FileRunStore(control / ".specrunway")
     store.ensure_run(execution_id, "ship-demo")
     snapshot = freeze_execution(
         execution_id,
@@ -141,7 +141,7 @@ def completion(tmp_path):
     )
     head = head_oid(worktree)
     result = {
-        "api_version": "hub/v1",
+        "api_version": "specrunway/v1",
         "execution_id": execution_id,
         "repo_id": "repo-a",
         "attempt": 1,
