@@ -122,6 +122,7 @@ def run_integration(integration: dict, run_dir: Path, rows: list, round_index: i
                 timeout=float(integration["timeout_seconds"]),
                 shell=False,
                 check=False,
+                stdin=subprocess.DEVNULL,
             )
             exit_code = done.returncode
             if exit_code != 0:

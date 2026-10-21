@@ -335,6 +335,7 @@ def cmd_init(args: argparse.Namespace) -> int:
                 capture_output=True,
                 text=True,
                 check=False,
+                stdin=subprocess.DEVNULL,
             )
             if done.returncode != 0:
                 raise _validation_error(
@@ -361,6 +362,7 @@ def cmd_init(args: argparse.Namespace) -> int:
                 capture_output=True,
                 text=True,
                 check=False,
+                stdin=subprocess.DEVNULL,
             )
         if step is not None and step.returncode != 0:
             raise _validation_error(

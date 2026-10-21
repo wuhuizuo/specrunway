@@ -131,6 +131,7 @@ def _specify_workflow(
         capture_output=True,
         text=True,
         check=False,
+        stdin=subprocess.DEVNULL,
     )
     combined = (process.stdout or "") + (process.stderr or "")
     payload = None

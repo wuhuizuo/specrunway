@@ -34,6 +34,33 @@ def _process_alive(pid: int) -> bool:
     return True
 
 
+def discover_native_run(control_root: Path, execution_id: str) -> dict | None:
+    """Find the newest native run for this execution when state lost its id."""
+    import json
+    import subprocess
+
+    from specrunway.toolresolvers import resolve_tool_bin
+
+    specify_bin = resolve_tool_bin(Path(control_root), None, "specify")
+    done = subprocess.run(
+        [specify_bin, "workflow", "status", "--json"],
+        cwd=str(control_root),
+        capture_output=True,
+        text=True,
+        check=False,
+        stdin=subprocess.DEVNULL,
+    )
+    if done.returncode != 0:
+        return None
+    try:
+        payload = json.loads(done.stdout)
+    except json.JSONDecodeError:
+        return None
+    wanted = f"run-{execution_id[:8]}"
+    matches = [row for row in payload.get("runs", []) if row.get("workflow_id") == wanted]
+    return matches[0] if matches else None
+
+
 def native_status(control_root: Path, run_id: str) -> dict:
     from specrunway.runner import _specify_workflow
 
@@ -248,7 +275,16 @@ def recover_execution(control_root: Path, execution_id: str) -> dict:
     state = store.read_state(execution_id)
     native_run_id = state.get("native_run_id")
     if not native_run_id:
-        raise RecoveryError("run-not-started", "execution has no native run")
+        discovered = discover_native_run(control_root, execution_id)
+        if discovered is None:
+            raise RecoveryError("run-not-started", "execution has no native run")
+        native_run_id = str(discovered["run_id"])
+
+        def adopt(next_state: dict) -> None:
+            next_state["native_run_id"] = native_run_id
+
+        store.update_state(execution_id, adopt, store.read_state(execution_id)["revision"])
+        state = store.read_state(execution_id)
     status = native_status(control_root, native_run_id)
     native = str(status.get("status"))
     if native == "running":

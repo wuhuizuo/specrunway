@@ -278,3 +278,24 @@ def test_status_reports_phases_and_operations(paused):
     assert summary["pending_gate"] == "plan"
     assert summary["approvals"]["plan"]["decision"] == "approve"
     assert summary["repo_order"] == ["repo-a"]
+
+
+def test_discover_native_run_matches_workflow_id(monkeypatch, tmp_path):
+    import subprocess as sp
+    from types import SimpleNamespace
+
+    execution_id = "07e1f5cd-1111-2222-3333-444455556666"
+    payload = (
+        '{"runs": [{"run_id": "70ad7987", "workflow_id": "run-07e1f5cd", "status": "running"}]}'
+    )
+    captured = {}
+
+    def fake_run(argv, **kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(returncode=0, stdout=payload, stderr="")
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+    monkeypatch.setattr("specrunway.toolresolvers.resolve_tool_bin", lambda *a, **k: "specify")
+    found = recovery.discover_native_run(tmp_path, execution_id)
+    assert found["run_id"] == "70ad7987"
+    assert captured["stdin"] is sp.DEVNULL

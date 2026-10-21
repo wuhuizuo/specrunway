@@ -85,6 +85,28 @@ def test_load_local_config_resolves_relative_paths(tmp_path):
     assert config["repos"]["repo-a"]["path"] == str(control / "repo-a")
 
 
+def test_load_local_config_expands_home(tmp_path):
+    control = tmp_path / "control"
+    control.mkdir()
+    (control / "local.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "store": {"id": "fixstore", "path": "~/dogfood-store"},
+                "repos": {
+                    "repo-a": {
+                        "path": "~/dogfood-repo",
+                        "remote_identity": "github:a/b",
+                    }
+                },
+                "agent_profile": "primary-coding-agent",
+            }
+        )
+    )
+    config = load_local_config(control)
+    assert config["store"]["path"] == str(Path.home() / "dogfood-store")
+    assert config["repos"]["repo-a"]["path"] == str(Path.home() / "dogfood-repo")
+
+
 def test_wiring_happy(control_workspace):
     config = {
         "store": {"id": "fixstore", "path": str(control_workspace["store"])},

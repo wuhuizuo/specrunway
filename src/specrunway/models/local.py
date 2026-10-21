@@ -10,7 +10,14 @@ import yaml
 from specrunway.models.common import ErrorCollector, GroupedValidationError, is_slug
 from specrunway.remotes import normalize_identity, remote_matches
 
-LOCAL_KEYS = {"store", "repos", "agent_profile", "max_workers", "integration_profiles", "test_profiles"}
+LOCAL_KEYS = {
+    "store",
+    "repos",
+    "agent_profile",
+    "max_workers",
+    "integration_profiles",
+    "test_profiles",
+}
 INTEGRATION_PROFILE_KEYS = {"command", "repo", "timeout_seconds"}
 TEST_PROFILE_KEYS = {"command", "cwd", "timeout_seconds"}
 STORE_KEYS = {"id", "path"}
@@ -232,14 +239,14 @@ def load_local_config(control_root: Path) -> dict:
     if isinstance(parsed, dict):
         store = parsed.get("store")
         if isinstance(store, dict) and isinstance(store.get("path"), str):
-            path_value = Path(store["path"].strip())
+            path_value = Path(store["path"].strip()).expanduser()
             if not path_value.is_absolute():
                 store["path"] = str((root_resolved / path_value).resolve())
         repos = parsed.get("repos")
         if isinstance(repos, dict):
             for entry in repos.values():
                 if isinstance(entry, dict) and isinstance(entry.get("path"), str):
-                    path_value = Path(entry["path"].strip())
+                    path_value = Path(entry["path"].strip()).expanduser()
                     if not path_value.is_absolute():
                         entry["path"] = str((root_resolved / path_value).resolve())
     return validate_local_config(parsed if isinstance(parsed, dict) else {})

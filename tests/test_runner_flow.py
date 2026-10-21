@@ -297,3 +297,24 @@ def test_two_repo_loop_reaches_ready_for_review(loop, capsys):
     # Original checkouts never receive the implementation commits.
     assert "fake agent" not in _git(loop["repo_a"], "log", "--oneline")
     assert "fake agent" not in _git(loop["repo_b"], "log", "--oneline")
+
+
+def test_specify_runs_never_wait_on_interactive_stdin(tmp_path, monkeypatch):
+    import subprocess as sp
+    from types import SimpleNamespace
+
+    from specrunway import runner
+
+    captured = {}
+
+    def fake_run(argv, **kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(
+            returncode=0, stdout='{"status": "paused", "run_id": "r1"}', stderr=""
+        )
+
+    monkeypatch.setattr(runner, "resolve_tool_bin", lambda *a, **k: "specify")
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+    payload = runner._specify_workflow(["workflow", "run", "wf"], tmp_path)
+    assert payload["status"] == "paused"
+    assert captured["stdin"] is sp.DEVNULL
