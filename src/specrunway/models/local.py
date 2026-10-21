@@ -241,14 +241,16 @@ def load_local_config(control_root: Path) -> dict:
         if isinstance(store, dict) and isinstance(store.get("path"), str):
             path_value = Path(store["path"].strip()).expanduser()
             if not path_value.is_absolute():
-                store["path"] = str((root_resolved / path_value).resolve())
+                path_value = (root_resolved / path_value).resolve()
+            store["path"] = str(path_value)
         repos = parsed.get("repos")
         if isinstance(repos, dict):
             for entry in repos.values():
                 if isinstance(entry, dict) and isinstance(entry.get("path"), str):
                     path_value = Path(entry["path"].strip()).expanduser()
                     if not path_value.is_absolute():
-                        entry["path"] = str((root_resolved / path_value).resolve())
+                        path_value = (root_resolved / path_value).resolve()
+                    entry["path"] = str(path_value)
     return validate_local_config(parsed if isinstance(parsed, dict) else {})
 
 

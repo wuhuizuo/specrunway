@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 from specrunway.models.common import (
@@ -51,6 +52,16 @@ def _head_exists(repo_checkout: Path, head: str) -> bool:
     return done.returncode == 0
 
 
+def _result_is_tracked(result_path: Path) -> bool:
+    done = subprocess.run(
+        ["git", "-C", str(result_path.parent), "ls-files", "--error-unmatch", result_path.name],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return done.returncode == 0
+
+
 def accept_result(
     result_path: Path,
     execution_id: str,
@@ -73,6 +84,11 @@ def accept_result(
         validate_result(result)
     except GroupedValidationError as exc:
         raise ResultRejected("result-invalid", f"result shape invalid: {exc}") from exc
+    if _result_is_tracked(Path(result_path)):
+        raise ResultRejected(
+            "result-committed",
+            "result.json is committed in the worktree; evidence files must stay untracked",
+        )
 
     if result["execution_id"] != execution_id:
         raise ResultRejected(

@@ -397,3 +397,25 @@ def test_trusted_runner_runs_real_tests_and_receipt(tmp_path):
     with pytest.raises(Exception) as unknown:
         resolve_test_profile("nope")
     assert "unknown test profile" in str(unknown.value)
+
+
+def test_committed_result_file_is_rejected(loop):
+    store = loop["store"]
+    execution_id = loop["execution_id"]
+    worktree = loop["worktree"]
+    _receipt(store, execution_id, status="passed")
+    (worktree / "src" / "feat.py").write_text("def feat():\n    return 1\n", encoding="utf-8")
+    head = commit_all(worktree, "feat: add feat")
+    result_path = _write_result(worktree, execution_id, loop["base_oid"], head)
+    _commit_all(worktree, "commit evidence by mistake")
+    with pytest.raises(ResultRejected) as committed:
+        accept_result(
+            result_path=result_path,
+            execution_id=execution_id,
+            repo_id="repo-a",
+            manifest=MANIFEST,
+            snapshot=loop["snapshot"],
+            repo_checkout=loop["repo"],
+            run_dir=store.run_dir(execution_id),
+        )
+    assert committed.value.code == "result-committed"

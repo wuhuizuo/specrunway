@@ -130,7 +130,10 @@ def build_prompt(
         "without result_digest: keys sorted, separators ',', ':', ASCII."
     )
     lines.append(
-        "4. Do not touch paths outside the allowed_paths list; tests and commits run by the coordinator count, not your prose."
+        "4. Do not commit result.json: it is evidence for the coordinator, not part of the change."
+    )
+    lines.append(
+        "5. Do not touch paths outside the allowed_paths list; tests and commits run by the coordinator count, not your prose."
     )
     return "\n".join(lines) + "\n"
 

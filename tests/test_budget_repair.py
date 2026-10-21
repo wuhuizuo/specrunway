@@ -238,3 +238,18 @@ def test_total_minutes_budget_refuses_attempt(budgeted, monkeypatch):
         action_run_repo(_cfg(budgeted, store, execution_id, "run-repo", repo="repo-a"), None)
     assert stopped.value.output["error"]["code"] == "budget-exhausted"
     assert "total budget" in stopped.value.output["error"]["message"]
+
+
+def test_run_repo_keeps_result_evidence_out_of_the_worktree(budgeted):
+    store, execution_id, _snapshot = _freeze(budgeted)
+    action_run_repo(_cfg(budgeted, store, execution_id, "run-repo", repo="repo-a"), None)
+    worktree = store.run_dir(execution_id) / "worktrees" / "repo-a"
+    assert not (worktree / "result.json").exists()
+    status = subprocess.run(
+        ["git", "-C", str(worktree), "status", "--porcelain"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert "result.json" not in status
+    assert (store.run_dir(execution_id) / "results" / "repo-a" / "1" / "result.json").is_file()

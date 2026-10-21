@@ -7,6 +7,7 @@ warnings`` (+ ``error`` when failed). Agent output never becomes shell text.
 
 from __future__ import annotations
 
+import shutil
 from datetime import UTC
 from pathlib import Path
 
@@ -299,6 +300,7 @@ def action_run_repo(config: dict, context) -> dict:
                 },
             ),
         )
+    _remove_result_file(worktree, run_dir, repo_id, attempt, "stale-result")
     if _elapsed_minutes(state["created_at"]) > budget["total_minutes"]:
         _block(store, execution_id, "total time budget exhausted")
         raise SpecRunwayActionError(
@@ -388,6 +390,7 @@ def action_run_repo(config: dict, context) -> dict:
         timeout_seconds=profile.timeout_seconds,
     )
     if outcome.status != "completed":
+        _remove_result_file(worktree, run_dir, repo_id, attempt, "incomplete-result")
         store.mark_uncertain(
             execution_id,
             operation["operation_key"],
@@ -447,6 +450,7 @@ def action_run_repo(config: dict, context) -> dict:
             run_dir=run_dir,
         )
     except (ResultRejected, GroupedValidationError) as exc:
+        _remove_result_file(worktree, run_dir, repo_id, attempt, "rejected-result")
         store.mark_uncertain(
             execution_id, operation["operation_key"], {"status": "rejected", "reason": str(exc)}
         )
@@ -463,6 +467,7 @@ def action_run_repo(config: dict, context) -> dict:
             ),
         ) from exc
 
+    _remove_result_file(worktree, run_dir, repo_id, attempt)
     stored_ref = persist_result(run_dir, repo_id, accepted)
     store.record_receipt(
         execution_id,
@@ -847,6 +852,20 @@ def action_accept_tasks(config: dict, context) -> dict:
         execution_id=execution_id,
         evidence=[str(tasks_path)],
     )
+
+
+def _remove_result_file(
+    worktree: Path, run_dir: Path, repo_id: str, attempt: int, label: str | None = None
+) -> None:
+    """Keep evidence out of the worktree; archive it when it is diagnostic."""
+    path = Path(worktree) / "result.json"
+    if not path.is_file():
+        return
+    if label:
+        target = run_dir / "results" / repo_id / str(attempt) / f"{label}.json"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(path, target)
+    path.unlink()
 
 
 def _log_tail(path: str | None, lines: int = 25) -> str:
