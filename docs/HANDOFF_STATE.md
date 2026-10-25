@@ -1,6 +1,6 @@
 # Implementation state
 
-Updated: 20 October 2026 (L01-L18 complete; configurable frozen test profiles; changes archived).
+Updated: 25 October 2026 (L01-L18 complete and archived; L19 guided onboarding in active change 09; mise developer environment added).
 
 ## Completed preparation
 
@@ -48,20 +48,55 @@ Updated: 20 October 2026 (L01-L18 complete; configurable frozen test profiles; c
 - L10 task 5.1 done: `specrunway.bridge` — production `type: specrunway` step (prepare / run-repo / verify-round / collect-summary / gate-check / complete actions with the standardized envelope); `bridge/prompt.py` bounded prompt builder; `tooling/specrunwaystep` install shim delegating to the same package. Verified end-to-end with the pinned specify-cli 1.2.1: step install + real workflow run finished `status: completed` and the coordinator phase reached `ready_for_review`.
 - Verification: `pytest -q` → 163 passed (5 bridge incl. pinned-CLI end-to-end; 9 worktree/result; 8 launcher; 9 freeze/approval; 8 planning); `openspec validate --all --strict --json` → 5/5; `scripts/check_handoff.py` → passed. Details: `docs/evidence/03-deliver-two-repo-loop.md`.
 
+## Completed work: change 09 (L19 guided onboarding)
+
+- The v1 dogfood run found two first-use costs: hand-written `local.yaml` and
+  hand-written `request.md`. Decision D11 authorizes one deterministic wizard.
+- `specrunway/wizard.py` implements `specrunway wizard`: configuration phase
+  (Git checkout discovery, Store/repo/test/integration prompts, atomic
+  `local.yaml`, then the shared bootstrap), request phase (short description,
+  bounded follow-ups, per-repo tasks, atomic `requests/<change>.md` and
+  `.specrunway/requests/<change>.manifest.yaml`, then `plan`), repeat-use
+  behavior, overwrite refusal, and `--json` prompt separation.
+- `specrunway/bootstrap.py` now owns the idempotent control bootstrap shared by
+  `init` and the wizard; `cli.cmd_init` is a thin envelope wrapper.
+- Default `plan` manifests now use configured repository ids/order/profiles
+  instead of hardcoded fixture names.
+- README/RUNBOOK document the wizard; `docs/evidence/09-guided-onboarding.md`
+  records the checks. Verified with 10 wizard tests including a real pinned
+  OpenSpec plan generation; full suite 218 passed; ruff clean; strict OpenSpec
+  validation 11/11; `scripts/check_handoff.py` L01-L19 passed.
+- D12 adds `mise.toml`: Python 3.14.5, Node 24.4.1 (npm 11.4.2), project venv
+  lifecycle, and `bootstrap`/`check`/`versions` tasks. The project venv remains
+  the Python package boundary; mise only owns interpreter selection. Recreated
+  `.venv` on Python 3.14.5 and re-ran the full check through `mise run check`:
+  218 passed, ruff clean, strict OpenSpec 11/11, handoff check passed; verified
+  active versions Python 3.14.5, Node 24.4.1, npm 11.4.2, git 2.50.1.
+
 ## Current change
 
-`05-release-local-v1` — L15 complete. All five OpenSpec changes (L01-L15) are implemented and validated.
+`09-guided-onboarding` — L19 implemented and checked; review/archive pending.
+The v1 baseline L01-L18 remains archived and valid.
 
 ## Repository state
 
-- All five development changes are archived under
-  `openspec/changes/archive/2026-10-20-*`; their deltas are applied to the
-  baseline under `openspec/specs/`.
-- `README.md` now describes the implemented SpecRunway product and points to
-  `docs/RUNBOOK.md`; the pre-archive handoff instructions are historical.
-- `scripts/check_handoff.py` covers both active and archived changes (active
-  may be zero after archive) and still asserts L01-L15 coverage.
+- The v1 development changes 01-08 are archived under
+  `openspec/changes/archive/2026-10-20-*`; their deltas are applied under
+  `openspec/specs/`.
+- Change 09 is active under `openspec/changes/09-guided-onboarding/`; its
+  deltas are not yet applied to the baseline. Do not archive it until the diff
+  and evidence are reviewed.
+- `README.md` and `docs/RUNBOOK.md` describe both the guided and manual
+  configuration paths; `docs/TOOLCHAIN.md` records the compatibility gate and
+  the mise developer entry point.
+- `mise.toml` is the checked-in developer environment entry point; `.venv` is
+  generated and ignored.
+- `scripts/check_handoff.py` covers active and archived changes and asserts
+  L01-L19 coverage.
 
 ## Exact next action
 
-v1 implementation (L01-L18), live-agent acceptance, docs, and all development-change archives are complete. Remaining work: dogfood using only `specrunway init` + `specrunway` commands, then tag `v0.1.0` / GitHub Release (awaiting explicit approval). v2 work stays deferred.
+Review the change 09 diff, then run the guided flow once on a disposable
+control checkout. If accepted, archive `09-guided-onboarding` and apply its
+`guided-onboarding` delta to the baseline. Tag `v0.1.0` / GitHub Release only
+after explicit approval; v2 work stays deferred.

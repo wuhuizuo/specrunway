@@ -166,7 +166,7 @@ def plan(
         created = adapter.new_change(change_id)
         change_path = Path(created["change_path"])
         manifest = _write_generation(
-            adapter, change_path, change_id, request_text, manifest, generated
+            adapter, change_path, change_id, request_text, manifest, generated, config
         )
     elif not existing["planning_complete"]:
         if request_text is None:
@@ -176,7 +176,7 @@ def plan(
             )
         change_path = Path(existing["change_root"])
         manifest = _write_generation(
-            adapter, change_path, change_id, request_text, manifest, generated
+            adapter, change_path, change_id, request_text, manifest, generated, config
         )
     else:
         # Manual plan accepted: complete artifacts were already prepared.
@@ -188,7 +188,7 @@ def plan(
                     "manifest-required",
                     "manual plan without mapped routing: supply --manifest (or task labels)",
                 )
-            manifest = _manual_manifest(adapter, change_id, found_ids)
+            manifest = _manual_manifest(adapter, change_id, found_ids, config)
 
     planning = adapter.status(change_id)
     if not planning["planning_complete"]:
@@ -237,11 +237,12 @@ def _write_generation(
     request_text: str,
     manifest: dict | None,
     generated: list,
+    config: dict,
 ) -> dict:
     """Materialize proposal/design/tasks/specs from the request + routing."""
     task_texts = parse_task_texts(request_text)
     if manifest is None:
-        manifest = _minimal_manifest(adapter, change_id, task_texts)
+        manifest = _minimal_manifest(adapter, change_id, task_texts, config)
     (change_path / "proposal.md").write_text(
         PROPOSAL_TEMPLATE.format(
             change_id=change_id,
@@ -337,30 +338,56 @@ def _resolve_openspec_bin(control_root: Path, explicit: str | None) -> str | Non
     return resolve_tool_bin(control_root, explicit, "openspec")
 
 
-def _minimal_manifest(adapter: OpenSpecAdapter, change_id: str, task_texts: dict) -> dict:
+def _minimal_manifest(
+    adapter: OpenSpecAdapter, change_id: str, task_texts: dict, config: dict
+) -> dict:
     tasks = sorted(task_texts) or ["T001"]
-    half = (len(tasks) + 1) // 2
-    repos = [
-        {
-            "repo_id": "repo-a",
-            "base_ref": "main",
-            "task_ids": tasks[:half] or tasks,
-            "depends_on": [],
-            "allowed_paths": ["src/", "tests/"],
-            "test_profile": "unit",
-        }
-    ]
-    if len(tasks) > 1 and len(tasks[half:]) > 0:
+    return _default_manifest(adapter, change_id, tasks, config, task_texts)
+
+
+def _manual_manifest(
+    adapter: OpenSpecAdapter, change_id: str, task_ids: list, config: dict
+) -> dict:
+    """Manual-plan routing over the repositories declared by the control checkout."""
+    tasks = sorted(set(task_ids)) or ["T001"]
+    return _default_manifest(adapter, change_id, tasks, config, {})
+
+
+def _default_manifest(
+    adapter: OpenSpecAdapter,
+    change_id: str,
+    tasks: list,
+    config: dict,
+    task_texts: dict,
+) -> dict:
+    repo_ids = list(config["repos"])
+    selected = repo_ids[: max(1, min(len(tasks), len(repo_ids)))]
+    chunks: list = []
+    start = 0
+    base_size, remainder = divmod(len(tasks), len(selected))
+    for index in range(len(selected)):
+        size = base_size + (1 if index < remainder else 0)
+        chunks.append(tasks[start : start + size])
+        start += size
+    repos = []
+    profiles = config.get("test_profiles") or {}
+    for index, repo_id in enumerate(selected):
+        entry = config["repos"][repo_id]
+        repo_path = Path(entry["path"])
+        profile = f"{repo_id}-unit" if f"{repo_id}-unit" in profiles else "unit"
         repos.append(
             {
-                "repo_id": "repo-b",
-                "base_ref": "main",
-                "task_ids": tasks[half:],
-                "depends_on": ["repo-a"],
-                "allowed_paths": ["controllers/", "tests/"],
-                "test_profile": "unit",
+                "repo_id": repo_id,
+                "base_ref": _repo_base_ref(repo_path),
+                "task_ids": chunks[index] or [tasks[min(index, len(tasks) - 1)]],
+                "depends_on": [selected[index - 1]] if index else [],
+                "allowed_paths": _repo_allowed_paths(repo_path),
+                "test_profile": profile,
             }
         )
+    integration_profile = next(
+        iter(config.get("integration_profiles") or {}), "specrunway-integration"
+    )
     manifest = {
         "api_version": "specrunway/v1",
         "store_uid": spec_uid(str(adapter.store_path)),
@@ -376,60 +403,44 @@ def _minimal_manifest(adapter: OpenSpecAdapter, change_id: str, task_texts: dict
             }
             for index, task_id in enumerate(tasks, start=1)
         ],
-        "integration_profile": "specrunway-integration",
+        "integration_profile": integration_profile,
         "completion_policy": "merged_commits",
         "budget": {"repo_max_attempts": 3, "integration_max_repairs": 2, "total_minutes": 120},
     }
-    validate_manifest(manifest)
+    validate_manifest(manifest, known_profiles=set(profiles) | {"unit"})
     return manifest
 
 
-def _manual_manifest(adapter: OpenSpecAdapter, change_id: str, task_ids: list) -> dict:
-    """Manual-plan routing: one repo per roughly half of the labeled task set."""
-    tasks = sorted(set(task_ids)) or ["T001"]
-    half = (len(tasks) + 1) // 2
-    repos = [
-        {
-            "repo_id": "repo-a",
-            "base_ref": "main",
-            "task_ids": tasks[:half] or tasks,
-            "depends_on": [],
-            "allowed_paths": ["src/", "tests/"],
-            "test_profile": "unit",
-        }
-    ]
-    if tasks[half:]:
-        repos.append(
-            {
-                "repo_id": "repo-b",
-                "base_ref": "main",
-                "task_ids": tasks[half:],
-                "depends_on": ["repo-a"],
-                "allowed_paths": ["controllers/", "tests/"],
-                "test_profile": "unit",
-            }
+def _repo_base_ref(repo_path: Path) -> str:
+    import subprocess
+
+    for args in (("symbolic-ref", "--short", "-q", "HEAD"), ("rev-parse", "--abbrev-ref", "HEAD")):
+        done = subprocess.run(
+            ["git", "-C", str(repo_path), *args],
+            capture_output=True,
+            text=True,
+            check=False,
         )
-    manifest = {
-        "api_version": "specrunway/v1",
-        "store_uid": spec_uid(str(adapter.store_path)),
-        "change_id": change_id,
-        "change_uid": spec_uid(change_id),
-        "repo_order": [repo["repo_id"] for repo in repos],
-        "repos": repos,
-        "acceptance": [
-            {
-                "id": f"AC{index:02d}",
-                "requirement": f"{task_id} completes verification.",
-                "verifies": [task_id],
-            }
-            for index, task_id in enumerate(tasks, start=1)
-        ],
-        "integration_profile": "specrunway-integration",
-        "completion_policy": "merged_commits",
-        "budget": {"repo_max_attempts": 3, "integration_max_repairs": 2, "total_minutes": 120},
-    }
-    validate_manifest(manifest)
-    return manifest
+        value = done.stdout.strip()
+        if done.returncode == 0 and value and value != "HEAD":
+            return value
+    return "main"
+
+
+def _repo_allowed_paths(repo_path: Path) -> list:
+    candidates = [
+        "src",
+        "tests",
+        "docs",
+        "scripts",
+        "cmd",
+        "internal",
+        "pkg",
+        "controllers",
+        "api",
+    ]
+    found = [name for name in candidates if (Path(repo_path) / name).is_dir()]
+    return found or ["src", "tests"]
 
 
 __all__ = [

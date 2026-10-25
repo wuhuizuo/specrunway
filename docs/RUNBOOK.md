@@ -16,7 +16,38 @@ python3 -m venv .venv
 The OpenSpec CLI is pinned by `tooling/openspec/package.json`; install it
 with `npm ci --prefix tooling/openspec`.
 
-## 2. Control checkout
+## 2. Guided first use
+
+From an empty control directory, the wizard removes the need to hand-write
+`local.yaml` and `request.md`:
+
+```bash
+mkdir control && cd control
+specrunway wizard
+```
+
+It performs two phases:
+
+1. **Configuration**: discovers sibling Git checkouts, asks for the Store
+   location, repository ids/order, remote identities, test commands, and one
+   combined integration command. It writes `local.yaml`, then runs the same
+   bootstrap as `specrunway init`.
+2. **Request**: asks for a short change summary, why/what/context/acceptance,
+   and task text per repository. It writes
+   `requests/<change>.md` and
+   `.specrunway/requests/<change>.manifest.yaml`, then calls
+   `specrunway plan` with both. Task ids are assigned in repository order and
+   each later repository can depend on the previous one.
+
+Repeat runs on a configured checkout skip the configuration questions. Use
+`--reconfigure` to revisit wiring, `--change`/`--description` to pre-seed the
+request, `--request` to reuse an existing brief, and `--json` to keep stdout
+parseable while prompts go to stderr. The wizard stops after planning; run,
+approval, recovery, and archive stay explicit.
+
+The manual configuration path remains available:
+
+## 2a. Control checkout
 
 `local.yaml` lives only in the control checkout (never in business repos):
 

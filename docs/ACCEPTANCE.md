@@ -22,7 +22,7 @@ Version: v1; scope: Required.
 **Pass criteria:** No server, database, or v2 dependency is needed. Business repositories contain only intended code/test changes.
 **Expected evidence:** Installation log; Git diff/status
 **Status:** Passed (live `opencode` 1.18.33 / `deepseek-flash` and fixture modes)
-**Actual evidence:** `docs/evidence/05-release-local-v1.md` (fresh wheel install + live two-repo run); `tests/test_runner_flow.py`
+**Actual evidence:** `docs/evidence/05-release-local-v1.md` (fresh wheel install + live two-repo run); `tests/test_runner_flow.py`; `docs/evidence/09-guided-onboarding.md` (guided configuration and request generation)
 
 ## V1-A03 Configuration and explicit dependency order
 Version: v1; scope: Required.
@@ -30,7 +30,7 @@ Version: v1; scope: Required.
 **Pass criteria:** Preflight fails without editing code. repo_order satisfies dependencies. Machine paths never enter shared manifests.
 **Expected evidence:** Validation findings; clean worktree
 **Status:** Passed
-**Actual evidence:** `tests/test_manifest.py`, `tests/test_local.py`, `tests/test_planning.py` (unknown repo/remote, duplicate/missing tasks, forward dependency, invalid paths, unknown profile); `tests/test_test_profiles.py` (unsafe/unknown test profiles); `docs/evidence/08-configurable-test-profiles.md`
+**Actual evidence:** `tests/test_manifest.py`, `tests/test_local.py`, `tests/test_planning.py` (unknown repo/remote, duplicate/missing tasks, forward dependency, invalid paths, unknown profile); `tests/test_test_profiles.py` (unsafe/unknown test profiles); `docs/evidence/08-configurable-test-profiles.md`; `docs/evidence/09-guided-onboarding.md` (wizard output routed to declared repositories)
 
 ## V1-A04 Planning versus implementation completion
 Version: v1; scope: Required.
@@ -118,7 +118,7 @@ Version: v1; scope: Required.
 **Pass criteria:** No team component is required. Preserve a usable failure scene. Replay normal, repair, and abnormal-recovery paths at pinned versions.
 **Expected evidence:** Release replays; backup/restore drill
 **Status:** Passed (fresh install + live-agent replay)
-**Actual evidence:** `docs/evidence/05-release-local-v1.md` (fresh venv wheel install, live-agent replay, archive + backup); `docs/RUNBOOK.md`
+**Actual evidence:** `docs/evidence/05-release-local-v1.md` (fresh venv wheel install, live-agent replay, archive + backup); `docs/RUNBOOK.md`; `docs/evidence/09-guided-onboarding.md` (guided install-to-plan path)
 
 ## V2-A01 Authentication and project authorization
 Version: v2; scope: Required.

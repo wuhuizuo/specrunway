@@ -10,6 +10,8 @@ tooling/openspec/node_modules/
 docs/evidence/**/raw/
 
 .opencode/
+.codex/
+.entire/
 *.zip
 src/*.egg-info/
 build/

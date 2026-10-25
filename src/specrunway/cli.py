@@ -276,11 +276,8 @@ def _control_root_for(args: argparse.Namespace) -> Path | None:
 
 def cmd_init(args: argparse.Namespace) -> int:
     """Idempotent control bootstrap: Store, Specify workspace, bundled step."""
-    import subprocess
-
+    from specrunway.bootstrap import initialize_control
     from specrunway.models import load_local_config
-    from specrunway.openspec_adapter import OpenSpecAdapter
-    from specrunway.toolresolvers import resolve_tool_bin
 
     root = _control_root_for(args)
     if root is None:
@@ -309,67 +306,8 @@ def cmd_init(args: argparse.Namespace) -> int:
         )
     except Exception as exc:  # noqa: BLE001
         return _fail_cli(_error_envelope("init", exc), args.json, "specrunway init")
-    specify_initialized = False
     try:
-        openspec_bin = resolve_tool_bin(root, None, "openspec")
-        specify_bin = resolve_tool_bin(root, None, "specify")
-        store_path = Path(config["store"]["path"])
-        store_path.mkdir(parents=True, exist_ok=True)
-        adapter = OpenSpecAdapter(
-            store_path=store_path,
-            store_id=config["store"]["id"],
-            openspec_bin=openspec_bin,
-        )
-        adapter.store_setup()
-        if not (root / ".specify").is_dir():
-            done = subprocess.run(
-                [
-                    specify_bin,
-                    "init",
-                    "--here",
-                    "--force",
-                    "--non-interactive",
-                    "--ignore-agent-tools",
-                ],
-                cwd=str(root),
-                capture_output=True,
-                text=True,
-                check=False,
-                stdin=subprocess.DEVNULL,
-            )
-            if done.returncode != 0:
-                raise _validation_error(
-                    "specify-init-failed",
-                    f"specify init failed (exit {done.returncode}): "
-                    f"{(done.stderr or done.stdout)[-400:]}",
-                )
-            specify_initialized = True
-        step_path = Path(__file__).resolve().parent / "step_package"
-        installed_step = root / ".specify" / "workflows" / "steps" / "specrunway" / "step.yml"
-        step = None
-        if not installed_step.is_file():
-            step = subprocess.run(
-                [
-                    specify_bin,
-                    "workflow",
-                    "step",
-                    "add",
-                    "specrunway",
-                    "--dev",
-                    str(step_path),
-                ],
-                cwd=str(root),
-                capture_output=True,
-                text=True,
-                check=False,
-                stdin=subprocess.DEVNULL,
-            )
-        if step is not None and step.returncode != 0:
-            raise _validation_error(
-                "step-install-failed",
-                f"specify step install failed (exit {step.returncode}): "
-                f"{(step.stderr or step.stdout)[-400:]}",
-            )
+        initialized = initialize_control(root, config)
     except Exception as exc:  # noqa: BLE001
         return _fail_cli(_error_envelope("init", exc), args.json, "specrunway init")
 
@@ -381,8 +319,8 @@ def cmd_init(args: argparse.Namespace) -> int:
             "control_root": str(root),
             "store_id": config["store"]["id"],
             "store_path": config["store"]["path"],
-            "specify_initialized": specify_initialized,
-            "step_package": str(step_path),
+            "specify_initialized": initialized["specify_initialized"],
+            "step_package": initialized["step_package"],
             "doctor_ok": bool(report["ok"]),
             "findings": report["data"]["findings"],
         },
@@ -399,9 +337,56 @@ def cmd_init(args: argparse.Namespace) -> int:
         args.json,
         f"init {'ok' if report['ok'] else 'incomplete'}: {root} "
         f"(store {config['store']['id']}, specify "
-        f"{'initialized' if specify_initialized else 'already present'})\n",
+        f"{'initialized' if initialized['specify_initialized'] else 'already present'})\n",
     )
     return 0 if report["ok"] else 1
+
+
+def cmd_wizard(args: argparse.Namespace) -> int:
+    """Guided first use: configure the control checkout and draft a request."""
+    from specrunway.wizard import WizardIO, run_wizard
+
+    root = _control_root_for(args)
+    if root is None:
+        root = Path.cwd().resolve()
+    io = WizardIO(
+        input_fn=input,
+        output=sys.stderr if args.json else sys.stdout,
+    )
+    try:
+        result = run_wizard(
+            root,
+            io=io,
+            reconfigure=args.reconfigure,
+            change_id=args.change,
+            description=args.description,
+            request_path=args.request,
+            manifest_path=args.manifest,
+            skip_init=args.skip_init,
+            skip_plan=args.skip_plan,
+            force=args.force,
+        )
+    except Exception as exc:  # noqa: BLE001 (CLI boundary; stable envelope required)
+        return _fail_cli(_error_envelope("wizard", exc), args.json, "specrunway wizard")
+    payload = _specrunway_envelope(
+        action="wizard", ok=True, data=result, warnings=[]
+    )
+    if args.json:
+        json.dump(payload, sys.stdout, indent=2, sort_keys=True)
+        sys.stdout.write("\n")
+    elif result["planned"]:
+        sys.stdout.write(
+            f"wizard ok: {result['change_id']} planned at {result['change_path']}\n"
+        )
+        for hint in result["next"]:
+            sys.stdout.write(f"  next: {hint}\n")
+    else:
+        sys.stdout.write(
+            f"wizard ok: control checkout ready at {result['control_root']}\n"
+        )
+        if result.get("request_path"):
+            sys.stdout.write(f"  request: {result['request_path']}\n")
+    return 0
 
 
 def _validation_error(code: str, message: str) -> Exception:
@@ -559,6 +544,33 @@ def build_parser() -> argparse.ArgumentParser:
         "--json", action="store_true", help="Emit specrunway/v1 JSON envelope"
     )
     init_parser.set_defaults(func=cmd_init)
+
+    wizard_parser = sub.add_parser(
+        "wizard", help="Guide control configuration and request drafting"
+    )
+    wizard_parser.add_argument(
+        "--root", help="Explicit control root (default: walk up from cwd)"
+    )
+    wizard_parser.add_argument(
+        "--reconfigure", action="store_true", help="Re-open the local.yaml questions"
+    )
+    wizard_parser.add_argument("--change", help="Change id (default: slug from description)")
+    wizard_parser.add_argument("--description", help="Short change summary")
+    wizard_parser.add_argument("--request", help="Use an existing request markdown file")
+    wizard_parser.add_argument("--manifest", help="Routing manifest for --request")
+    wizard_parser.add_argument(
+        "--skip-init", action="store_true", help="Write configuration without bootstrapping"
+    )
+    wizard_parser.add_argument(
+        "--skip-plan", action="store_true", help="Stop after configuration or request writing"
+    )
+    wizard_parser.add_argument(
+        "--force", action="store_true", help="Replace existing local.yaml/request/manifest"
+    )
+    wizard_parser.add_argument(
+        "--json", action="store_true", help="Emit the specrunway/v1 envelope as JSON"
+    )
+    wizard_parser.set_defaults(func=cmd_wizard)
 
     for name, help_text, handler in (
         ("status", "Show execution status", cmd_status),

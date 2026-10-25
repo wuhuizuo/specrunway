@@ -9,7 +9,7 @@ specrunway`), validates agent results against trusted test evidence, enforces
 repair budgets, gates plan and implementation review on local approval
 receipts, and finishes at `ready_for_review`. Archiving is always explicit.
 
-Status: local v1 implemented (source tasks L01-L15). Required acceptance
+Status: local v1 implemented (source tasks L01-L18), with post-v1 guided onboarding (L19). Required acceptance
 cases and evidence: `docs/ACCEPTANCE.md` and
 `docs/evidence/05-release-local-v1.md`. No server, database, broker, account
 system, or v2 component is required.
@@ -18,7 +18,7 @@ system, or v2 component is required.
 
 - `docs/RUNBOOK.md` — install, control checkout, plan, run, approve,
   resume/recover, repair, archive, backup, cleanup.
-- Command surface: `specrunway doctor|plan|run|approve|resume|recover|status|archive`.
+- Command surface: `specrunway wizard|doctor|init|plan|run|approve|resume|recover|status|archive`.
 - `docs/examples/` — envelope, approval, manifest, local config, workflow.
 - `docs/DESIGN.md` — architecture and contracts; `docs/DECISIONS.md` —
   recorded decisions (including D10: the SpecRunway rename).
@@ -28,14 +28,22 @@ Quick start:
 ```bash
 python3 -m venv .venv && .venv/bin/python -m pip install .
 .venv/bin/specrunway --version
-# write local.yaml (store, repos, agent_profile, integration_profiles)
-.venv/bin/specrunway init        # Store + Specify workspace + bundled step
+.venv/bin/specrunway wizard      # guided local.yaml + request.md + plan
 .venv/bin/specrunway doctor --json
 ```
 
-`init` is idempotent and only writes inside the control checkout. The pinned
-upstream tools are OpenSpec 1.14.3 (`tooling/openspec/`) and specify-cli 1.2.1
-(`docs/TOOLCHAIN.md`); `init` invokes them for you.
+`wizard` inspects sibling Git checkouts, asks for the missing control wiring,
+writes `local.yaml`, initializes the Store/Specify workspace, and then drafts
+`request.md` plus a routing manifest from a short change description before
+calling `plan`. Repeat runs reuse `local.yaml`. Every generated file is
+editable, and `run`/`approve`/`archive` remain explicit commands.
+
+The manual path still works: write `local.yaml` (store, repos, agent_profile,
+test/integration profiles), run `specrunway init`, then
+`specrunway plan <change> --request request.md`. `init` is idempotent and only
+writes inside the control checkout. The pinned upstream tools are OpenSpec
+1.14.3 (`tooling/openspec/`) and specify-cli 1.2.1 (`docs/TOOLCHAIN.md`);
+`init` invokes them for you.
 
 ## Repository layout
 
@@ -44,18 +52,42 @@ upstream tools are OpenSpec 1.14.3 (`tooling/openspec/`) and specify-cli 1.2.1
 | `src/specrunway/` | Coordinator package (CLI, planning, freezer, approvals, launcher, worktrees, results, runner, recovery, archive, Specify step bridge) |
 | `src/specrunway/step_package/` | Bundled `type: specrunway` step shim installed by `specrunway init` |
 | `tooling/openspec/` | Pinned OpenSpec CLI and lockfile |
+| `mise.toml` | Developer Python/Node versions and bootstrap/check tasks |
 | `tests/` | Deterministic fixtures (fake agent CLI) plus real pinned OpenSpec/Specify integration tests |
-| `openspec/` | This repository's own development specs and archived changes 01-05 |
+| `openspec/` | This repository's own development specs, archived changes 01-08, and active change 09 |
 | `docs/` | Design, decisions, runbook, acceptance, evidence |
 
-## Development checks
+## Development environment
+
+Developer interpreter versions are pinned with `mise` (Python 3.14.5,
+Node 24.4.1). `mise` manages the interpreters and the project venv lifecycle;
+`pip` and `npm` still own Python and Node package dependencies.
 
 ```bash
-.venv/bin/python -m pytest -q
-.venv/bin/ruff check src tests
-tooling/openspec/node_modules/.bin/openspec validate --all --strict --json
-.venv/bin/python scripts/check_handoff.py
+mise trust
+mise install
+eval "$(mise activate zsh)"   # once per shell; add to ~/.zshrc
+mise run bootstrap            # create .venv, editable install, Specify, OpenSpec deps
+mise run versions             # python, node, npm, git
 ```
+
+Without shell activation, prefix ad-hoc commands with `mise exec --`
+(for example `mise exec -- npm --version`) so the pinned Node is used.
+
+Daily checks:
+
+```bash
+mise run check       # pytest, ruff, OpenSpec strict validation, handoff check
+```
+
+Individual commands remain available as
+`.venv/bin/python -m pytest -q`, `.venv/bin/ruff check src tests`,
+`scripts/openspec.sh validate --all --strict`, and
+`.venv/bin/python scripts/check_handoff.py`.
+
+`toolchain.lock.json` is the machine-readable L01 compatibility evidence, not
+a package lock. `docs/TOOLCHAIN.md` explains the compatibility gate and probe
+history; `mise.toml` is the current developer entry point.
 
 Record real commands, versions, exit codes, and sanitized artifacts under
 `docs/evidence/`. Fake agents prove coordination behavior, not a live model

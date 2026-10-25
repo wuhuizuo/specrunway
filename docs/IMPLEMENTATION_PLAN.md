@@ -106,6 +106,21 @@ Work on one change at a time. The dependency column is an implementation gate ev
 - Definition of done: Pass every required v1 case. Demonstrate installation with the SpecRunway, agreed upstream tools, and one agent; backup/restore and stop/takeover procedures work.
 - Acceptance: V1-A01 through V1-A14.
 
+## Post-v1 onboarding follow-up
+
+The v1 dogfood run found that first use still required hand-written
+`local.yaml` and `request.md`. Decision D11 authorizes one bounded follow-up
+outside the original L01-L15 release scope:
+
+### L19 Guided onboarding wizard
+- Stage: Post-v1 local usability; estimate: 0.75 person-days; dependencies: L15.
+- Deliverable: `specrunway wizard` for configuration and request drafting.
+- Definition of done: A fresh control directory becomes a valid configured
+  checkout and a planned change through interactive prompts; repeat runs reuse
+  configuration; generated artifacts are deterministic and editable; default
+  `plan` routing follows configured repository ids.
+- Acceptance: V1-A02, V1-A03, V1-A14 supporting evidence.
+
 ## Deferred work
 
 L16 local parallelism and L17 Jenkins integration remain optional. All S01-S20 tasks are v2 reference material and are not authorized implementation scope for this handoff.

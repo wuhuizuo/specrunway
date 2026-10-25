@@ -7,4 +7,4 @@ The Markdown architecture and task/acceptance records were exported from the Eng
 | OpenSpec_SpecKit_Design.docx | 188821 | ed7e7600b614a43280abb5c9d0cd312618cc585f13db707d4aba3acf1e9d4c6b |
 | OpenSpec_SpecKit_Action_Plan.xlsx | 32345 | 4c1d8e76c570cb2aaa40d43e370fd68ef73a6881f37519c4610b81949073881d |
 
-Upstream candidate versions and tag-pinned references are recorded in TOOLCHAIN.md. The toolchain compatibility gate remains pending.
+Upstream candidate versions and tag-pinned references are recorded in TOOLCHAIN.md and toolchain.lock.json. The L01 compatibility gate passed; see docs/evidence/L01/compatibility-report.md.

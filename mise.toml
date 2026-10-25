@@ -1,0 +1,39 @@
+# Developer toolchain for the repository. Package resolution stays with pip/npm.
+[tools]
+python = "3.14.5"
+node = "24.4.1"
+
+[env]
+# Activate the project venv in interactive shells; tasks use explicit paths.
+_.python.venv = { path = ".venv", create = true }
+
+[tasks.bootstrap]
+description = "Create the venv and install Python/Node development dependencies"
+run = """
+set -e
+[ -x .venv/bin/python ] || python -m venv .venv
+.venv/bin/python -m ensurepip --upgrade
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/python -m pip install -e '.[dev]'
+.venv/bin/python -m pip install 'specify-cli @ git+https://github.com/github/spec-kit.git@v1.2.1'
+npm ci --prefix tooling/openspec
+"""
+
+[tasks.check]
+description = "Run lint, tests, OpenSpec validation, and handoff checks"
+run = """
+set -e
+.venv/bin/python -m pytest -q
+.venv/bin/ruff check src tests
+bash scripts/openspec.sh validate --all --strict
+.venv/bin/python scripts/check_handoff.py
+"""
+
+[tasks.versions]
+description = "Show the active developer tool versions"
+run = """
+python --version
+node --version
+npm --version
+git --version
+"""
