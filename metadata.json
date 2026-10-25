@@ -1,0 +1,61 @@
+{
+  "cli_version": "0.12.1",
+  "checkpoint_id": "01M5RPV722HC379398TT87ENAS",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 9,
+  "files_touched": [
+    ".gitignore",
+    "README.md",
+    "docs/ACCEPTANCE.md",
+    "docs/DECISIONS.md",
+    "docs/HANDOFF_STATE.md",
+    "docs/IMPLEMENTATION_PLAN.md",
+    "docs/RUNBOOK.md",
+    "docs/SOURCE_PROVENANCE.md",
+    "docs/TOOLCHAIN.md",
+    "docs/evidence/09-guided-onboarding.md",
+    "mise.toml",
+    "openspec/changes/09-guided-onboarding/.openspec.yaml",
+    "openspec/changes/09-guided-onboarding/design.md",
+    "openspec/changes/09-guided-onboarding/proposal.md",
+    "openspec/changes/09-guided-onboarding/specs/guided-onboarding/spec.md",
+    "openspec/changes/09-guided-onboarding/tasks.md",
+    "scripts/check_handoff.py",
+    "src/specrunway/bootstrap.py",
+    "src/specrunway/cli.py",
+    "src/specrunway/planning.py",
+    "src/specrunway/wizard.py",
+    "tests/test_wizard.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 146833,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 14375552,
+    "output_tokens": 41957,
+    "api_call_count": 124
+  },
+  "redaction": {
+    "replacements": 2,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 2,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
