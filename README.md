@@ -28,7 +28,7 @@ Quick start (uv; no Python or virtual environment required):
 ```bash
 uv tool install "specrunway @ git+https://github.com/wuhuizuo/specrunway.git"
 uv tool install "specify-cli @ git+https://github.com/github/spec-kit.git@v1.2.1"
-npm install --global @fission-ai/openspec@1.14.3
+npm install --global @fission-ai/openspec@1.15.0
 uv tool update-shell               # once, if ~/.local/bin is not on PATH
 specrunway --version               # specrunway 0.1.0
 specrunway wizard                  # guided local.yaml + request.md + plan
@@ -68,10 +68,12 @@ npm ci --prefix tooling/openspec        # source checkout only
 Then write `local.yaml` (store, repos, agent_profile, test/integration
 profiles), run `specrunway init`, and `specrunway plan <change> --request
 request.md`. `init` is idempotent and only writes inside the control checkout.
-The pinned upstream tools are OpenSpec 1.14.3 (`tooling/openspec/`) and
+The pinned upstream tools are OpenSpec 1.15.0 (`tooling/openspec/`) and
 specify-cli 1.2.1 (`docs/TOOLCHAIN.md`); `init` invokes them for you. A source
 checkout resolves `.venv/bin` and `tooling/openspec/node_modules/.bin` before
-PATH; outside a checkout both CLIs come from PATH (`docs/TOOLCHAIN.md`).
+PATH; outside a checkout both CLIs come from PATH (`docs/TOOLCHAIN.md`). The
+shipped coding-agent profile supports `opencode` 2.1.4; configure opencode's
+model before running, because the profile does not pass `--model`.
 
 ## Repository layout
 

@@ -119,3 +119,10 @@ and the `docs/HANDOFF_STATE.md` update.
   the release acceptance matrix and does not change any V1 acceptance status.
 - The archive applied deltas to the disposable Store, not to this repository's
   `openspec/` baseline.
+
+## Toolchain note (added later)
+
+The pinned toolchain was raised after this run: opencode 2.1.4 and OpenSpec
+1.15.0. This document stays the historical record of the P0 run, which used
+opencode 1.18.33 and OpenSpec 1.14.3. See
+`docs/evidence/11-toolchain-upgrade.md` for the current pins and re-verification.

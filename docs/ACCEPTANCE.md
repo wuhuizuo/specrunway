@@ -13,16 +13,16 @@ Version: v1; scope: Required.
 **Steps:** Capture --version/--help and JSON. Install the specrunway step. Exercise non-TTY gates, loops, fan-out, normal resume, and a killed running process.
 **Pass criteria:** Record behavior of the selected release. Distinguish valid and malformed responses. Main-branch documentation alone is insufficient.
 **Expected evidence:** Compatibility report; fixtures; SDK trace
-**Status:** Passed (compatibility-gate scope, open-spec/dev side; replayed at release via V1-A14)
-**Actual evidence:** `docs/evidence/L01/compatibility-report.md`; `toolchain.lock.json`; `docs/evidence/L01/fixtures/` (OpenSpec 1.14.3 npm lock integrity; Specify 1.2.1 @ commit 9dca9bf42; probe JSON/scratch logs)
+**Status:** Passed (compatibility-gate scope, open-spec/dev side; replayed at release via V1-A14; re-verified at OpenSpec 1.15.0 on 25 October 2026)
+**Actual evidence:** `docs/evidence/L01/compatibility-report.md`; `toolchain.lock.json`; `docs/evidence/L01/fixtures/` (historical OpenSpec 1.14.3 npm lock integrity; Specify 1.2.1 @ commit 9dca9bf42; probe JSON/scratch logs); `docs/evidence/11-toolchain-upgrade.md` (OpenSpec 1.15.0 re-verification)
 
 ## V1-A02 Standalone local use and repo changes
 Version: v1; scope: Required.
 **Steps:** Install one SpecRunway package, agreed upstream tools, and one agent. Run two Git checkouts; compare diff and untracked files before/after.
 **Pass criteria:** No server, database, or v2 dependency is needed. Business repositories contain only intended code/test changes.
 **Expected evidence:** Installation log; Git diff/status
-**Status:** Passed (live `opencode` 1.18.33 / `deepseek-flash` and fixture modes)
-**Actual evidence:** `docs/evidence/05-release-local-v1.md` (fresh wheel install + live two-repo run); `tests/test_runner_flow.py`; `docs/evidence/09-guided-onboarding.md` (guided configuration and request generation)
+**Status:** Passed (live `opencode` 2.1.4 launcher probe with `deepseek-flash`; historical two-repo replay at 1.18.33; fixture modes)
+**Actual evidence:** `docs/evidence/05-release-local-v1.md` (fresh wheel install + live two-repo run at opencode 1.18.33); `tests/test_runner_flow.py`; `docs/evidence/11-toolchain-upgrade.md` (opencode 2.1.4 launcher probe); `docs/evidence/09-guided-onboarding.md` (guided configuration and request generation)
 
 ## V1-A03 Configuration and explicit dependency order
 Version: v1; scope: Required.

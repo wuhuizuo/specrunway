@@ -150,7 +150,8 @@ def test_profile_registry_resolves_real_cli_shape():
     assert "{prompt_file}" in profile.argv
     assert profile.argv[0] == "opencode"
     assert profile.argv[1] == "run"
-    # opencode 1.18.33 treats --file as an array; the message comes first
+    # opencode 2.x removed --pure; --file still takes one prompt attachment
+    assert "--pure" not in profile.argv
     assert profile.argv[-2:] == ("--file", "{prompt_file}")
     assert "attached prompt file" in " ".join(profile.argv[:-2])
     with pytest.raises(ValidationError) as unknown:

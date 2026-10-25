@@ -1,6 +1,6 @@
 # Implementation state
 
-Updated: 25 October 2026 (L01-L18 complete and archived; L19 guided onboarding in active change 09; mise developer environment added; P0 uv install path delivered by a SpecRunway dogfood run).
+Updated: 25 October 2026 (L01-L18 complete and archived; L19 guided onboarding in active change 09; mise developer environment added; P0 uv install path delivered by a SpecRunway dogfood run; toolchain raised to opencode 2.1.4 and OpenSpec 1.15.0).
 
 ## Completed preparation
 
@@ -91,7 +91,7 @@ Updated: 25 October 2026 (L01-L18 complete and archived; L19 guided onboarding i
   `merged_commits`.
 - Accepted head `501af3d` makes `uv tool install` the primary install path for
   `specrunway` and `specify-cli` (no user-managed Python or venv), documents the
-  pinned global OpenSpec 1.14.3 install, and records the runtime tool resolution
+  pinned global OpenSpec 1.15.0 install, and records the runtime tool resolution
   order. The manual wheel/venv path remains a fallback.
 - The uv path was exercised directly: `uv tool install "specrunway @
   git+https://github.com/wuhuizuo/specrunway.git"` installed the CLI and
@@ -108,6 +108,23 @@ Updated: 25 October 2026 (L01-L18 complete and archived; L19 guided onboarding i
 - P0 was tracked in the disposable Store, so this repository's `openspec/`
   baseline does not contain a P0 change. The delivered documentation is on
   `main`; the dogfood Store is disposable and is not release evidence.
+
+## Completed work: toolchain upgrade (opencode 2.1.4, OpenSpec 1.15.0)
+
+- The pinned OpenSpec moved from 1.14.3 to 1.15.0 in
+  `tooling/openspec/package.json` and `package-lock.json`; the Store-capable
+  `store` subcommand still exists and `openspec --version` reports 1.15.0.
+- The shipped agent profile now targets opencode 2.1.4 and no longer passes the
+  removed `--pure` flag. The profile keeps
+  `opencode run --auto "<fixed message>" --file <prompt>` and leaves model
+  selection to opencode configuration. A live launcher probe completed with
+  exit 0 using `deepseek/deepseek-flash`; the free default model endpoint was
+  unavailable during one probe, which is why the evidence records the model.
+- `toolchain.lock.json` records the new pins, the removed flag, and the
+  re-verification; `docs/TOOLCHAIN.md` documents the upgrade and the commands to
+  repeat it; `docs/evidence/11-toolchain-upgrade.md` holds commands and results.
+- Historical evidence stays historical: the L01 report remains the 1.14.3 gate
+  record, and the release replay remains the 1.18.33 live run.
 
 ## Current change
 

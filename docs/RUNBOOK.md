@@ -1,8 +1,9 @@
 # SpecRunway v1 runbook (local coordinator)
 
 Reproducible local operation of the Central Store Coordinator at pinned
-tool versions (OpenSpec 1.14.3, specify-cli 1.2.1, Python 3.14, one real
-coding-agent CLI). No server, database, broker, or team component is used.
+tool versions (OpenSpec 1.15.0, specify-cli 1.2.1, Python 3.14, opencode 2.1.4
+as the supported coding-agent CLI). No server, database, broker, or team
+component is used.
 
 ## 1. Install
 
@@ -16,7 +17,7 @@ time `uv tool install` needs one. Install uv from
 ```bash
 uv tool install "specrunway @ git+https://github.com/wuhuizuo/specrunway.git"
 uv tool install "specify-cli @ git+https://github.com/github/spec-kit.git@v1.2.1"
-npm install --global @fission-ai/openspec@1.14.3
+npm install --global @fission-ai/openspec@1.15.0
 uv tool update-shell          # once, if ~/.local/bin is not on PATH; open a new shell
 ```
 
@@ -30,10 +31,17 @@ Verify the installed tools before initializing a control checkout:
 
 ```bash
 specrunway --version          # specrunway 0.1.0
+opencode --version            # 2.1.4
 specify version               # 1.2.1 (prints a banner, then the version)
-openspec --version            # 1.14.3
+openspec --version            # 1.15.0
 uv tool list                  # specrunway and specify-cli as separate tools
 ```
+
+The shipped agent profile runs
+`opencode run --auto "<fixed message>" --file <prompt>`. opencode 2.x removed
+the `--pure` flag that 1.18.33 accepted, so the profile no longer passes it.
+The profile does not pass `--model`; configure opencode's default model before
+running (the upgrade evidence used `deepseek/deepseek-flash`).
 
 `specrunway doctor` needs a control checkout with `local.yaml`; run it after
 section 2. It validates control wiring (`local.yaml`, Store, repos) and does
@@ -50,7 +58,7 @@ system Python >= 3.11 and Node >= 20.19.0 for OpenSpec.
 python3 -m venv .venv
 .venv/bin/python -m pip install specrunway-0.1.0-py3-none-any.whl   # or: pip install .
 .venv/bin/python -m pip install "specify-cli @ git+https://github.com/github/spec-kit.git@v1.2.1"
-npm install --global @fission-ai/openspec@1.14.3
+npm install --global @fission-ai/openspec@1.15.0
 .venv/bin/specrunway --version
 ```
 

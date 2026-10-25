@@ -1,6 +1,8 @@
 {
   "format": "toolchain-lock/v1",
-  "recorded_at": "2026-10-19",
+  "recorded_at": "2026-10-25",
+  "reevaluated_at": "2026-10-25",
+  "upgrade_evidence": "docs/evidence/11-toolchain-upgrade.md",
   "decision": "pass",
   "supported_os": [
     {
@@ -25,13 +27,15 @@
   },
   "openspec": {
     "package": "@fission-ai/openspec",
-    "version": "1.14.3",
+    "version": "1.15.0",
     "source": "npm registry",
     "pinned_by": "tooling/openspec/package.json",
     "lockfile_commit_evidence": "tooling/openspec/package-lock.json",
-    "registry_resolved": "https://registry.npmjs.org/@fission-ai/openspec/-/openspec-1.14.3.tgz",
-    "integrity": "sha512-ALFW1d5bSm6t27Kmcle93SDFuqUc8fLwy5ZdBfIiNffo0Yk9AEOJxw6xDqBv38eMM7l7TeOZBB/7C08luxYGfg==",
-    "fresh_environment_repro": "1.14.3 from a clean npm install"
+    "registry_resolved": "https://registry.npmjs.org/@fission-ai/openspec/-/openspec-1.15.0.tgz",
+    "integrity": "sha512-lG/EPEiL22bB70yKJhWWSPk1UQGLnwO7Dp+hNc/jUmBwb0qxPLzHCUkXEfkny4iYDOsgnsNQmc39/g9QcvnBnA==",
+    "upgraded_from": "1.14.3",
+    "upgraded_at": "2026-10-25",
+    "fresh_environment_repro": "1.15.0 from a clean npm ci"
   },
   "specify": {
     "distribution": "specify-cli",
@@ -42,6 +46,26 @@
     "installed_commit_id": "9dca9bf42a031765ee5e5f2371137f2f26967e11",
     "install_command": "python -m pip install \"specify-cli @ git+https://github.com/github/spec-kit.git@v1.2.1\"",
     "fresh_environment_repro": "1.2.1 from a clean venv, same commit id from direct_url.json"
+  },
+  "agent": {
+    "distribution": "opencode",
+    "version": "2.1.4",
+    "profile": "primary-coding-agent",
+    "argv": [
+      "opencode",
+      "run",
+      "--auto",
+      "<fixed message>",
+      "--file",
+      "<prompt_file>"
+    ],
+    "removed_flags": [
+      "--pure"
+    ],
+    "model": "not pinned; opencode configured default, probe used deepseek/deepseek-flash",
+    "verified_argv_surface": "opencode run --help and opencode --version",
+    "upgraded_from": "1.18.33",
+    "upgraded_at": "2026-10-25"
   },
   "step_packages": [
     {
@@ -86,6 +110,7 @@
   ],
   "openspec_change_validation": {
     "tool": "openspec validate --all --strict --json",
-    "result": "5/5 changes valid, exit 0"
+    "result": "11/11 items valid (changes + specs), exit 0",
+    "checked_at": "2026-10-25"
   }
 }

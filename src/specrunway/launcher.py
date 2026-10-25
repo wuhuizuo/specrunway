@@ -35,7 +35,8 @@ class AgentProfile:
 
 
 #: The real coding agent CLI actually used (verified argv surface: ``opencode
-#: run``); release acceptance exercises this profile live at the pinned version.
+#: run``); release acceptance exercises this profile live at the pinned version
+#: (opencode 2.1.4).
 PROFILES: dict = {
     "primary-coding-agent": AgentProfile(
         name="primary-coding-agent",
@@ -43,9 +44,9 @@ PROFILES: dict = {
             "opencode",
             "run",
             "--auto",
-            "--pure",
-            # 1.18.33 parses --file as an array: the message must precede it,
-            # otherwise the fixed text is swallowed as a second attachment.
+            # opencode 2.x removed `--pure`; `-f/--file` attaches the prompt
+            # file, and the fixed message must precede it because 1.18.33
+            # parsed `--file` as an array.
             "Execute the attached prompt file exactly; do not ask interactive questions.",
             "--file",
             "{prompt_file}",
