@@ -23,14 +23,25 @@ system, or v2 component is required.
 - `docs/DESIGN.md` — architecture and contracts; `docs/DECISIONS.md` —
   recorded decisions (including D10: the SpecRunway rename).
 
-Quick start:
+Quick start (uv; no Python or virtual environment required):
 
 ```bash
-python3 -m venv .venv && .venv/bin/python -m pip install .
-.venv/bin/specrunway --version
-.venv/bin/specrunway wizard      # guided local.yaml + request.md + plan
-.venv/bin/specrunway doctor --json
+uv tool install "specrunway @ git+https://github.com/wuhuizuo/specrunway.git"
+uv tool install "specify-cli @ git+https://github.com/github/spec-kit.git@v1.2.1"
+npm install --global @fission-ai/openspec@1.14.3
+uv tool update-shell               # once, if ~/.local/bin is not on PATH
+specrunway --version               # specrunway 0.1.0
+specrunway wizard                  # guided local.yaml + request.md + plan
+specrunway doctor --json           # wiring report; exit 0 when ok
 ```
+
+`uv` provisions its own managed Python for the `specrunway` and `specify`
+tool environments, so users do not install Python or activate a venv. OpenSpec
+remains a Node package and needs Node >= 20.19.0; install the pinned npm
+release globally. In a source checkout, `uv tool install .` installs the
+current tree, and `npm ci --prefix tooling/openspec` installs the pinned
+OpenSpec locally instead of globally. Install a released wheel with
+`uv tool install ./specrunway-0.1.0-py3-none-any.whl` when one is available.
 
 `wizard` inspects sibling Git checkouts, asks only for stable control wiring
 (Store, repositories, remotes, agent profile), writes `local.yaml`, and
@@ -44,12 +55,23 @@ in a sibling directory because OpenSpec refuses a Store nested inside another
 checkout. Repeat runs reuse `local.yaml`. Every generated file is editable, and
 `run`/`approve`/`archive` remain explicit commands.
 
-The manual path still works: write `local.yaml` (store, repos, agent_profile,
-test/integration profiles), run `specrunway init`, then
-`specrunway plan <change> --request request.md`. `init` is idempotent and only
-writes inside the control checkout. The pinned upstream tools are OpenSpec
-1.14.3 (`tooling/openspec/`) and specify-cli 1.2.1 (`docs/TOOLCHAIN.md`);
-`init` invokes them for you.
+The manual fallback keeps the pinned upstream versions without uv:
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install specrunway-0.1.0-py3-none-any.whl   # or: pip install .
+.venv/bin/python -m pip install "specify-cli @ git+https://github.com/github/spec-kit.git@v1.2.1"
+npm ci --prefix tooling/openspec        # source checkout only
+.venv/bin/specrunway --version
+```
+
+Then write `local.yaml` (store, repos, agent_profile, test/integration
+profiles), run `specrunway init`, and `specrunway plan <change> --request
+request.md`. `init` is idempotent and only writes inside the control checkout.
+The pinned upstream tools are OpenSpec 1.14.3 (`tooling/openspec/`) and
+specify-cli 1.2.1 (`docs/TOOLCHAIN.md`); `init` invokes them for you. A source
+checkout resolves `.venv/bin` and `tooling/openspec/node_modules/.bin` before
+PATH; outside a checkout both CLIs come from PATH (`docs/TOOLCHAIN.md`).
 
 ## Repository layout
 
@@ -108,3 +130,6 @@ integration; the live `opencode` replay is recorded in the release evidence.
 - v1 does not push, merge, deploy, or archive the product Store
   automatically; those remain explicit operator actions.
 - One active execution per control/Store checkout; v2 services are deferred.
+- The uv install path needs `uv` and Node >= 20.19.0 for OpenSpec, but no
+  system Python or activated venv. The manual wheel/venv path remains a
+  fallback and is the only one that needs a user-managed interpreter.

@@ -6,15 +6,60 @@ coding-agent CLI). No server, database, broker, or team component is used.
 
 ## 1. Install
 
+### Primary: uv tool installs (no Python or venv)
+
+`uv` is a standalone binary; it provisions a private managed Python the first
+time `uv tool install` needs one. Install uv from
+<https://docs.astral.sh/uv/getting-started/installation/> (for example
+`curl -LsSf https://astral.sh/uv/install.sh | sh`).
+
+```bash
+uv tool install "specrunway @ git+https://github.com/wuhuizuo/specrunway.git"
+uv tool install "specify-cli @ git+https://github.com/github/spec-kit.git@v1.2.1"
+npm install --global @fission-ai/openspec@1.14.3
+uv tool update-shell          # once, if ~/.local/bin is not on PATH; open a new shell
+```
+
+From a source checkout use `uv tool install .`; from a local wheel use
+`uv tool install ./specrunway-0.1.0-py3-none-any.whl`. The two Python tools get
+separate isolated environments, so no venv is activated and no interpreter is
+installed by the user. OpenSpec remains a Node package and needs Node >=
+20.19.0; the global npm install puts `openspec` on PATH.
+
+Verify the installed tools before initializing a control checkout:
+
+```bash
+specrunway --version          # specrunway 0.1.0
+specify version               # 1.2.1 (use `version`, not `--version`)
+openspec --version            # 1.14.3
+uv tool list                  # specrunway and specify-cli as separate tools
+```
+
+`specrunway doctor` needs a control checkout with `local.yaml`; run it after
+section 2. It validates control wiring (`local.yaml`, Store, repos) and does
+not probe the executables. If `init`, `plan`, `run`, or `archive` reports
+`tool-missing`, compare your versions with the list above and check the
+resolution order in `docs/TOOLCHAIN.md`.
+
+### Fallback: manual wheel and venv
+
+Use this when uv is unavailable or when testing the wheel directly. It needs a
+system Python >= 3.11 and Node >= 20.19.0 for OpenSpec.
+
 ```bash
 python3 -m venv .venv
 .venv/bin/python -m pip install specrunway-0.1.0-py3-none-any.whl   # or: pip install .
-.venv/bin/specrunway --version
 .venv/bin/python -m pip install "specify-cli @ git+https://github.com/github/spec-kit.git@v1.2.1"
+npm install --global @fission-ai/openspec@1.14.3
+.venv/bin/specrunway --version
 ```
 
-The OpenSpec CLI is pinned by `tooling/openspec/package.json`; install it
-with `npm ci --prefix tooling/openspec`.
+From a source checkout, `npm ci --prefix tooling/openspec` installs the pinned
+OpenSpec locally; `.venv/bin` and `tooling/openspec/node_modules/.bin` take
+precedence over PATH (see `docs/TOOLCHAIN.md`). The rest of this runbook uses
+bare `specrunway`; in the fallback use `.venv/bin/specrunway` or activate the
+venv first. After section 2 creates `local.yaml`, verify wiring with
+`.venv/bin/specrunway doctor --json` (exit 0 when ok).
 
 ## 2. Guided first use
 

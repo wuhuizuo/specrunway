@@ -1,5 +1,45 @@
 # Toolchain compatibility and developer environment
 
+## Installed-user tools (uv)
+
+The supported end-user path uses three isolated tools and requires no Python
+interpreter or activated virtual environment:
+
+```bash
+uv tool install "specrunway @ git+https://github.com/wuhuizuo/specrunway.git"
+uv tool install "specify-cli @ git+https://github.com/github/spec-kit.git@v1.2.1"
+npm install --global @fission-ai/openspec@1.14.3
+uv tool update-shell          # once, if ~/.local/bin is not on PATH
+```
+
+`uv` provisions a private managed Python for the `specrunway` and `specify`
+tool environments; use `uv tool install .` or a local wheel for a checkout.
+OpenSpec remains a Node package and requires Node >= 20.19.0. Expected
+versions: OpenSpec 1.14.3 (the Store-capable release), specify-cli 1.2.1,
+specrunway 0.1.0, and Python >= 3.11 for the package itself. The L01 lock
+records the developer-verified set (Python 3.14.5, Node 24.4.1) rather than
+the minimum supported runtime.
+
+## Runtime tool resolution order
+
+`specrunway` does not read `toolchain.lock.json` at runtime. Each upstream CLI
+is resolved by `resolve_tool_bin(control_root, explicit, name)` in this order:
+
+1. An explicit path supplied by the caller (current CLI commands pass none).
+2. `<control>/tooling/openspec/node_modules/.bin/<name>`.
+3. `<specrunway-package-checkout>/tooling/openspec/node_modules/.bin/<name>`.
+4. `<control>/.venv/bin/<name>`.
+5. `<specrunway-package-checkout>/.venv/bin/<name>`.
+6. `PATH` via `shutil.which`, where uv tool shims and global npm installs
+   appear.
+
+Here `<name>` is `openspec` or `specify`. The checkout hints make a source
+checkout prefer its pinned local tools; an installed wheel normally resolves
+both from PATH. A wrong version therefore usually means an earlier `.venv` or
+`tooling/` hint is shadowing the intended binary. `specrunway doctor` checks
+control wiring only; missing executables surface from the command that launches
+them (for example `tool-missing` for OpenSpec) and name the failed executable.
+
 ## Developer environment (mise)
 
 `mise.toml` is the current developer entry point. It pins the interpreter
