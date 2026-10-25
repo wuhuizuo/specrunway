@@ -1,6 +1,6 @@
 # Implementation state
 
-Updated: 25 October 2026 (L01-L18 complete and archived; L19 guided onboarding in active change 09; mise developer environment added).
+Updated: 25 October 2026 (L01-L18 complete and archived; L19 guided onboarding in active change 09; mise developer environment added; P0 uv install path delivered by a SpecRunway dogfood run).
 
 ## Completed preparation
 
@@ -80,6 +80,35 @@ Updated: 25 October 2026 (L01-L18 complete and archived; L19 guided onboarding i
   226 passed, ruff clean, strict OpenSpec 11/11, handoff check passed; verified
   active versions Python 3.14.5, Node 24.4.1, npm 11.4.2, git 2.50.1.
 
+## Completed work: P0 uv install path (dogfood run)
+
+- A disposable central Store (`/tmp/specrunway-dogfood-p0/store`, id
+  `p0-store`), a disposable control checkout, and this repository as the single
+  business repo ran the full coordinator loop on change `p0-uv-install`: `init`
+  → `plan` → plan gate + `self_asserted` approval → live `opencode` 1.18.33 run
+  → trusted tests → `accept-tasks` → implementation gate + approval →
+  `ready_for_review` → fast-forward merge → explicit `archive` with
+  `merged_commits`.
+- Accepted head `501af3d` makes `uv tool install` the primary install path for
+  `specrunway` and `specify-cli` (no user-managed Python or venv), documents the
+  pinned global OpenSpec 1.14.3 install, and records the runtime tool resolution
+  order. The manual wheel/venv path remains a fallback.
+- The uv path was exercised directly: `uv tool install "specrunway @
+  git+https://github.com/wuhuizuo/specrunway.git"` installed the CLI and
+  `specrunway --version` ran, with no virtual environment created by the user.
+- After merge, `mise run check` passed: 226 tests, ruff clean, OpenSpec strict
+  11/11, handoff check passed. Archive ran final trusted tests in the worktree
+  (`217 passed, 9 skipped`) and backed up the Store change.
+- Evidence and findings: `docs/evidence/10-p0-uv-install-dogfood.md`. Notable
+  findings: opencode 2.1.4 rejects the frozen profile's `--pure` flag (pin
+  1.18.33); fresh worktrees miss repository-relative `.venv`/`node_modules`, so
+  nine tests skip in a self-hosted worktree; the plan generator drops a
+  `## What Changes` body; a pre-agent launch failure still consumes one repo
+  attempt; the global `openspec` on this machine is 1.0.2 and lacks `store`.
+- P0 was tracked in the disposable Store, so this repository's `openspec/`
+  baseline does not contain a P0 change. The delivered documentation is on
+  `main`; the dogfood Store is disposable and is not release evidence.
+
 ## Current change
 
 `09-guided-onboarding` — L19 implemented and checked; review/archive pending.
@@ -100,10 +129,18 @@ The v1 baseline L01-L18 remains archived and valid.
   generated and ignored.
 - `scripts/check_handoff.py` covers active and archived changes and asserts
   L01-L19 coverage.
+- `main` now includes `501af3d` (P0 uv install documentation) and
+  `docs/evidence/10-p0-uv-install-dogfood.md`. The P0 dogfood control, Store,
+  and run directory live only under `/tmp/specrunway-dogfood-p0/` and are not
+  part of the repository. The disposable Store id `p0-store` is a local
+  registration on this machine.
 
 ## Exact next action
 
-Review the change 09 diff, then run the guided flow once on a disposable
-control checkout. If accepted, archive `09-guided-onboarding` and apply its
-`guided-onboarding` delta to the baseline. Tag `v0.1.0` / GitHub Release only
-after explicit approval; v2 work stays deferred.
+Review the P0 dogfood findings in
+`docs/evidence/10-p0-uv-install-dogfood.md` and decide the P0.1 follow-ups
+(agent/OpenSpec preflight in `doctor`, `## What Changes` extraction fix, a
+self-hosted worktree test profile that provisions `.venv`/`node_modules`).
+Then review the change 09 diff, run the guided flow once on a disposable
+control checkout, and archive `09-guided-onboarding` if accepted. Tag
+`v0.1.0` / GitHub Release only after explicit approval; v2 work stays deferred.

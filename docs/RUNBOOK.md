@@ -30,7 +30,7 @@ Verify the installed tools before initializing a control checkout:
 
 ```bash
 specrunway --version          # specrunway 0.1.0
-specify version               # 1.2.1 (use `version`, not `--version`)
+specify version               # 1.2.1 (prints a banner, then the version)
 openspec --version            # 1.14.3
 uv tool list                  # specrunway and specify-cli as separate tools
 ```

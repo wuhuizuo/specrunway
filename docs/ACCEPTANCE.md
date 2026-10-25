@@ -118,7 +118,7 @@ Version: v1; scope: Required.
 **Pass criteria:** No team component is required. Preserve a usable failure scene. Replay normal, repair, and abnormal-recovery paths at pinned versions.
 **Expected evidence:** Release replays; backup/restore drill
 **Status:** Passed (fresh install + live-agent replay)
-**Actual evidence:** `docs/evidence/05-release-local-v1.md` (fresh venv wheel install, live-agent replay, archive + backup); `docs/RUNBOOK.md`; `docs/evidence/09-guided-onboarding.md` (guided install-to-plan path)
+**Actual evidence:** `docs/evidence/05-release-local-v1.md` (fresh venv wheel install, live-agent replay, archive + backup); `docs/RUNBOOK.md`; `docs/evidence/09-guided-onboarding.md` (guided install-to-plan path); `docs/evidence/10-p0-uv-install-dogfood.md` (uv tool install path and full dogfood loop)
 
 ## V2-A01 Authentication and project authorization
 Version: v2; scope: Required.
