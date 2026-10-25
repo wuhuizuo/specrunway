@@ -32,11 +32,17 @@ python3 -m venv .venv && .venv/bin/python -m pip install .
 .venv/bin/specrunway doctor --json
 ```
 
-`wizard` inspects sibling Git checkouts, asks for the missing control wiring,
-writes `local.yaml`, initializes the Store/Specify workspace, and then drafts
-`request.md` plus a routing manifest from a short change description before
-calling `plan`. Repeat runs reuse `local.yaml`. Every generated file is
-editable, and `run`/`approve`/`archive` remain explicit commands.
+`wizard` inspects sibling Git checkouts, asks only for stable control wiring
+(Store, repositories, remotes, agent profile), writes `local.yaml`, and
+initializes the Store/Specify workspace. It then asks which repositories
+participate in the change, their order and dependencies, change-scoped test
+commands (including monorepo paths), and whether a combined integration check
+exists. It drafts `request.md` plus a routing manifest before calling `plan`.
+An independent change can omit integration; no placeholder check is invented.
+If the control directory is itself a Git checkout, the Store default is placed
+in a sibling directory because OpenSpec refuses a Store nested inside another
+checkout. Repeat runs reuse `local.yaml`. Every generated file is editable, and
+`run`/`approve`/`archive` remain explicit commands.
 
 The manual path still works: write `local.yaml` (store, repos, agent_profile,
 test/integration profiles), run `specrunway init`, then

@@ -385,9 +385,8 @@ def _default_manifest(
                 "test_profile": profile,
             }
         )
-    integration_profile = next(
-        iter(config.get("integration_profiles") or {}), "specrunway-integration"
-    )
+    integration_profiles = config.get("integration_profiles") or {}
+    integration_profile = next(iter(integration_profiles), None)
     manifest = {
         "api_version": "specrunway/v1",
         "store_uid": spec_uid(str(adapter.store_path)),
@@ -403,10 +402,11 @@ def _default_manifest(
             }
             for index, task_id in enumerate(tasks, start=1)
         ],
-        "integration_profile": integration_profile,
         "completion_policy": "merged_commits",
         "budget": {"repo_max_attempts": 3, "integration_max_repairs": 2, "total_minutes": 120},
     }
+    if integration_profile:
+        manifest["integration_profile"] = integration_profile
     validate_manifest(manifest, known_profiles=set(profiles) | {"unit"})
     return manifest
 

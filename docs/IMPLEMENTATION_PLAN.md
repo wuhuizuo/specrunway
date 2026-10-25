@@ -116,9 +116,12 @@ outside the original L01-L15 release scope:
 - Stage: Post-v1 local usability; estimate: 0.75 person-days; dependencies: L15.
 - Deliverable: `specrunway wizard` for configuration and request drafting.
 - Definition of done: A fresh control directory becomes a valid configured
-  checkout and a planned change through interactive prompts; repeat runs reuse
-  configuration; generated artifacts are deterministic and editable; default
-  `plan` routing follows configured repository ids.
+  checkout and a planned change through interactive prompts; configuration
+  holds only stable wiring; participating repositories, order, dependencies,
+  and test commands are chosen per change; integration is optional when no
+  combined check exists; repeat runs reuse configuration; generated artifacts
+  are deterministic and editable; default `plan` routing follows configured
+  repository ids.
 - Acceptance: V1-A02, V1-A03, V1-A14 supporting evidence.
 
 ## Deferred work

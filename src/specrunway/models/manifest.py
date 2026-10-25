@@ -114,8 +114,12 @@ def validate_manifest(manifest: dict, known_profiles: set | None = None) -> dict
 
     _validate_acceptance(manifest.get("acceptance"), seen_task_ids, err)
     integration = manifest.get("integration_profile")
-    if integration is None or not isinstance(integration, str) or not integration.strip():
-        err.fail("integration-profile", "integration_profile must be a string", stop=False)
+    if integration is not None:
+        err.require(
+            isinstance(integration, str) and bool(integration.strip()),
+            "integration-profile",
+            "integration_profile must be a non-empty string when present",
+        )
     policy = manifest.get("completion_policy", "merged_commits")
     err.require(
         isinstance(policy, str) and policy in COMPLETION_POLICIES,

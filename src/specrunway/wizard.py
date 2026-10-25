@@ -8,6 +8,7 @@ import shlex
 import subprocess
 import sys
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
@@ -20,7 +21,6 @@ from .planning import plan, spec_uid
 DEFAULT_AGENT_PROFILE = "primary-coding-agent"
 DEFAULT_ALLOWED_PATHS = ["src", "tests"]
 DEFAULT_STORE_DIR = "openspec-store"
-DEFAULT_INTEGRATION_PROFILE = "specrunway-integration"
 
 
 class WizardIO:
@@ -119,6 +119,58 @@ def _git(repo_path: Path, *args: str) -> str:
     return done.stdout.strip() if done.returncode == 0 else ""
 
 
+def enclosing_git_root(path: Path | str) -> Path | None:
+    """Return the checkout containing *path*, tolerating a not-yet-created path."""
+    probe = Path(path).expanduser()
+    if not probe.is_absolute():
+        probe = Path.cwd() / probe
+    probe = probe.resolve()
+    while not probe.is_dir():
+        if probe.parent == probe:
+            return None
+        probe = probe.parent
+    done = subprocess.run(
+        ["git", "-C", str(probe), "rev-parse", "--show-toplevel"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    value = done.stdout.strip()
+    return Path(value).resolve() if done.returncode == 0 and value else None
+
+
+def default_store_path(control_root: Path) -> Path:
+    """Choose a Store directory that is not nested in an existing checkout."""
+    root = Path(control_root).resolve()
+    outer = enclosing_git_root(root)
+    if outer is None:
+        return root / DEFAULT_STORE_DIR
+    candidate = outer.parent / f"{outer.name}-specrunway-store"
+    while True:
+        containing = enclosing_git_root(candidate)
+        if containing is None or containing == candidate.resolve():
+            return candidate
+        outer = containing
+        candidate = outer.parent / f"{outer.name}-specrunway-store"
+
+
+def validate_store_path(store_path: Path | str, control_root: Path) -> Path:
+    """Reject a Store nested inside a different Git checkout before store setup."""
+    resolved = Path(store_path).expanduser()
+    if not resolved.is_absolute():
+        resolved = Path(control_root) / resolved
+    resolved = resolved.resolve()
+    containing = enclosing_git_root(resolved)
+    if containing is not None and containing != resolved:
+        hint = default_store_path(control_root)
+        raise ValidationError(
+            "wizard-store-inside-git",
+            f"Store path {resolved} is inside the Git repository {containing}; "
+            f"choose a directory outside it (for example {hint})",
+        )
+    return resolved
+
+
 def resolve_repository(raw: str, control_root: Path) -> Path:
     candidate = Path(raw).expanduser()
     if not candidate.is_absolute():
@@ -207,11 +259,15 @@ def collect_local_config(control_root: Path, io: WizardIO) -> dict:
     while not is_slug(store_id):
         io.say("Store id must be a lowercase slug (letters, digits, dashes).")
         store_id = io.ask("Store id", default="specrunway-store")
-    store_default = str(control_root / DEFAULT_STORE_DIR)
-    store_path = Path(io.ask("Store path", default=store_default)).expanduser()
-    if not store_path.is_absolute():
-        store_path = control_root / store_path
-    store_path = store_path.resolve()
+    if enclosing_git_root(control_root) is not None:
+        io.say(
+            "The control directory is inside a Git repository; the OpenSpec Store "
+            "must be created outside that checkout."
+        )
+    store_default = str(default_store_path(control_root))
+    store_path = validate_store_path(
+        io.ask("Store path", default=store_default), control_root
+    )
 
     discovered = discover_repositories(control_root)
     if discovered:
@@ -219,7 +275,6 @@ def collect_local_config(control_root: Path, io: WizardIO) -> dict:
     io.say("Add the business repositories in execution order (blank to finish).")
 
     repos: dict = {}
-    test_profiles: dict = {}
     while True:
         raw = io.ask("Repository path", allow_blank=True, required=False)
         if not raw:
@@ -237,45 +292,18 @@ def collect_local_config(control_root: Path, io: WizardIO) -> dict:
                 f"Remote identity for {repo_id} (origin is missing; e.g. github:owner/repo)"
             )
         repos[repo_id] = {"path": str(repo_path), "remote_identity": identity}
-        suggested = shlex.join(suggest_test_argv(repo_path))
-        command = io.ask(
-            f"Test command for {repo_id} (Enter accepts the suggestion)",
-            default=suggested,
-        )
-        if command:
-            test_profiles[f"{repo_id}-unit"] = {"command": _split_commands(command)}
 
     if not repos:
         raise ValidationError(
             "wizard-repos-required", "at least one existing Git repository is required"
         )
 
-    first_repo = next(iter(repos))
-    first_path = Path(repos[first_repo]["path"])
-    default_integration = shlex.join(suggest_test_argv(first_path))
-    integration_command = io.ask(
-        "Combined integration command", default=default_integration
-    )
-    integration_repo = io.ask("Integration repository", default=first_repo)
-    if integration_repo not in repos:
-        raise ValidationError(
-            "wizard-integration-repo",
-            f"integration repository {integration_repo!r} is not one of {sorted(repos)}",
-        )
     agent_profile = io.ask("Agent profile", default=DEFAULT_AGENT_PROFILE)
-
     config = {
         "store": {"id": store_id, "path": str(store_path)},
         "repos": repos,
         "agent_profile": agent_profile,
         "max_workers": 1,
-        "test_profiles": test_profiles,
-        "integration_profiles": {
-            DEFAULT_INTEGRATION_PROFILE: {
-                "command": _split_commands(integration_command),
-                "repo": integration_repo,
-            }
-        },
     }
     validate_local_config(config)
     return config
@@ -296,16 +324,59 @@ def _split_task_text(raw: str) -> list:
     return [part for part in parts if part]
 
 
+@dataclass
+class ChangeInputs:
+    order: list
+    tasks_by_repo: dict
+    base_refs: dict
+    allowed_paths: dict
+    depends_on: dict
+    test_commands: dict
+    integration: dict | None
+
+
+def _parse_repo_ids(raw: str, allowed: list, label: str) -> list:
+    values = [part.strip() for part in re.split(r"[,;\n]", raw) if part.strip()]
+    unknown = [value for value in values if value not in allowed]
+    if unknown:
+        raise ValidationError(
+            "wizard-repo-selection",
+            f"{label} names unknown repository ids {unknown}; known: {allowed}",
+        )
+    seen: list = []
+    for value in values:
+        if value not in seen:
+            seen.append(value)
+    if not seen:
+        raise ValidationError("wizard-repo-selection", f"{label} must select a repository")
+    return seen
+
+
 def collect_change_inputs(
     config: dict, description: str, io: WizardIO
-) -> tuple[dict, dict, dict, dict]:
+) -> ChangeInputs:
+    all_ids = list(config["repos"])
+    raw_selected = io.ask(
+        "Repositories participating in this change (comma-separated)",
+        default=", ".join(all_ids),
+    )
+    selected = _parse_repo_ids(raw_selected, all_ids, "participating repositories")
+    raw_order = io.ask("Execution order", default=", ".join(selected))
+    order = _parse_repo_ids(raw_order, selected, "execution order")
+    if set(order) != set(selected):
+        raise ValidationError(
+            "wizard-repo-selection",
+            f"execution order {order} must contain exactly {selected}",
+        )
+
     tasks_by_repo: dict = {}
     base_refs: dict = {}
     allowed_paths: dict = {}
     depends_on: dict = {}
-    previous: str | None = None
+    test_commands: dict = {}
     task_number = 0
-    for repo_id, entry in config["repos"].items():
+    for index, repo_id in enumerate(order):
+        entry = config["repos"][repo_id]
         raw_tasks = io.ask(
             f"Tasks for {repo_id} (separate with ';')", default=description
         )
@@ -319,22 +390,61 @@ def collect_change_inputs(
             task_number += 1
             ids.append((f"T{task_number:03d}", text))
         tasks_by_repo[repo_id] = ids
+        repo_path = Path(entry["path"])
         base_refs[repo_id] = io.ask(
-            f"Base ref for {repo_id}", default=detect_base_ref(Path(entry["path"]))
+            f"Base ref for {repo_id}", default=detect_base_ref(repo_path)
         )
-        default_paths = ",".join(suggest_allowed_paths(Path(entry["path"])))
+        default_paths = ",".join(suggest_allowed_paths(repo_path))
         raw_paths = io.ask(f"Allowed paths for {repo_id}", default=default_paths)
         allowed_paths[repo_id] = _split_paths(raw_paths)
-        if previous is not None:
+        suggested = shlex.join(suggest_test_argv(repo_path))
+        test_commands[repo_id] = io.ask(
+            f"Test command for {repo_id} for this change "
+            f"(Enter accepts the suggestion; edit for a monorepo path)",
+            default=suggested,
+        )
+        earlier = order[:index]
+        if earlier:
+            raw_deps = io.ask(
+                f"Depends on for {repo_id} (comma-separated earlier repos, blank = none)",
+                allow_blank=True,
+                required=False,
+            )
             depends_on[repo_id] = (
-                [previous]
-                if io.confirm(f"Does {repo_id} depend on {previous}?", default=True)
+                _parse_repo_ids(raw_deps, earlier, f"dependencies for {repo_id}")
+                if raw_deps
                 else []
             )
         else:
             depends_on[repo_id] = []
-        previous = repo_id
-    return tasks_by_repo, base_refs, allowed_paths, depends_on
+
+    integration = None
+    if io.confirm("Does this change require a combined integration check?", default=False):
+        first_repo = order[0]
+        default_command = test_commands.get(first_repo) or shlex.join(
+            suggest_test_argv(Path(config["repos"][first_repo]["path"]))
+        )
+        command = io.ask("Combined integration command", default=default_command)
+        integration_repo = io.ask("Integration check repository", default=first_repo)
+        if integration_repo not in order:
+            raise ValidationError(
+                "wizard-integration-repo",
+                f"integration repository {integration_repo!r} is not one of {order}",
+            )
+        integration = {
+            "command": _split_commands(command),
+            "repo": integration_repo,
+        }
+
+    return ChangeInputs(
+        order=order,
+        tasks_by_repo=tasks_by_repo,
+        base_refs=base_refs,
+        allowed_paths=allowed_paths,
+        depends_on=depends_on,
+        test_commands=test_commands,
+        integration=integration,
+    )
 
 
 def render_request(
@@ -381,26 +491,23 @@ def build_manifest(
     *,
     config: dict,
     change_id: str,
+    repo_order: list,
     tasks_by_repo: dict,
     base_refs: dict,
     allowed_paths: dict,
     depends_on: dict,
     acceptance: str,
+    test_profile_names: dict | None = None,
+    integration_profile: str | None = None,
 ) -> dict:
     profiles = config.get("test_profiles") or {}
-    integration_profiles = config.get("integration_profiles") or {}
-    integration_profile = next(iter(integration_profiles), DEFAULT_INTEGRATION_PROFILE)
-    if integration_profile not in integration_profiles:
-        raise ValidationError(
-            "integration-profile-missing",
-            "local.yaml declares no integration profile; run `specrunway wizard --reconfigure`",
-        )
+    names = test_profile_names or {}
     repos = []
     all_tasks: list = []
-    for repo_id in config["repos"]:
+    for repo_id in repo_order:
         tasks = tasks_by_repo[repo_id]
         all_tasks.extend(task_id for task_id, _text in tasks)
-        profile = f"{repo_id}-unit" if f"{repo_id}-unit" in profiles else "unit"
+        profile = names.get(repo_id) or "unit"
         repos.append(
             {
                 "repo_id": repo_id,
@@ -416,12 +523,11 @@ def build_manifest(
         "store_uid": spec_uid(str(Path(config["store"]["path"]).resolve())),
         "change_id": change_id,
         "change_uid": spec_uid(change_id),
-        "repo_order": list(config["repos"]),
+        "repo_order": list(repo_order),
         "repos": repos,
         "acceptance": [
             {"id": "AC01", "requirement": acceptance.strip(), "verifies": all_tasks}
         ],
-        "integration_profile": integration_profile,
         "completion_policy": "merged_commits",
         "budget": {
             "repo_max_attempts": 3,
@@ -429,11 +535,43 @@ def build_manifest(
             "total_minutes": 120,
         },
     }
+    if integration_profile:
+        manifest["integration_profile"] = integration_profile
     validate_manifest(
         manifest,
         known_profiles=set(profiles) | {"unit"},
     )
     return manifest
+
+
+def _apply_change_profiles(
+    config: dict, change_id: str, inputs: ChangeInputs
+) -> tuple[dict, str | None]:
+    profiles = dict(config.get("test_profiles") or {})
+    names: dict = {}
+    for repo_id in inputs.order:
+        command = (inputs.test_commands.get(repo_id) or "").strip()
+        if command:
+            name = f"{change_id}-{repo_id}"
+            profiles[name] = {"command": _split_commands(command)}
+            names[repo_id] = name
+        else:
+            names[repo_id] = "unit"
+    integration_profiles = dict(config.get("integration_profiles") or {})
+    integration_name = None
+    if inputs.integration:
+        integration_name = f"{change_id}-integration"
+        integration_profiles[integration_name] = dict(inputs.integration)
+    if profiles:
+        config["test_profiles"] = profiles
+    else:
+        config.pop("test_profiles", None)
+    if integration_profiles:
+        config["integration_profiles"] = integration_profiles
+    else:
+        config.pop("integration_profiles", None)
+    validate_local_config(config)
+    return names, integration_name
 
 
 def _confirm_overwrite(paths: list, io: WizardIO, force: bool) -> None:
@@ -479,6 +617,14 @@ def run_wizard(
         config_created = True
     else:
         config = load_local_config(root)
+        try:
+            validate_store_path(config["store"]["path"], root)
+        except ValidationError as exc:
+            error = ValidationError(
+                exc.code,
+                f"{exc.message}; edit local.yaml or run `specrunway wizard --reconfigure`",
+            )
+            raise error from exc
         wizard.say(f"Using existing control configuration: {config_path}")
 
     initialized = None
@@ -488,6 +634,7 @@ def run_wizard(
 
     generated_request: Path | None = None
     generated_manifest: Path | None = None
+    integration_profile: str | None = None
     if request_path is not None:
         generated_request = Path(request_path).expanduser()
         if not generated_request.is_absolute():
@@ -520,14 +667,16 @@ def run_wizard(
             "Acceptance criteria",
             default=f"{description} is delivered with trusted verification.",
         )
-        tasks_by_repo, base_refs, allowed, depends = collect_change_inputs(
-            config, description, wizard
-        )
+        inputs = collect_change_inputs(config, description, wizard)
         generated_request = root / "requests" / f"{change_id}.md"
         generated_manifest = (
             root / ".specrunway" / "requests" / f"{change_id}.manifest.yaml"
         )
         _confirm_overwrite([generated_request, generated_manifest], wizard, force)
+        test_profile_names, integration_profile = _apply_change_profiles(
+            config, change_id, inputs
+        )
+        atomic_write_text(config_path, yaml.safe_dump(config, sort_keys=False))
         atomic_write_text(
             generated_request,
             render_request(
@@ -536,23 +685,30 @@ def run_wizard(
                 what=what,
                 context=context,
                 acceptance=acceptance,
-                tasks_by_repo=tasks_by_repo,
+                tasks_by_repo=inputs.tasks_by_repo,
             ),
         )
         manifest = build_manifest(
             config=config,
             change_id=change_id,
-            tasks_by_repo=tasks_by_repo,
-            base_refs=base_refs,
-            allowed_paths=allowed,
-            depends_on=depends,
+            repo_order=inputs.order,
+            tasks_by_repo=inputs.tasks_by_repo,
+            base_refs=inputs.base_refs,
+            allowed_paths=inputs.allowed_paths,
+            depends_on=inputs.depends_on,
             acceptance=acceptance,
+            test_profile_names=test_profile_names,
+            integration_profile=integration_profile,
         )
         atomic_write_text(
             generated_manifest, yaml.safe_dump(manifest, sort_keys=False)
         )
         wizard.say(f"Wrote request: {generated_request}")
         wizard.say(f"Wrote routing manifest: {generated_manifest}")
+        if integration_profile:
+            wizard.say(f"Integration profile: {integration_profile}")
+        else:
+            wizard.say("No combined integration check for this change.")
 
     result: dict = {
         "control_root": str(root),
@@ -562,6 +718,7 @@ def run_wizard(
         "manifest_path": str(generated_manifest) if generated_manifest else None,
         "change_id": change_id or "",
         "planned": False,
+        "integration_profile": integration_profile,
         "next": [],
     }
     if initialized is not None:
@@ -604,12 +761,15 @@ __all__ = [
     "build_manifest",
     "collect_change_inputs",
     "collect_local_config",
+    "default_store_path",
     "detect_base_ref",
     "discover_repositories",
+    "enclosing_git_root",
     "render_request",
     "resolve_repository",
     "run_wizard",
     "slugify",
     "suggest_allowed_paths",
     "suggest_test_argv",
+    "validate_store_path",
 ]

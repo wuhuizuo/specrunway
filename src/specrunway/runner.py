@@ -51,7 +51,7 @@ def _set_phase(store: FileRunStore, execution_id: str, phase: str) -> None:
 
 
 def prepare_execution(control_root: Path, change_id: str) -> dict:
-    """Freeze plan bytes, base commits, and the integration profile."""
+    """Freeze plan bytes, base commits, test profiles, and optional integration."""
     from specrunway.integration import resolve_integration_profile
 
     control_root = Path(control_root)
@@ -81,7 +81,11 @@ def prepare_execution(control_root: Path, change_id: str) -> dict:
         }
     from specrunway.testprofiles import freeze_test_profiles
 
-    integration = resolve_integration_profile(config, manifest)
+    integration = (
+        resolve_integration_profile(config, manifest)
+        if manifest.get("integration_profile")
+        else None
+    )
     frozen_profiles = freeze_test_profiles(manifest, config.get("test_profiles"))
     execution_id = new_execution_id()
     store = FileRunStore(control_root / ".specrunway")
@@ -111,11 +115,18 @@ def _require_specify_init(control_root: Path) -> None:
         )
 
 
-def _write_workflow(control_root: Path, execution_id: str, change_id: str) -> Path:
+def _write_workflow(control_root: Path, execution_id: str, snapshot: dict) -> Path:
     workflows = Path(control_root) / ".specify" / "workflows"
     workflows.mkdir(parents=True, exist_ok=True)
     target = workflows / f"{workflow_id_for(execution_id)}.yaml"
-    target.write_text(build_workflow_yaml(execution_id, change_id), encoding="utf-8")
+    target.write_text(
+        build_workflow_yaml(
+            execution_id,
+            snapshot["change_id"],
+            has_integration=bool(snapshot.get("integration")),
+        ),
+        encoding="utf-8",
+    )
     return target
 
 
@@ -203,7 +214,7 @@ def start_execution(control_root: Path, execution_id: str) -> dict:
     with store.lock(timeout=5.0):
         store.claim_activity(execution_id)
         _set_phase(store, execution_id, "implementing")
-    workflow_file = _write_workflow(control_root, execution_id, snapshot["change_id"])
+    workflow_file = _write_workflow(control_root, execution_id, snapshot)
     payload = _specify_workflow(
         [
             "workflow",

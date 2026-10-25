@@ -18,9 +18,11 @@ from specrunway.wizard import (
     WizardIO,
     build_manifest,
     collect_local_config,
+    default_store_path,
     render_request,
     resolve_repository,
     run_wizard,
+    validate_store_path,
 )
 
 
@@ -51,20 +53,34 @@ class Answers:
 
 
 def _config_answers(repo_a: Path, repo_b: Path, store_id: str = "") -> Answers:
-    return Answers(
-        store_id,
-        "",
-        str(repo_a),
-        "",
-        "",
-        str(repo_b),
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-    )
+    return Answers(store_id, "", str(repo_a), "", str(repo_b), "", "", "")
+
+
+def _single_config_answers(repo: Path, store_id: str = "") -> Answers:
+    return Answers(store_id, "", str(repo), "", "", "")
+
+
+def _request_answers(
+    *,
+    description: str,
+    tasks_by_repo: list,
+    participating: str = "",
+    order: str = "",
+    dependencies: dict | None = None,
+    integration: str = "n",
+    integration_command: str = "",
+    integration_repo: str = "",
+) -> Answers:
+    dependencies = dependencies or {}
+    values = [description, "", "", "", "", participating, order]
+    for index, (repo_id, tasks) in enumerate(tasks_by_repo):
+        values.extend([tasks, "", "", ""])
+        if index:
+            values.append(dependencies.get(repo_id, ""))
+    values.append(integration)
+    if integration == "y":
+        values.extend([integration_command, integration_repo])
+    return Answers(*values)
 
 
 def _write_config(path: Path, repo: Path, store: Path) -> dict:
@@ -107,13 +123,8 @@ def test_collect_local_config_discovers_git_wiring(tmp_path):
     assert config["repos"]["repo-b"]["remote_identity"] == (
         "git@github.com:acme/repo-b.git"
     )
-    assert config["test_profiles"]["repo-a-unit"]["command"] == [
-        "python",
-        "-m",
-        "pytest",
-        "-q",
-    ]
-    assert config["integration_profiles"]["specrunway-integration"]["repo"] == "repo-a"
+    assert "test_profiles" not in config
+    assert "integration_profiles" not in config
     assert "Detected sibling Git checkouts" in output.getvalue()
     assert not answers.values
 
@@ -136,21 +147,15 @@ def test_run_wizard_creates_config_request_and_manifest(tmp_path, monkeypatch):
         )
 
     monkeypatch.setattr("specrunway.wizard.plan", fake_plan)
-    answers = Answers(
-        *_config_answers(repo_a, repo_b).values,
-        "Add quota enforcement across both services",
-        "",
-        "",
-        "",
-        "",
-        "Add quota enforcement",
-        "",
-        "",
-        "Expose quota metrics",
-        "",
-        "",
-        "",
+    request_answers = _request_answers(
+        description="Add quota enforcement across both services",
+        tasks_by_repo=[
+            ("repo-a", "Add quota enforcement"),
+            ("repo-b", "Expose quota metrics"),
+        ],
+        dependencies={"repo-b": "repo-a"},
     )
+    answers = Answers(*_config_answers(repo_a, repo_b).values, *request_answers.values)
     output = io.StringIO()
     result = run_wizard(
         control,
@@ -178,7 +183,16 @@ def test_run_wizard_creates_config_request_and_manifest(tmp_path, monkeypatch):
     assert manifest["repos"][0]["task_ids"] == ["T001"]
     assert manifest["repos"][1]["task_ids"] == ["T002"]
     assert manifest["repos"][1]["depends_on"] == ["repo-a"]
-    assert manifest["integration_profile"] == "specrunway-integration"
+    assert manifest["repos"][0]["test_profile"].endswith("-repo-a")
+    assert manifest["repos"][1]["test_profile"].endswith("-repo-b")
+    assert "integration_profile" not in manifest
+    local = yaml.safe_load((control / "local.yaml").read_text(encoding="utf-8"))
+    assert set(local["test_profiles"]) == {
+        f"{result['change_id']}-repo-a",
+        f"{result['change_id']}-repo-b",
+    }
+    assert "integration_profiles" not in local
+    assert result["integration_profile"] is None
     assert calls and calls[0]["request_path"] == request
     assert calls[0]["manifest_path"].is_file()
     assert result["next"][0].startswith("specrunway run --change ")
@@ -196,17 +210,11 @@ def test_run_wizard_reuses_existing_config_and_refuses_overwrite(tmp_path, monke
     request_path.write_text("keep me\n", encoding="utf-8")
 
     monkeypatch.setattr("specrunway.wizard.plan", lambda **kwargs: None)
-    answers = Answers(
-        "Add a feature",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "n",
+    request_answers = _request_answers(
+        description="Add a feature",
+        tasks_by_repo=[("alpha", "Add a feature")],
     )
+    answers = Answers(*request_answers.values, "n")
     with pytest.raises(ValidationError) as exc_info:
         run_wizard(
             control,
@@ -246,11 +254,14 @@ def test_render_request_and_build_manifest_use_declared_repos(tmp_path):
     manifest = build_manifest(
         config=config,
         change_id="demo",
+        repo_order=["alpha", "beta"],
         tasks_by_repo=tasks,
         base_refs={"alpha": "main", "beta": "main"},
         allowed_paths={"alpha": ["src"], "beta": ["lib"]},
         depends_on={"alpha": [], "beta": ["alpha"]},
         acceptance="done",
+        test_profile_names={"alpha": "alpha-unit", "beta": "unit"},
+        integration_profile="e2e",
     )
     assert manifest["repo_order"] == ["alpha", "beta"]
     assert [row["test_profile"] for row in manifest["repos"]] == ["alpha-unit", "unit"]
@@ -258,25 +269,25 @@ def test_render_request_and_build_manifest_use_declared_repos(tmp_path):
     assert manifest["integration_profile"] == "e2e"
 
 
-def test_build_manifest_requires_integration_profile(tmp_path):
+def test_build_manifest_allows_no_integration_profile(tmp_path):
     repo = _git_repo(tmp_path / "alpha", "https://example.org/acme/alpha.git")
     config = {
         "store": {"id": "s", "path": str(tmp_path / "store")},
         "repos": {"alpha": {"path": str(repo), "remote_identity": "https://x/alpha.git"}},
         "test_profiles": {},
-        "integration_profiles": {},
     }
-    with pytest.raises(ValidationError) as exc_info:
-        build_manifest(
-            config=config,
-            change_id="demo",
-            tasks_by_repo={"alpha": [("T001", "first")]},
-            base_refs={"alpha": "main"},
-            allowed_paths={"alpha": ["src"]},
-            depends_on={"alpha": []},
-            acceptance="done",
-        )
-    assert exc_info.value.code == "integration-profile-missing"
+    manifest = build_manifest(
+        config=config,
+        change_id="demo",
+        repo_order=["alpha"],
+        tasks_by_repo={"alpha": [("T001", "first")]},
+        base_refs={"alpha": "main"},
+        allowed_paths={"alpha": ["src"]},
+        depends_on={"alpha": []},
+        acceptance="done",
+        test_profile_names={"alpha": "unit"},
+    )
+    assert "integration_profile" not in manifest
 
 
 def test_default_manifest_uses_configured_repositories(tmp_path):
@@ -334,7 +345,10 @@ def test_wizard_json_uses_stderr_for_prompts(tmp_path, monkeypatch, capsys):
             generated=["proposal.md"],
         ),
     )
-    answers = Answers("Add a feature", "", "", "", "", "", "", "")
+    answers = _request_answers(
+        description="Add a feature",
+        tasks_by_repo=[("alpha", "Add a feature")],
+    )
     monkeypatch.setattr("builtins.input", answers)
 
     rc = specrunway_main(
@@ -373,20 +387,15 @@ def test_wizard_real_plan_generation(tmp_path):
     repo_a = _git_repo(tmp_path / "repo-a", "https://example.org/acme/repo-a.git")
     repo_b = _git_repo(tmp_path / "repo-b", "https://example.org/acme/repo-b.git")
     store_id = f"wiz-{uuid.uuid4().hex[:8]}"
+    request_answers = _request_answers(
+        description="Add quota enforcement across both services",
+        tasks_by_repo=[
+            ("repo-a", "Add quota enforcement"),
+            ("repo-b", "Expose quota metrics"),
+        ],
+    )
     answers = Answers(
-        *_config_answers(repo_a, repo_b, store_id).values,
-        "Add quota enforcement across both services",
-        "",
-        "",
-        "",
-        "",
-        "Add quota enforcement",
-        "",
-        "",
-        "Expose quota metrics",
-        "",
-        "",
-        "",
+        *_config_answers(repo_a, repo_b, store_id).values, *request_answers.values
     )
     try:
         result = run_wizard(
@@ -423,3 +432,136 @@ def test_wizard_uses_current_directory_as_new_control_root(
     assert rc == 0
     assert (control / "local.yaml").is_file()
     assert "No local.yaml found" in capsys.readouterr().out
+
+
+def test_run_wizard_records_optional_integration_profile(tmp_path, monkeypatch):
+    control = tmp_path / "control"
+    control.mkdir()
+    repo = _git_repo(tmp_path / "alpha", "https://example.org/acme/alpha.git")
+    monkeypatch.setattr(
+        "specrunway.wizard.plan",
+        lambda **kwargs: SimpleNamespace(
+            change_id=kwargs["change_id"],
+            change_path=str(tmp_path / "change"),
+            planning_complete=True,
+            task_ids=["T001"],
+            generated=["proposal.md"],
+        ),
+    )
+    answers = Answers(
+        *_single_config_answers(repo).values,
+        *_request_answers(
+            description="Add an integration check",
+            tasks_by_repo=[("alpha", "Add integration check")],
+            integration="y",
+            integration_command="python -m pytest -q",
+            integration_repo="alpha",
+        ).values,
+    )
+    result = run_wizard(
+        control,
+        io=WizardIO(input_fn=answers, output=io.StringIO()),
+        skip_init=True,
+    )
+    assert result["integration_profile"] == "add-an-integration-check-integration"
+    manifest = yaml.safe_load(
+        (
+            control
+            / ".specrunway"
+            / "requests"
+            / "add-an-integration-check.manifest.yaml"
+        ).read_text(encoding="utf-8")
+    )
+    assert manifest["integration_profile"] == result["integration_profile"]
+    local = yaml.safe_load((control / "local.yaml").read_text(encoding="utf-8"))
+    assert local["integration_profiles"][result["integration_profile"]] == {
+        "command": ["python", "-m", "pytest", "-q"],
+        "repo": "alpha",
+    }
+
+
+def test_default_manifest_omits_integration_without_profiles(tmp_path):
+    repo_a = tmp_path / "alpha"
+    (repo_a / "src").mkdir(parents=True)
+    config = {
+        "repos": {"alpha": {"path": str(repo_a), "remote_identity": "https://x/a.git"}},
+        "test_profiles": {},
+    }
+
+    class Adapter:
+        store_path = tmp_path / "store"
+
+    manifest = _default_manifest(
+        Adapter(), "demo", ["T001"], config, {"T001": "first"}
+    )
+    assert "integration_profile" not in manifest
+
+
+def test_collect_change_inputs_supports_selected_subset_and_monorepo_command(tmp_path):
+    from specrunway.wizard import collect_change_inputs
+
+    alpha = _git_repo(tmp_path / "alpha", "https://example.org/acme/alpha.git")
+    beta = _git_repo(tmp_path / "beta", "https://example.org/acme/beta.git")
+    config = {
+        "repos": {
+            "alpha": {"path": str(alpha), "remote_identity": "https://x/alpha.git"},
+            "beta": {"path": str(beta), "remote_identity": "https://x/beta.git"},
+        }
+    }
+    answers = Answers(
+        "beta",
+        "beta",
+        "Change the beta module",
+        "",
+        "",
+        "go test ./services/beta/...",
+        "n",
+    )
+    inputs = collect_change_inputs(
+        config, "Change the beta module", WizardIO(input_fn=answers, output=io.StringIO())
+    )
+    assert inputs.order == ["beta"]
+    assert list(inputs.tasks_by_repo) == ["beta"]
+    assert inputs.depends_on == {"beta": []}
+    assert inputs.test_commands == {"beta": "go test ./services/beta/..."}
+    assert inputs.integration is None
+
+
+def test_default_store_path_avoids_control_git_checkout(tmp_path):
+    control = _git_repo(tmp_path / "control", "https://example.org/acme/control.git")
+    assert default_store_path(control) == tmp_path / "control-specrunway-store"
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    assert default_store_path(plain) == plain / "openspec-store"
+
+
+def test_store_path_inside_control_git_checkout_is_rejected(tmp_path):
+    control = _git_repo(tmp_path / "control", "https://example.org/acme/control.git")
+    with pytest.raises(ValidationError) as exc_info:
+        validate_store_path(control / "openspec-store", control)
+    assert exc_info.value.code == "wizard-store-inside-git"
+    assert "control-specrunway-store" in str(exc_info.value)
+
+
+def test_collect_local_config_rejects_nested_store_path(tmp_path):
+    control = _git_repo(tmp_path / "control", "https://example.org/acme/control.git")
+    answers = Answers("", str(control / "openspec-store"))
+    with pytest.raises(ValidationError) as exc_info:
+        collect_local_config(
+            control, WizardIO(input_fn=answers, output=io.StringIO())
+        )
+    assert exc_info.value.code == "wizard-store-inside-git"
+
+
+def test_run_wizard_rejects_existing_nested_store_config(tmp_path):
+    control = _git_repo(tmp_path / "control", "https://example.org/acme/control.git")
+    repo = _git_repo(tmp_path / "alpha", "https://example.org/acme/alpha.git")
+    _write_config(control / "local.yaml", repo, control / "openspec-store")
+    with pytest.raises(ValidationError) as exc_info:
+        run_wizard(
+            control,
+            io=WizardIO(input_fn=Answers(), output=io.StringIO()),
+            skip_init=True,
+        )
+    assert exc_info.value.code == "wizard-store-inside-git"
+    assert "--reconfigure" in str(exc_info.value)

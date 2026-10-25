@@ -28,16 +28,23 @@ specrunway wizard
 
 It performs two phases:
 
-1. **Configuration**: discovers sibling Git checkouts, asks for the Store
-   location, repository ids/order, remote identities, test commands, and one
-   combined integration command. It writes `local.yaml`, then runs the same
-   bootstrap as `specrunway init`.
-2. **Request**: asks for a short change summary, why/what/context/acceptance,
-   and task text per repository. It writes
+1. **Configuration**: discovers sibling Git checkouts and asks only for stable
+   wiring: Store location, repository paths/ids, remote identities, and agent
+   profile. It writes `local.yaml`, then runs the same bootstrap as
+   `specrunway init`. The Store must live outside any existing Git checkout;
+   when the control directory is a checkout, the default is a sibling
+   `<control>-specrunway-store`. Test commands, dependencies, and integration
+   checks are intentionally not requested here.
+2. **Request**: asks for a short change summary,
+   why/what/context/acceptance, participating repositories, execution order,
+   task text, dependencies, and a change-scoped test command per participating
+   repository. A monorepo can use a module-specific command. It also asks
+   whether a combined integration check exists; if not, the manifest omits
+   `integration_profile` and no integration round runs. It writes
    `requests/<change>.md` and
    `.specrunway/requests/<change>.manifest.yaml`, then calls
-   `specrunway plan` with both. Task ids are assigned in repository order and
-   each later repository can depend on the previous one.
+   `specrunway plan` with both. Task ids are assigned in the selected order;
+   a repository with no dependency answer is independent.
 
 Repeat runs on a configured checkout skip the configuration questions. Use
 `--reconfigure` to revisit wiring, `--change`/`--description` to pre-seed the

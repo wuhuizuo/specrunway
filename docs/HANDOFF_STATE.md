@@ -53,24 +53,31 @@ Updated: 25 October 2026 (L01-L18 complete and archived; L19 guided onboarding i
 - The v1 dogfood run found two first-use costs: hand-written `local.yaml` and
   hand-written `request.md`. Decision D11 authorizes one deterministic wizard.
 - `specrunway/wizard.py` implements `specrunway wizard`: configuration phase
-  (Git checkout discovery, Store/repo/test/integration prompts, atomic
+  (Git checkout discovery and stable Store/repo/agent wiring only, atomic
   `local.yaml`, then the shared bootstrap), request phase (short description,
-  bounded follow-ups, per-repo tasks, atomic `requests/<change>.md` and
-  `.specrunway/requests/<change>.manifest.yaml`, then `plan`), repeat-use
-  behavior, overwrite refusal, and `--json` prompt separation.
+  participating repositories, execution order, explicit dependencies,
+  change-scoped test profiles, optional integration, per-repo tasks, atomic
+  `requests/<change>.md` and `.specrunway/requests/<change>.manifest.yaml`,
+  then `plan`), repeat-use behavior, overwrite refusal, and `--json` prompt
+  separation. A Store path nested inside an existing Git checkout is rejected;
+  the default is a sibling `<enclosing>-specrunway-store` (L19 task 1.6).
 - `specrunway/bootstrap.py` now owns the idempotent control bootstrap shared by
   `init` and the wizard; `cli.cmd_init` is a thin envelope wrapper.
 - Default `plan` manifests now use configured repository ids/order/profiles
   instead of hardcoded fixture names.
+- Manifests may omit `integration_profile` for independent repositories; the
+  workflow omits `integration-round`, and completion still requires every
+  per-repository accepted result and trusted verification. Declared integration
+  profiles retain the existing resolve/freeze/run/gate behavior.
 - README/RUNBOOK document the wizard; `docs/evidence/09-guided-onboarding.md`
   records the checks. Verified with 10 wizard tests including a real pinned
-  OpenSpec plan generation; full suite 218 passed; ruff clean; strict OpenSpec
+  OpenSpec plan generation; full suite 226 passed; ruff clean; strict OpenSpec
   validation 11/11; `scripts/check_handoff.py` L01-L19 passed.
 - D12 adds `mise.toml`: Python 3.14.5, Node 24.4.1 (npm 11.4.2), project venv
   lifecycle, and `bootstrap`/`check`/`versions` tasks. The project venv remains
   the Python package boundary; mise only owns interpreter selection. Recreated
   `.venv` on Python 3.14.5 and re-ran the full check through `mise run check`:
-  218 passed, ruff clean, strict OpenSpec 11/11, handoff check passed; verified
+  226 passed, ruff clean, strict OpenSpec 11/11, handoff check passed; verified
   active versions Python 3.14.5, Node 24.4.1, npm 11.4.2, git 2.50.1.
 
 ## Current change

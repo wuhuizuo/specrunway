@@ -139,18 +139,25 @@ def matrix(tmp_path, monkeypatch):
     return {"control": control, "change": change, "repos": repos_cfg, "repo": repo}
 
 
-def _freeze(matrix, command: list, budget: dict | None = None):
+def _freeze(
+    matrix, command: list, budget: dict | None = None, with_integration: bool = True
+):
     store = FileRunStore(matrix["control"] / ".specrunway")
     execution_id = new_execution_id()
     store.ensure_run(execution_id, "integration-demo")
-    integration = {
-        "profile": "e2e",
-        "command": list(command),
-        "cwd_repo": "repo-a",
-        "timeout_seconds": 120,
-    }
+    manifest = _manifest(budget)
+    integration = None
+    if with_integration:
+        integration = {
+            "profile": "e2e",
+            "command": list(command),
+            "cwd_repo": "repo-a",
+            "timeout_seconds": 120,
+        }
+    else:
+        manifest.pop("integration_profile")
     snapshot = freeze_execution(
-        execution_id, matrix["change"], _manifest(budget), matrix["repos"], TOOLS, integration
+        execution_id, matrix["change"], manifest, matrix["repos"], TOOLS, integration
     )
     atomic_write_json(store.run_dir(execution_id) / "snapshot.json", snapshot)
     return store, execution_id
@@ -248,16 +255,16 @@ def test_integration_no_progress_stops(matrix, monkeypatch):
     assert state["integration_repairs"] == 1
 
 
-def test_complete_refuses_missing_integration(matrix):
-    store, execution_id = _freeze(matrix, PASS)
-    snapshot_path = store.run_dir(execution_id) / "snapshot.json"
-    snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
-    snapshot.pop("integration")
-    atomic_write_json(snapshot_path, snapshot)
+def test_complete_without_integration_profile(matrix):
+    store, execution_id = _freeze(matrix, PASS, with_integration=False)
     _green_repo(matrix, store, execution_id)
-    with pytest.raises(SpecRunwayActionError) as refused:
-        action_complete(_cfg(matrix, store, execution_id, "complete"), None)
-    assert refused.value.output["error"]["code"] == "integration-required"
+    skipped = action_integration_round(
+        _cfg(matrix, store, execution_id, "integration-round"), None
+    )
+    assert skipped["data"]["status"] == "not_required"
+    envelope = action_complete(_cfg(matrix, store, execution_id, "complete"), None)
+    assert envelope["ok"] is True
+    assert store.read_state(execution_id)["phase"] == "ready_for_review"
 
 
 def test_complete_refuses_stale_matrix(matrix):
@@ -274,3 +281,13 @@ def test_complete_refuses_stale_matrix(matrix):
     with pytest.raises(SpecRunwayActionError) as stale:
         action_complete(_cfg(matrix, store, execution_id, "complete"), None)
     assert stale.value.output["error"]["code"] == "integration-stale"
+
+
+def test_workflow_omits_integration_round_without_profile():
+    from specrunway.bridge.workflow import build_workflow
+
+    without = build_workflow("execution-1", "demo", has_integration=False)
+    assert "integration-round" not in [step["id"] for step in without["steps"]]
+    with_integration = build_workflow("execution-1", "demo", has_integration=True)
+    ids = [step["id"] for step in with_integration["steps"]]
+    assert ids.index("integration-round") < ids.index("accept-tasks")

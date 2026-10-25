@@ -889,21 +889,13 @@ def action_integration_round(config: dict, context) -> dict:
     manifest = snapshot["manifest"]
     integration = snapshot.get("integration")
     if not integration:
-        raise SpecRunwayActionError(
-            "integration-required",
-            envelope(
-                "integration-round",
-                False,
-                {},
-                store_uid=snapshot["store_uid"],
-                change_uid=snapshot["change_uid"],
-                execution_id=execution_id,
-                error={
-                    "code": "integration-required",
-                    "message": "no frozen integration profile for this execution",
-                    "retryable": False,
-                },
-            ),
+        return envelope(
+            "integration-round",
+            True,
+            {"status": "not_required"},
+            store_uid=snapshot["store_uid"],
+            change_uid=snapshot["change_uid"],
+            execution_id=execution_id,
         )
     budget = _budget(manifest)
 
@@ -1103,61 +1095,50 @@ def action_complete(config: dict, context) -> dict:
         )
 
     integration_cfg = snapshot.get("integration")
-    if not integration_cfg:
-        raise SpecRunwayActionError(
-            "integration-required",
-            envelope(
-                "complete",
-                False,
-                {},
-                store_uid=snapshot["store_uid"],
-                change_uid=snapshot["change_uid"],
-                execution_id=config["execution"],
-                error={
-                    "code": "integration-required",
-                    "message": "no frozen integration profile; completion is blocked",
-                    "retryable": False,
-                },
-            ),
-        )
-    from specrunway.integration import build_matrix, matrix_digest
+    if integration_cfg:
+        from specrunway.integration import build_matrix, matrix_digest
 
-    integration_row = state.get("integration") or {}
-    live_matrix = matrix_digest(build_matrix(state, manifest))
-    if integration_row.get("status") != "passed":
-        raise SpecRunwayActionError(
-            "integration-failed",
-            envelope(
-                "complete",
-                False,
-                {"status": integration_row.get("status")},
-                store_uid=snapshot["store_uid"],
-                change_uid=snapshot["change_uid"],
-                execution_id=config["execution"],
-                error={
-                    "code": "integration-failed",
-                    "message": "the combined integration check has not passed",
-                    "retryable": False,
-                },
-            ),
-        )
-    if integration_row.get("matrix_digest") != live_matrix:
-        raise SpecRunwayActionError(
-            "integration-stale",
-            envelope(
-                "complete",
-                False,
-                {"matrix_digest": integration_row.get("matrix_digest"), "live": live_matrix},
-                store_uid=snapshot["store_uid"],
-                change_uid=snapshot["change_uid"],
-                execution_id=config["execution"],
-                error={
-                    "code": "integration-stale",
-                    "message": "integration evidence does not bind the current accepted matrix",
-                    "retryable": False,
-                },
-            ),
-        )
+        integration_row = state.get("integration") or {}
+        live_matrix = matrix_digest(build_matrix(state, manifest))
+        if integration_row.get("status") != "passed":
+            raise SpecRunwayActionError(
+                "integration-failed",
+                envelope(
+                    "complete",
+                    False,
+                    {"status": integration_row.get("status")},
+                    store_uid=snapshot["store_uid"],
+                    change_uid=snapshot["change_uid"],
+                    execution_id=config["execution"],
+                    error={
+                        "code": "integration-failed",
+                        "message": "the combined integration check has not passed",
+                        "retryable": False,
+                    },
+                ),
+            )
+        if integration_row.get("matrix_digest") != live_matrix:
+            raise SpecRunwayActionError(
+                "integration-stale",
+                envelope(
+                    "complete",
+                    False,
+                    {
+                        "matrix_digest": integration_row.get("matrix_digest"),
+                        "live": live_matrix,
+                    },
+                    store_uid=snapshot["store_uid"],
+                    change_uid=snapshot["change_uid"],
+                    execution_id=config["execution"],
+                    error={
+                        "code": "integration-stale",
+                        "message": (
+                            "integration evidence does not bind the current accepted matrix"
+                        ),
+                        "retryable": False,
+                    },
+                ),
+            )
 
     def mutate(next_state: dict) -> None:
         next_state["phase"] = "ready_for_review"
