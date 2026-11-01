@@ -153,14 +153,21 @@ def test_profile_registry_resolves_real_cli_shape():
     # opencode 2.x removed --pure; --file still takes one prompt attachment
     assert "--pure" not in profile.argv
     assert profile.argv[-2:] == ("--file", "{prompt_file}")
+    # retries reuse one conversation so a stalled stream can continue
+    assert "--session" in profile.argv
+    assert "{session_id}" in profile.argv
     assert "attached prompt file" in " ".join(profile.argv[:-2])
     with pytest.raises(ValidationError) as unknown:
         resolve_profile("no-such-agent")
     assert unknown.value.code == "profile-unknown"
-    resolved = profile.resolved(Path("/tmp/p.md"))
+    resolved = profile.resolved(Path("/tmp/p.md"), "ses_test")
     assert str(Path("/tmp/p.md").resolve()) in resolved
+    assert "ses_test" in resolved
     assert "{prompt_file}" not in str(resolved)
     assert "primary-coding-agent" in PROFILES
+    with pytest.raises(ValidationError) as missing:
+        profile.resolved(Path("/tmp/p.md"))
+    assert missing.value.code == "session-id-missing"
 
 
 def test_no_shell_interpolation_in_argv(workspace):

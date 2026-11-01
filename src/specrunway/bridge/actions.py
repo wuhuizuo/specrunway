@@ -7,6 +7,8 @@ warnings`` (+ ``error`` when failed). Agent output never becomes shell text.
 
 from __future__ import annotations
 
+import hashlib
+import os
 import shutil
 from datetime import UTC
 from pathlib import Path
@@ -335,6 +337,30 @@ def action_run_repo(config: dict, context) -> dict:
 
         store.update_state(execution_id, mutate, newest["revision"])
 
+    def agent_session() -> str:
+        """One agent conversation per change and repository, reused across attempts.
+
+        A retry continues the same session instead of restarting the work.
+        ``SPECRUNWAY_AGENT_SESSION`` pins a specific conversation, which is how
+        an operator continues a session that stalled outside the coordinator.
+        """
+        newest = store.read_state(execution_id)
+        known = dict(newest.get("agent_sessions") or {})
+        pinned = (os.environ.get("SPECRUNWAY_AGENT_SESSION") or "").strip()
+        session_id = pinned or known.get(repo_id)
+        if not session_id:
+            digest = hashlib.sha256(f"{snapshot['change_uid']}:{repo_id}".encode()).hexdigest()[:24]
+            session_id = f"ses_sr{digest}"
+        if known.get(repo_id) != session_id:
+
+            def mutate(next_state: dict) -> None:
+                next_sessions = dict(next_state.get("agent_sessions") or {})
+                next_sessions[repo_id] = session_id
+                next_state["agent_sessions"] = next_sessions
+
+            store.update_state(execution_id, mutate, newest["revision"])
+        return session_id
+
     bump_budget()
 
     from specrunway.bridge.prompt import build_prompt
@@ -388,6 +414,7 @@ def action_run_repo(config: dict, context) -> dict:
         prompt_file=prompt_file,
         log_dir=run_dir / "logs" / repo_id / str(attempt),
         timeout_seconds=profile.timeout_seconds,
+        session_id=agent_session(),
     )
     if outcome.status != "completed":
         _remove_result_file(worktree, run_dir, repo_id, attempt, "incomplete-result")

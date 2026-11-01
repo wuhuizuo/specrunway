@@ -26,10 +26,18 @@ class AgentProfile:
     argv: tuple
     timeout_seconds: float = 1800.0
 
-    def resolved(self, prompt_file: Path) -> list:
+    def resolved(self, prompt_file: Path, session_id: str | None = None) -> list:
+        """Expand the argv template; ``{session_id}`` requires an id."""
         parts: list = []
         for part in self.argv:
+            if "{session_id}" in part and not session_id:
+                raise ValidationError(
+                    "session-id-missing",
+                    f"profile {self.name!r} needs a session id for {part!r}",
+                )
             text = part.replace("{prompt_file}", str(Path(prompt_file).resolve()))
+            if session_id:
+                text = text.replace("{session_id}", session_id)
             parts.append(text)
         return parts
 
@@ -44,6 +52,10 @@ PROFILES: dict = {
             "opencode",
             "run",
             "--auto",
+            # A stable session id per change keeps retries in one conversation,
+            # so a stalled stream can continue instead of restarting the work.
+            "--session",
+            "{session_id}",
             # opencode 2.x removed `--pure`; `-f/--file` attaches the prompt
             # file, and the fixed message must precede it because 1.18.33
             # parsed `--file` as an array.
@@ -136,13 +148,14 @@ def run_agent(
     log_dir: Path,
     timeout_seconds: float | None = None,
     env: dict | None = None,
+    session_id: str | None = None,
 ) -> AgentOutcome:
     """Run the agent synchronously and return a structured outcome."""
     if not Path(prompt_file).is_file():
         raise ValidationError(
             "prompt-file-missing", f"prompt file does not exist: {prompt_file}"
         )
-    argv = profile.resolved(prompt_file)
+    argv = profile.resolved(prompt_file, session_id)
     started = time.monotonic()
     process = launch_process(argv, cwd, Path(log_dir) / "agent.log", env=env)
     timeout = profile.timeout_seconds if timeout_seconds is None else float(timeout_seconds)

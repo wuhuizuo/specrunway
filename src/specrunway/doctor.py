@@ -13,6 +13,7 @@ CONTROL_CONFIG = "local.yaml"
 
 #: A preflight is bounded so `doctor` never waits for real repository work.
 AGENT_PROBE_TIMEOUT_SECONDS = 60.0
+AGENT_PROBE_SESSION_ID = "ses_srdoctorprobe"
 AGENT_PROBE_PROMPT = (
     "Answer with the single word OK. Do not read, create, or modify files; "
     "this is a bounded availability check.\n"
@@ -206,6 +207,9 @@ def probe_agent_preflight(
                 prompt_file=prompt_file,
                 log_dir=probe_root,
                 timeout_seconds=timeout_seconds,
+                # A dedicated throwaway conversation: the probe never reuses a
+                # change's session, so stale context cannot answer for the agent.
+                session_id=AGENT_PROBE_SESSION_ID,
             )
         except ValidationError as exc:
             result.update(
