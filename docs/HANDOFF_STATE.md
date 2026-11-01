@@ -143,7 +143,11 @@ Updated: 1 November 2026 (L01-L18 complete and archived; L19 guided onboarding i
   The change adds no product behavior and no runtime dependency.
 - This change is tracked in the central Store `specrunway-docs` as
   `user-docs-v1`. It is not an OpenSpec change in this repository's
-  `openspec/` baseline; review and archive stay in that Store.
+  `openspec/` baseline.
+- Accepted head `0b606fd` went through both local gates (`self_asserted`),
+  merged into `main`, and archived as `2026-11-01-user-docs-v1` under the
+  `merged_commits` policy. Commands, exit codes, the two-attempt history, and
+  four product gaps are recorded in `docs/evidence/12-user-docs-v1.md`.
 - Verified in the execution worktree with
   `.venv/bin/python scripts/check_handoff.py`; the check passed.
 
@@ -151,8 +155,8 @@ Updated: 1 November 2026 (L01-L18 complete and archived; L19 guided onboarding i
 
 `09-guided-onboarding` — L19 implemented and checked; review/archive pending.
 The v1 baseline L01-L18 remains archived and valid. The separate central Store
-change `user-docs-v1` delivered the operator documentation entry set; its
-review/archive is tracked in that Store, not in `openspec/` here.
+change `user-docs-v1` delivered and archived the operator documentation entry
+set; its record lives in the `specrunway-docs` Store, not in `openspec/` here.
 
 ## Repository state
 
@@ -187,8 +191,11 @@ Review the P0 dogfood findings in
 `docs/evidence/10-p0-uv-install-dogfood.md` and decide the P0.1 follow-ups
 (agent/OpenSpec preflight in `doctor`, `## What Changes` extraction fix, a
 self-hosted worktree test profile that provisions `.venv`/`node_modules`).
-Then review the change 09 diff, run the guided flow once on a disposable
-control checkout, and archive `09-guided-onboarding` if accepted. Review and
-archive the central Store change `user-docs-v1` in its own Store after
-approval of the `docs/user/` entry set. Tag `v0.1.0` / GitHub Release only
-after explicit approval; v2 work stays deferred.
+Add the four gaps found by the live `user-docs-v1` run
+(`docs/evidence/12-user-docs-v1.md`): no CLI way to abandon or release an
+execution, no agent/model preflight in `doctor`, failed steps invisible in
+`status`, and planner spec deltas without a `## Purpose` that archive turns
+into a placeholder. Then review the change 09 diff, run the guided flow once on
+a disposable control checkout, and archive `09-guided-onboarding` if accepted.
+Tag `v0.1.0` / GitHub Release only after explicit approval; v2 work stays
+deferred.
