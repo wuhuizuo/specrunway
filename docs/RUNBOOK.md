@@ -159,8 +159,9 @@ specrunway plan my-change --store my-store --request request.md --json
   duplicate/missing tasks, and unknown profiles fail before execution.
 - Generated capabilities are named from the request's `Spec-Head` when it
   declares one (`Spec-Head: execution-recovery` writes
-  `specs/execution-recovery/spec.md`). A name that is not a lowercase slug
-  fails with `capability-name`. Without `Spec-Head`, planning keeps the
+  `specs/execution-recovery/spec.md`). A name that is not a lowercase slug of
+  letters, digits, and single hyphens fails with `capability-name`. Without
+  `Spec-Head`, planning keeps the
   `<repo_id>-delivery` fallback and records `capability_name_source: fallback`
   in `plan-summary.json`.
 - Planning success is NOT implementation completion; checkboxes stay
@@ -234,9 +235,10 @@ selection plus `--confirm-validated` and never claims a main-branch merge.
 Archive writes intent + backup before applying OpenSpec deltas, verifies the
 resulting path/specs, and records a receipt. After that receipt it releases the
 execution's active-owner record under the same checkout lock, so
-`specrunway run --change` can start the next execution immediately. A live
-owner process is never released: archive refuses `owner-alive` before applying
-deltas. A successful archive is never replayed; backup:
+`specrunway run --change` can start the next execution immediately. A replay
+of a recorded archive, and `recover` reconciling an interrupted archive,
+release only a matching dead record. A live owner process is never released:
+archive refuses `owner-alive` before applying deltas. A successful archive is never replayed; backup:
 `<control>/.specrunway/runs/<execution>/archive-backup/<stamp>/` (`change/`
 tree, `before.json`, `after.json`).
 

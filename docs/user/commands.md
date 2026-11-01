@@ -176,9 +176,10 @@ routing labels.
 A generated capability is named from the request's `Spec-Head` value when one
 is declared, for example `Spec-Head: execution-recovery` writes
 `specs/execution-recovery/spec.md`. A declared name must be a lowercase slug
-(`[a-z0-9-]`); anything else fails with `capability-name` instead of silently
-falling back. When the request declares no name, planning keeps the per-repo
-`<repo_id>-delivery` fallback and records it as
+of letters, digits, and single hyphens (no empty value, underscore, leading,
+trailing, or doubled hyphen); anything else fails with `capability-name`
+instead of silently falling back. When the request declares no name, planning
+keeps the per-repo `<repo_id>-delivery` fallback and records it as
 `capability_name_source: "fallback"` in `plan-summary.json`; a declared name is
 recorded as `"spec-head"`.
 
@@ -388,7 +389,8 @@ execution with `execution-archived`.
 
 A successful re-run of an already archived execution returns
 `already_archived: true` instead of applying deltas again; it also releases a
-matching dead owner record left by an older coordinator.
+matching dead owner record left by an older coordinator, as does `recover`
+when it reconciles an interrupted archive. A live owner is never released.
 
 Next action: none on success; start the next execution with
 `specrunway run --change`. On refusal, use

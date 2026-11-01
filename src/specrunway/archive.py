@@ -398,6 +398,17 @@ def reconcile_pending_archive(store: FileRunStore, execution_id: str, snapshot: 
 
         current = store.read_state(execution_id)
         store.update_state(execution_id, finish, current["revision"])
+        # Reconciliation is another way the archive receipt becomes final, so
+        # it ends the claim the same way a direct archive does. A live owner is
+        # still never released behind its back.
+        with store.lock(timeout=5.0):
+            owner = store.active_owner()
+            if (
+                owner
+                and owner.get("execution_id") == execution_id
+                and not _process_alive(int(owner.get("pid") or 0))
+            ):
+                store.release_activity(execution_id)
         return {"outcome": "archived", "path": str(archived)}
     if active_exists and not archived_exists:
         store.mark_uncertain(execution_id, op["operation_key"], {"outcome": "not-applied"})

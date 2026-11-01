@@ -15,8 +15,8 @@ from specrunway.openspec_adapter import OpenSpecAdapter, OpenSpecCommandError
 from specrunway.runstore import atomic_write_json
 
 TASK_LABEL_RE = re.compile(r"^-\s+\[[ xX]\]\s+([\d.]+)\s+\[([A-Z0-9][A-Z0-9-]*)\]\s+(.+)$")
-CAPABILITY_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
-SPEC_HEAD_RE = re.compile(r"^Spec-Head:\s*(?P<name>.+?)\s*$", re.MULTILINE)
+CAPABILITY_NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+SPEC_HEAD_RE = re.compile(r"^Spec-Head:[ \t]*(?P<name>.*?)[ \t]*$", re.MULTILINE)
 
 PROPOSAL_TEMPLATE = """# {change_id}
 
@@ -304,7 +304,8 @@ def parse_capability_heads(request_text: str) -> list:
             raise ValidationError(
                 "capability-name",
                 f"Spec-Head {name!r} is not a lowercase slug "
-                "(expected [a-z0-9-], for example execution-recovery)",
+                "(lowercase letters, digits, and single hyphens, "
+                "for example execution-recovery)",
             )
         if name not in names:
             names.append(name)

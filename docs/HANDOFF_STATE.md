@@ -203,8 +203,8 @@ Updated: 1 November 2026 (L01-L18 complete and archived; L19 guided onboarding i
   `specrunway run --change` can claim the checkout with no hand edit. A foreign
   owner is refused with `execution-conflict`; a matching live owner process is
   refused with `owner-alive` before any delta is applied. A replay of an
-  already recorded archive also releases a matching dead record left by an
-  older coordinator. `abandon` still refuses archived executions
+  already recorded archive, and an archive reconciled from `recover`, also
+  release a matching dead record left by an older coordinator. `abandon` still refuses archived executions
   (`execution-archived`).
 - T002: `specrunway doctor --no-agent-probe` skips the bounded coding-agent
   preflight, launches no agent, omits `data.agent` and the `agent-preflight`
@@ -219,10 +219,12 @@ Updated: 1 November 2026 (L01-L18 complete and archived; L19 guided onboarding i
   switch, capability naming, and archive ownership; this handoff state records
   the completion. `docs/evidence/14-archive-ownership-v1.md` holds commands,
   counts, and boundaries.
-- Verification: trusted profile `bash scripts/worktree_check.sh` reported 241
-  passed (up from 235; six regression tests added); `ruff check src tests`
-  clean; `scripts/check_handoff.py` passed; `openspec validate --all --strict`
-  11/11. Execution `0c300426-2956-4766-b6c9-fe10a91d17de`, base commit
+- Verification: trusted profile `bash scripts/worktree_check.sh` reported 247
+  passed (up from 235; twelve regression cases added), including a
+  `run --change`-level check that prepares a new execution after archive;
+  `ruff check src tests` clean; `scripts/check_handoff.py` passed; `openspec
+  validate --all --strict` 11/11. Execution
+  `0c300426-2956-4766-b6c9-fe10a91d17de`, base commit
   `8ac503a3f4cbd82e600c827b53c429523e22bfcb`.
 - This change is tracked in the central Store `specrunway-docs`, not in this
   repository's `openspec/` baseline. Merge and archive stay explicit review
@@ -267,7 +269,7 @@ the operator documentation entry set; its record lives in the
   worktrees: it creates the worktree's own `.venv`, installs the package
   editable, ensures `specify-cli` and `tooling/openspec/node_modules`, then runs
   pytest. Verified end to end by `p0-fixes-v1` (226 before, 235 after) and
-  `archive-ownership-v1` (241 passed) with the cached `specify-cli==1.2.1`
+  `archive-ownership-v1` (247 passed) with the cached `specify-cli==1.2.1`
   wheel, with no skips.
 - A local control checkout may live at `.sr-control/` inside this repository
   (ignored): `local.yaml`, `.specify/`, and run state. `check_handoff.py`
@@ -283,13 +285,12 @@ the operator documentation entry set; its record lives in the
 
 Review, merge, and archive central Store change `archive-ownership-v1`
 (execution `0c300426-2956-4766-b6c9-fe10a91d17de`) through the normal explicit
-gates. The archive path now releases its own active-owner record, so
-re-running `archive` for the archived `05884c10-…` execution also heals the
-claim it left behind. Then freeze `run-observability-v1` when work resumes.
-One item stays
-outside both changes: the `## What Changes` extraction from the P0 report still
-needs a decision. Tag `v0.1.0` / GitHub Release only after explicit approval;
-v2 work stays deferred.
+gates. The archive path now releases its own active-owner record, so archiving
+this execution returns the control checkout without a hand edit; replaying an
+archive also heals a dead record left by an older coordinator. Then freeze
+`run-observability-v1` when work resumes. One item stays outside both changes:
+the `## What Changes` extraction from the P0 report still needs a decision. Tag
+`v0.1.0` / GitHub Release only after explicit approval; v2 work stays deferred.
 
 ### Planned, not executed
 

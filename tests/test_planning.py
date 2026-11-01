@@ -243,26 +243,31 @@ def test_declared_spec_head_names_the_capability_and_archives(workspace, tmp_pat
     assert validated["valid"] is True, validated["issues"]
 
 
-def test_unusable_spec_head_is_rejected(workspace, tmp_path):
+@pytest.mark.parametrize(
+    "index,head",
+    list(enumerate(["Quota_Limits", "quota_limits", "", "quota--limits", "quota-"])),
+)
+def test_unusable_spec_head_is_rejected(workspace, tmp_path, index, head):
     control, _request_file, store_id = workspace
-    request_file = tmp_path / "bad-head.md"
+    request_file = tmp_path / f"bad-head-{index}.md"
     request_file.write_text(
-        SPEC_HEAD_REQUEST.replace("Spec-Head: quota-limits", "Spec-Head: Quota_Limits"),
+        SPEC_HEAD_REQUEST.replace("Spec-Head: quota-limits", f"Spec-Head: {head}"),
         encoding="utf-8",
     )
     from specrunway.planning import plan
 
+    change_id = f"bad-head-change-{index}"
     with pytest.raises(ValidationError) as exc_info:
         plan(
             control_root=control,
             store_id=store_id,
-            change_id="bad-head-change",
+            change_id=change_id,
             request_path=request_file,
             openspec_bin=str(OPENSPEC_BIN),
         )
     assert exc_info.value.code == "capability-name"
-    assert "Quota_Limits" in str(exc_info.value)
-    assert not (control.parent / "store" / "openspec" / "changes" / "bad-head-change").exists()
+    assert repr(head) in str(exc_info.value)
+    assert not (control.parent / "store" / "openspec" / "changes" / change_id).exists()
 
 
 def test_plan_manual_acceptance_path(workspace):

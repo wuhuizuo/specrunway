@@ -11,11 +11,14 @@ import uuid
 from pathlib import Path
 
 import pytest
+import yaml
 
 from specrunway.approvals import record_approval
 from specrunway.archive import ArchiveError, archive_execution, reconcile_pending_archive
 from specrunway.freezer import freeze_execution, new_execution_id
 from specrunway.models.common import json_digest
+from specrunway.recovery import RecoveryError, abandon_execution
+from specrunway.runner import prepare_execution
 from specrunway.runstore import FileRunStore, atomic_write_json
 from specrunway.worktrees import create_worktree, head_oid
 
@@ -263,6 +266,78 @@ def test_archive_releases_owner_and_unblocks_next_execution(completion):
     assert store.claim_activity("next-execution")["execution_id"] == "next-execution"
 
 
+def _stage_next_change(control: Path, store_path: Path) -> None:
+    """A second planned change in the same Store and control checkout."""
+    change = store_path / "openspec" / "changes" / "ship-next"
+    (change / "specs" / "next-delivery").mkdir(parents=True)
+    (change / "proposal.md").write_text(
+        "# n\n\n## Why\nw\n\n## What Changes\nx\n", encoding="utf-8"
+    )
+    (change / "design.md").write_text("# d\n\n## Approach\na\n", encoding="utf-8")
+    (change / "tasks.md").write_text(
+        "# Tasks\n\n- [ ] 1.1 [T001] Ship next.\n", encoding="utf-8"
+    )
+    (change / "specs" / "next-delivery" / "spec.md").write_text(
+        "# next-delivery Specification\n\n## ADDED Requirements\n\n"
+        "### Requirement: Next SHALL run\n\nIt SHALL run.\n\n"
+        "#### Scenario: Go\n\n- **WHEN** ran\n- **THEN** true\n",
+        encoding="utf-8",
+    )
+    manifest = {
+        "api_version": "specrunway/v1",
+        "store_uid": "67f80512-00d1-4b0f-b5cd-3a1aad009093",
+        "change_id": "ship-next",
+        "change_uid": "9c3e5e4e-2c2e-4b6e-8f9c-000000000094",
+        "repo_order": ["repo-a"],
+        "repos": [
+            {
+                "repo_id": "repo-a",
+                "base_ref": "main",
+                "task_ids": ["T001"],
+                "depends_on": [],
+                "allowed_paths": ["src"],
+                "test_profile": "unit",
+            }
+        ],
+        "acceptance": [{"id": "AC01", "requirement": "works.", "verifies": ["T001"]}],
+    }
+    plans = control / ".specrunway" / "plans" / "ship-next"
+    plans.mkdir(parents=True)
+    (plans / "manifest.yaml").write_text(yaml.safe_dump(manifest), encoding="utf-8")
+
+
+@pytest.mark.skipif(not OPENSPEC.is_file(), reason="pinned openspec CLI missing")
+def test_archive_then_next_run_prepares_a_new_execution(completion):
+    store = completion["store"]
+    archived_id = completion["execution_id"]
+    store.claim_activity(archived_id, pid=_dead_pid())
+    _git(completion["repo"], "merge", "--ff-only", completion["head"])
+    _stage_next_change(completion["control"], completion["store_path"])
+
+    archive_execution(completion["control"], archived_id)
+
+    # The real `run --change` entry point claims the checkout. Before the fix
+    # this raised ExecutionConflictError because archive kept the dead claim.
+    prepared = prepare_execution(completion["control"], "ship-next")
+    next_id = prepared["execution_id"]
+    assert next_id != archived_id
+    assert store.active_owner()["execution_id"] == next_id
+    assert store.read_state(next_id)["phase"] == "awaiting_plan_review"
+    assert prepared["snapshot"]["change_id"] == "ship-next"
+
+
+@pytest.mark.skipif(not OPENSPEC.is_file(), reason="pinned openspec CLI missing")
+def test_abandon_still_refuses_an_archived_execution(completion):
+    execution_id = completion["execution_id"]
+    _git(completion["repo"], "merge", "--ff-only", completion["head"])
+    archive_execution(completion["control"], execution_id)
+
+    with pytest.raises(RecoveryError) as refused:
+        abandon_execution(completion["control"], execution_id)
+    assert refused.value.code == "execution-archived"
+    assert completion["store"].active_owner() is None
+
+
 @pytest.mark.skipif(not OPENSPEC.is_file(), reason="pinned openspec CLI missing")
 def test_archive_refuses_a_live_owner_before_applying_deltas(completion):
     store = completion["store"]
@@ -349,6 +424,7 @@ def test_reconcile_completed_archive_without_replay(completion):
     change = completion["change"]
     archived = change.parent / "archive" / "2026-10-20-ship-demo"
     change.rename(archived)
+    store.claim_activity(execution_id, pid=_dead_pid())
     store.write_intent(
         execution_id,
         {
@@ -363,6 +439,8 @@ def test_reconcile_completed_archive_without_replay(completion):
     assert store.read_state(execution_id)["phase"] == "archived"
     ops = store.operations(execution_id)
     assert [op["status"] for op in ops if op.get("kind") == "archive"] == ["recorded"]
+    # A reconciled archive is still the end of the claim.
+    assert store.active_owner() is None
 
 
 def test_reconcile_mixed_state_blocks(completion):
