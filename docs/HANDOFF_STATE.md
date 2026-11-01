@@ -34,7 +34,6 @@ Updated: 1 November 2026 (L01-L18 complete and archived; L19 guided onboarding i
 - L06 task 1.1 done: `specrunway.planning` — `specrunway plan` real: request-driven generation (proposal/design/tasks/spec deltas with `[Txxx]` routing labels), manual-plan acceptance, `crosscheck_task_routing`, `.specrunway/plans/<id>/{manifest.yaml,plan-summary.json}` landing.
 - L07 task 2.1 done: `specrunway.freezer` — planning/context digests (checkbox-normalized, rule-aware), argv-only base-OID resolution, machine-validated snapshots; `specrunway.approvals` — self_asserted `specrunway approve` recomputing subject digests from frozen content, `require_gate` refusal points, staleness verification; `specrunway.toolresolvers`.
 - L08 task 3.1 done: `specrunway.launcher` — `AgentProfile` with `{prompt_file}` argv template (real `primary-coding-agent` profile → `opencode run --auto --pure --file <prompt>`; measured opencode 1.18.33 flags), `launch_process` (argv list, `shell=False`, own process group via `start_new_session=True`), `run_agent` structured outcome (completed/failed/timeout/cancelled + exit/log paths), `kill_proc_group`/`cancel` group kills covering agent-spawned grandchildren.
-- L08 task 3.1 done: `specrunway.launcher` — `AgentProfile` with `{prompt_file}` argv template (real `primary-coding-agent` profile → `opencode run --auto --pure --file <prompt>`; measured opencode 1.18.33 flags), `launch_process` (argv list, `shell=False`, own process group via `start_new_session=True`), `run_agent` structured outcome (completed/failed/timeout/cancelled + exit/log paths), `kill_proc_group`/`cancel` group kills covering agent-spawned grandchildren.
 - L09 task 4.1 done: `specrunway.worktrees` — detached worktrees at frozen base OIDs with original-checkout preservation checks; `specrunway.testprofiles` — trusted argv test runner producing runner receipts; `specrunway.results` — `accept_result` gating identity/ancestry/allowed-paths/trusted-receipt/digest binding before result acceptance + `persist_result` into the run tree.
 - L18 change 08 done: control-declared `test_profiles` (argv + relative cwd + timeout) with validation; referenced profiles frozen into `snapshot.test_profiles` with digests; run-repo, verify/repair, integration-repair, prompt, and archive final checks use the frozen profile (built-in `unit` remains the fallback for legacy snapshots). Verified with 5 profile tests; full suite 203 passed.
 - L17 change 07 done: step shim moved into `src/specrunway/step_package/` and shipped in the wheel; idempotent `specrunway init` (local.yaml validation, Store directory/registration, Specify init only when absent, bundled step install, doctor diagnostics); archive now registers the Store idempotently. README/RUNBOOK bootstrap reduced to `local.yaml` + `specrunway init`. Verified with 3 bootstrap tests + archive registration test; full suite 198 passed.
@@ -126,24 +125,6 @@ Updated: 1 November 2026 (L01-L18 complete and archived; L19 guided onboarding i
 - Historical evidence stays historical: the L01 report remains the 1.14.3 gate
   record, and the release replay remains the 1.18.33 live run.
 
-## Completed work: p0-fixes-v1 (central Store defect change)
-
-- Four defects from the live `user-docs-v1` run were fixed in one execution
-  (`05884c10-…`, one attempt): explicit `specrunway abandon`, a bounded
-  coding-agent preflight in `doctor`, `last_failure` reporting in `status`, and
-  a real `## Purpose` in generated spec deltas.
-- Accepted head `3b40ceb`; trusted verification ran the self-hosted
-  `bash scripts/worktree_check.sh` profile and reported 235 passed (up from
-  226). Both gates were signed locally by `wuhuizuo`, merged fast-forward, and
-  archived as `2026-11-01-p0-fixes-v1` in the `specrunway-docs` Store.
-- Post-archive checks: Store strict validation 2/2, the archived
-  `execution-recovery` capability carries the request purpose with no `TBD`,
-  and a live preflight resolved `opencode` and answered in 0.836s.
-- Residual defect, recorded in `docs/evidence/13-p0-fixes-v1.md`: `archive`
-  never releases the active-owner record while `abandon` refuses an archived
-  execution, so a checkout stays claimed after every successful archive. The
-  fix belongs in `archive`, which already owns the lock at that point.
-
 ## Completed work: user-docs-v1 (central Store documentation change)
 
 - Delivered the operator entry set: `docs/user/quickstart.md` (uv and manual
@@ -195,6 +176,16 @@ Updated: 1 November 2026 (L01-L18 complete and archived; L19 guided onboarding i
   `last_failure`, doctor preflight), `docs/user/troubleshooting.md`, and
   `docs/RUNBOOK.md`.
 
+
+- Review after `ready_for_review`: Store strict validation 2/2, the archived
+  `execution-recovery` capability carries the request purpose with no `TBD`, a
+  live preflight resolved `opencode` and answered in 0.836s, and `last_failure`
+  was `None` on a clean execution.
+- Residual defect found by that review and recorded in
+  `docs/evidence/13-p0-fixes-v1.md`: `archive` never released the active-owner
+  record while `abandon` refused an archived execution, so every successful
+  archive left the checkout claimed.
+
 ## Completed work: archive-ownership-v1 (central Store)
 
 - T001: `specrunway archive` now holds the checkout lock while it applies
@@ -230,22 +221,27 @@ Updated: 1 November 2026 (L01-L18 complete and archived; L19 guided onboarding i
   repository's `openspec/` baseline. Merge and archive stay explicit review
   gates.
 
+- Three attempts: the first two stalled inside `opencode` after a tool result
+  (exit 1, then the 1800s timeout). Attempt 3 continued the stalled conversation
+  through `SPECRUNWAY_AGENT_SESSION` on top of prerequisite commit `e8f8113`
+  (`--session` support), then passed the trusted profile with 247 tests.
+- Accepted head `9f0550d`, merged as `4ada28c` (a merge commit was needed
+  because that prerequisite landed on `main` while the agent worked), archived
+  as `2026-11-02-archive-ownership-v1`.
+- Post-archive proof: `.specrunway/active.json` was gone immediately after
+  archive, replacing the four manual store-API releases earlier changes needed.
+  Store strict validation passes for `execution-lifecycle`, `change-planning`,
+  `execution-recovery`, and `specrunway-delivery`.
+
 ## Current change
 
-None in this repository. Both central Store changes are archived:
-`user-docs-v1` (`2026-11-01-user-docs-v1`) and `p0-fixes-v1`
-(`2026-11-01-p0-fixes-v1`), tracked in `specrunway-docs` rather than in
-`openspec/` here, so this repository still has no active OpenSpec change.
-`09-guided-onboarding`
-(L19) was reviewed on 1 November 2026 and
-archived as `openspec/changes/archive/2026-11-01-09-guided-onboarding/`; its
-deltas are applied, so `openspec/specs/guided-onboarding/` is new and
-`openspec/specs/trusted-verification/` carries the optional-integration
-requirements. Review evidence: 226 tests passed, `ruff` clean, strict OpenSpec
-validation 11/11, and the handoff guard passed over 9 archived changes with 0
-active. The separate central Store change `user-docs-v1` delivered and archived
-the operator documentation entry set; its record lives in the
-`specrunway-docs` Store, not in `openspec/` here.
+None in this repository. Three central Store changes are archived:
+`user-docs-v1`, `p0-fixes-v1`, and `archive-ownership-v1`; they live in
+`specrunway-docs` rather than `openspec/` here. `09-guided-onboarding` was
+reviewed and archived as `openspec/changes/archive/2026-11-01-09-guided-onboarding/`,
+so this repository has no active OpenSpec change and its baseline carries
+`guided-onboarding` plus the optional-integration requirements in
+`trusted-verification`.
 
 ## Repository state
 
@@ -283,23 +279,12 @@ the operator documentation entry set; its record lives in the
 
 ## Exact next action
 
-Review, merge, and archive central Store change `archive-ownership-v1`
-(execution `0c300426-2956-4766-b6c9-fe10a91d17de`) through the normal explicit
-gates. The archive path now releases its own active-owner record, so archiving
-this execution returns the control checkout without a hand edit; replaying an
-archive also heals a dead record left by an older coordinator. Then freeze
-`run-observability-v1` when work resumes. One item stays outside both changes:
-the `## What Changes` extraction from the P0 report still needs a decision. Tag
-`v0.1.0` / GitHub Release only after explicit approval; v2 work stays deferred.
-
-### Planned, not executed
-
-One central Store change is still planned and must be frozen only when work
-resumes:
-
-- `run-observability-v1` — status reports the running step with elapsed time
-  and log path, `status --follow`, progress on stderr, `logs --execution`,
-  `executions` listing with `approve --pending`, and TTY-only interactive
-  approval (capability `run-observability`; six tasks). It answers the two
-  operator questions the live runs raised: gates gave no prompt, and long steps
-  were silent.
+Freeze and run central Store change `run-observability-v1` (planned, six tasks):
+`status` reporting the running step with elapsed time and log path,
+`status --follow`, progress on stderr, `logs --execution`, `executions` with
+`approve --pending`, and TTY-only interactive approval. Freezing is cheap now
+because `archive-ownership-v1` released the checkout: `.specrunway/active.json`
+no longer needs a hand edit after an archive. One decision stays open outside
+that change: whether to implement the `## What Changes` extraction fix from the
+P0 report. Tag `v0.1.0` / GitHub Release only after explicit approval; v2 work
+stays deferred.

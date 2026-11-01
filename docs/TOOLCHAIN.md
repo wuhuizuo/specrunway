@@ -25,9 +25,14 @@ than the minimum supported runtime.
 The shipped `primary-coding-agent` profile runs the real CLI as:
 
 ```text
-opencode run --auto "<fixed message>" --file <prompt_file>
+opencode run --auto --session <session_id> "<fixed message>" --file <prompt_file>
 ```
 
+- The session id is derived from the change uid and repository, persisted in the
+  execution state, and reused by later attempts of the same change, so a retry
+  continues one conversation instead of restarting the work.
+  `SPECRUNWAY_AGENT_SESSION` pins a specific `ses_`-prefixed conversation when an
+  operator has to continue a session that stalled outside the coordinator.
 - opencode 2.x removed the `--pure` flag that 1.18.33 accepted; the profile no
   longer passes it. `--file` attaches the prompt file and must come after the
   fixed message.

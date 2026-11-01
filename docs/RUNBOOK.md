@@ -38,10 +38,13 @@ uv tool list                  # specrunway and specify-cli as separate tools
 ```
 
 The shipped agent profile runs
-`opencode run --auto "<fixed message>" --file <prompt>`. opencode 2.x removed
+`opencode run --auto --session <id> "<fixed message>" --file <prompt>`, where the
+session id is stable per change and repository. opencode 2.x removed
 the `--pure` flag that 1.18.33 accepted, so the profile no longer passes it.
 The profile does not pass `--model`; configure opencode's default model before
-running (the upgrade evidence used `deepseek/deepseek-flash`).
+running (the upgrade evidence used `deepseek/deepseek-flash`). If an attempt
+stalls and the process is gone, `SPECRUNWAY_AGENT_SESSION=ses_...` continues
+that exact conversation on the next `resume`.
 
 `specrunway doctor` needs a control checkout with `local.yaml`; run it after
 section 2. It validates control wiring (`local.yaml`, Store, repos) and does

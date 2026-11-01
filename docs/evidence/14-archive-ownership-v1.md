@@ -139,3 +139,31 @@ twelve added regression cases.
 - Approval stays local `self_asserted`; no authenticated authority was added.
 - The doctor switch controls only the preflight; it does not claim that a
   skipped probe passed.
+
+## Review performed after `ready_for_review`
+
+Merged as `4ada28c` (a merge commit, because prerequisite commit `e8f8113`
+landed on `main` while the agent worked) and archived as
+`2026-11-02-archive-ownership-v1`. Independent checks on the merged tree:
+
+| Check | Result |
+| --- | --- |
+| Trusted profile at the accepted head | 247 passed, exit 0, 286.4s |
+| Store strict validation after archive | 5/5 (`execution-lifecycle`, `change-planning`, `execution-recovery`, `specrunway-delivery`, active change) |
+| Capability Purpose | both new capabilities carry the request purpose; no `TBD` |
+| `active.json` after archive | absent, immediately after the archive command |
+| Change scope | 10 files under `src/`, `tests/`, `docs/` |
+
+The `active.json` result is the acceptance for T001: the four earlier changes
+each needed a direct `FileRunStore.release_activity` call before the next
+execution could start, and this one needed none.
+
+## Run conditions that differ from the frozen snapshot
+
+Attempts 1 and 2 stalled inside `opencode run` after a tool result. Attempt 3
+continued the stalled conversation by passing `SPECRUNWAY_AGENT_SESSION` on top
+of prerequisite commit `e8f8113`, which adds `--session` support to the launcher
+and a per-change session id in the execution state. That commit is not part of
+the accepted head, so the verified artifact is unchanged; the agent was only
+invoked differently. The prerequisite itself was verified separately: 235 tests
+passed before it was used, and it changes no coordinator logic under test here.
