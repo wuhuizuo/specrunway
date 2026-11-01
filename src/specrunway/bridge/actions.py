@@ -405,6 +405,7 @@ def action_run_repo(config: dict, context) -> dict:
                 store_uid=snapshot["store_uid"],
                 change_uid=snapshot["change_uid"],
                 execution_id=execution_id,
+                evidence=[str(outcome["log_path"])] if outcome.get("log_path") else [],
                 error={
                     "code": "agent-" + outcome.status,
                     "message": outcome.reason or outcome.status,
@@ -463,6 +464,10 @@ def action_run_repo(config: dict, context) -> dict:
                 store_uid=snapshot["store_uid"],
                 change_uid=snapshot["change_uid"],
                 execution_id=execution_id,
+                evidence=[
+                    str(run_dir / "logs" / repo_id / str(attempt) / "agent.log"),
+                    str(run_dir / "logs" / repo_id / str(attempt) / "tests.log"),
+                ],
                 error={"code": "result-rejected", "message": str(exc), "retryable": True},
             ),
         ) from exc

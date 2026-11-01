@@ -147,6 +147,43 @@ def test_plan_generation_path(workspace, tmp_path):
     assert '"planning_complete": true' in summary
 
 
+def test_planned_capability_archives_with_a_real_purpose(workspace, tmp_path):
+    control, request_file, store_id = workspace
+    manifest_file = _manifest(tmp_path, "purpose-change", "67f80512-00d1-4b0f-b5cd-3a1aad009002")
+
+    from specrunway.openspec_adapter import OpenSpecAdapter
+    from specrunway.planning import plan
+
+    outcome = plan(
+        control_root=control,
+        store_id=store_id,
+        change_id="purpose-change",
+        request_path=request_file,
+        manifest_path=manifest_file,
+        openspec_bin=str(OPENSPEC_BIN),
+    )
+    delta = Path(outcome.change_path) / "specs" / "repo-a-delivery" / "spec.md"
+    delta_text = delta.read_text(encoding="utf-8")
+    assert "## Purpose" in delta_text
+    assert "TBD" not in delta_text
+    assert "Rate limiting spans two repos." in delta_text
+
+    adapter = OpenSpecAdapter(
+        store_path=control.parent / "store",
+        store_id=store_id,
+        openspec_bin=str(OPENSPEC_BIN),
+    )
+    archived = adapter.archive("purpose-change")
+    assert archived["specs_updated"] is True
+
+    baseline = control.parent / "store" / "openspec" / "specs" / "repo-a-delivery" / "spec.md"
+    baseline_text = baseline.read_text(encoding="utf-8")
+    assert "Rate limiting spans two repos." in baseline_text
+    assert "TBD" not in baseline_text
+    validated = adapter.validate("repo-a-delivery")
+    assert validated["valid"] is True, validated["issues"]
+
+
 def test_plan_manual_acceptance_path(workspace):
     control, _request_file, store_id = workspace
     change_path = control.parent / "store" / "openspec" / "changes" / "manual-change"

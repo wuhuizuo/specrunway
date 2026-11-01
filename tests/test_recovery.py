@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -11,9 +12,10 @@ import pytest
 
 from specrunway import launcher, recovery
 from specrunway.approvals import record_approval
+from specrunway.cli import main as specrunway_main
 from specrunway.freezer import freeze_execution, new_execution_id
 from specrunway.models.common import json_digest
-from specrunway.runstore import FileRunStore, atomic_write_json
+from specrunway.runstore import ExecutionConflictError, FileRunStore, atomic_write_json
 from specrunway.worktrees import create_worktree, head_oid
 
 REPO = Path(__file__).resolve().parents[1]
@@ -278,6 +280,63 @@ def test_status_reports_phases_and_operations(paused):
     assert summary["pending_gate"] == "plan"
     assert summary["approvals"]["plan"]["decision"] == "approve"
     assert summary["repo_order"] == ["repo-a"]
+
+
+def _dead_pid() -> int:
+    process = subprocess.Popen([sys.executable, "-c", "pass"])
+    process.wait(timeout=30)
+    return process.pid
+
+
+def test_abandon_releases_dead_owner_and_unblocks_next_run(paused):
+    store = paused["store"]
+    execution_id = paused["execution_id"]
+    store.claim_activity(execution_id, pid=_dead_pid())
+    with pytest.raises(ExecutionConflictError):
+        store.claim_activity("next-execution")
+
+    outcome = recovery.abandon_execution(paused["control"], execution_id)
+
+    assert outcome["released"] is True
+    assert outcome["previous_owner"]["execution_id"] == execution_id
+    assert store.active_owner() is None
+    # The refusal that started this defect is gone: another execution may claim.
+    assert store.claim_activity("next-execution")["execution_id"] == "next-execution"
+    state = store.read_state(execution_id)
+    assert state["phase"] == "awaiting_plan_review"
+    assert state["abandoned_at"]
+
+
+def test_abandon_refuses_live_owner(paused):
+    store = paused["store"]
+    execution_id = paused["execution_id"]
+    store.claim_activity(execution_id, pid=os.getpid())
+    with pytest.raises(recovery.RecoveryError) as refused:
+        recovery.abandon_execution(paused["control"], execution_id)
+    assert refused.value.code == "owner-alive"
+    assert store.active_owner()["execution_id"] == execution_id
+
+
+def test_cli_abandon_releases_owner(paused, capsys):
+    store = paused["store"]
+    execution_id = paused["execution_id"]
+    store.claim_activity(execution_id, pid=_dead_pid())
+    rc = specrunway_main(
+        [
+            "abandon",
+            "--execution",
+            execution_id,
+            "--root",
+            str(paused["control"]),
+            "--json",
+        ]
+    )
+    out = capsys.readouterr().out
+    assert rc == 0, out
+    payload = json.loads(out)
+    assert payload["action"] == "abandon"
+    assert payload["data"]["released"] is True
+    assert store.active_owner() is None
 
 
 def test_discover_native_run_matches_workflow_id(monkeypatch, tmp_path):

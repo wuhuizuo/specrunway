@@ -296,10 +296,13 @@ def _write_spec_deltas(
             "when": "the implementation completes in a separate worktree",
             "then": "the tasks attach to accepted commit evidence",
         }
+        purpose = _capability_purpose(request_text, block, repo["repo_id"])
         target = spec_root / f"{repo['repo_id']}-delivery"
         target.mkdir(parents=True, exist_ok=True)
         (target / "spec.md").write_text(
             f"# {target.name} Specification\n\n"
+            "## Purpose\n\n"
+            f"{purpose}\n\n"
             "## ADDED Requirements\n\n"
             f"### Requirement: {block['title']}\n\n"
             f"{block['body']}\n\n"
@@ -309,6 +312,38 @@ def _write_spec_deltas(
             encoding="utf-8",
         )
         generated.append(f"specs/{target.name}/spec.md")
+
+
+def _capability_purpose(request_text: str, block: dict, repo_id: str) -> str:
+    """Write a real Purpose from the request; never rely on the archive placeholder.
+
+    OpenSpec reads a delta's ``## Purpose`` only while creating the capability, so
+    an omitted section would leave ``TBD - created by archiving change`` in the
+    baseline spec and fail strict validation.
+    """
+    why = _section(request_text, "why", fallback="")
+    what = _section(request_text, "what", fallback="")
+    purpose = _one_paragraph(why or what or f"Deliver {block['title']} in {repo_id}.")
+    # Strict validation rejects a Purpose shorter than 50 characters, so add
+    # what the request asks for; both halves are written by the requester.
+    if len(purpose) < 50 and what and what != why:
+        purpose = f"{purpose} {_one_paragraph(what)}"
+    if len(purpose) < 50:
+        purpose = (
+            f"{purpose} Delivered as the {block['title']} capability with "
+            "trusted verification."
+        )
+    return purpose
+
+
+def _one_paragraph(text: str) -> str:
+    """Collapse section text to one Purpose paragraph."""
+    collapsed = re.sub(r"\s+", " ", text).strip()
+    if not collapsed:
+        return "Deliver the requested capability with trusted verification."
+    if collapsed[-1] not in ".!?":
+        collapsed += "."
+    return collapsed
 
 
 def _parse_spec_blocks(text: str) -> dict:

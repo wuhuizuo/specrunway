@@ -311,7 +311,8 @@ def cmd_init(args: argparse.Namespace) -> int:
     except Exception as exc:  # noqa: BLE001
         return _fail_cli(_error_envelope("init", exc), args.json, "specrunway init")
 
-    report = run_doctor(root_dir=str(root))
+    # Bootstrap checks wiring only; `specrunway doctor` runs the agent preflight.
+    report = run_doctor(root_dir=str(root), probe_agent=False)
     payload = _specrunway_envelope(
         action="init",
         ok=bool(report["ok"]),
@@ -410,11 +411,43 @@ def cmd_status(args: argparse.Namespace) -> int:
     except Exception as exc:  # noqa: BLE001
         return _fail_cli(_error_envelope("status", exc), args.json, "specrunway status")
     payload = _specrunway_envelope(action="status", ok=True, data=data, warnings=[])
+    detail = ""
+    failure = data.get("last_failure")
+    if failure:
+        detail = (
+            f"; last failed step {failure.get('step_id') or 'unknown'} "
+            f"[{failure.get('code')}] log {failure.get('log_path') or 'unavailable'}"
+        )
     _emit(
         payload,
         args.json,
         f"status {data['phase']}: execution {args.execution} "
-        f"(native run {data['native_run_id']})\n",
+        f"(native run {data['native_run_id']}){detail}\n",
+    )
+    return 0
+
+
+def cmd_abandon(args: argparse.Namespace) -> int:
+    """Release the active-owner record of a paused or failed execution."""
+    from specrunway.recovery import abandon_execution
+
+    root = _control_root_for(args)
+    if root is None:
+        return _fail_cli(
+            _error_envelope("abandon", RuntimeError("no control checkout found")),
+            args.json,
+            "specrunway abandon",
+        )
+    try:
+        outcome = abandon_execution(root, args.execution)
+    except Exception as exc:  # noqa: BLE001
+        return _fail_cli(_error_envelope("abandon", exc), args.json, "specrunway abandon")
+    payload = _specrunway_envelope(action="abandon", ok=True, data=outcome, warnings=[])
+    _emit(
+        payload,
+        args.json,
+        f"abandon ok: execution {args.execution} "
+        f"{'released' if outcome['released'] else 'had no active owner'}\n",
     )
     return 0
 
@@ -574,6 +607,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     for name, help_text, handler in (
         ("status", "Show execution status", cmd_status),
+        ("abandon", "Release a paused/failed execution's checkout ownership", cmd_abandon),
         ("resume", "Resume a paused/failed execution", cmd_resume),
         ("recover", "Reconcile an interrupted execution", cmd_recover),
     ):

@@ -56,7 +56,8 @@ The CLI walks upward from the current directory looking for `local.yaml`.
 | `plan` | `CHANGE_ID` | Generate or accept planning artifacts and routing |
 | `run` | `--change` or `--execution --continue` | Freeze/start or continue an execution |
 | `approve` | `--execution --kind --actor` | Record a local approval receipt |
-| `status` | `--execution` | Show phase, gates, results, budgets, operations |
+| `status` | `--execution` | Show phase, gates, results, budgets, operations, last failure |
+| `abandon` | `--execution` | Release a paused/failed execution's checkout ownership |
 | `resume` | `--execution` | Resume a paused/failed execution after revalidation |
 | `recover` | `--execution` | Reconcile an interrupted execution or archive |
 | `archive` | `--execution` | Explicitly archive a ready change |
@@ -69,7 +70,7 @@ These can appear from more than one command that reads or mutates run state:
 | --- | --- |
 | `snapshot-missing` | The execution has no frozen `snapshot.json`. Check the execution id; do not edit run files. |
 | `lock-timeout` | Another process holds the checkout lock. Wait or stop the other SpecRunway process. |
-| `execution-conflict` | A different execution is active for the checkout. Finish or release it before starting another. |
+| `execution-conflict` | A different execution is active for the checkout. Finish it, or use `abandon` on a paused/failed execution, before starting another. |
 | `state-corrupt` | `state.json` is unreadable or foreign. Preserve the run directory and inspect it manually. |
 | `no-execution` | The execution id has no run directory. List `.specrunway/runs/` and retry. |
 | `revision-conflict` | State changed under a writer. Re-run the read/status command; do not force-write state. |
@@ -130,16 +131,26 @@ specrunway doctor [--root DIR] [--json]
 ```
 
 Required input is a control checkout with `local.yaml`. The report includes
-`specrunway_version`, `control_root`, `store`, `agent_profile`, `repos`, and
-`findings`. Exit code is 0 only when there are no errors.
+`specrunway_version`, `control_root`, `store`, `agent_profile`, `agent`,
+`repos`, and `findings`. Exit code is 0 only when there are no errors.
 
 Finding codes: `no-control-checkout`, `local-yaml`, `store-missing`,
 `store-uninitialized`, `repo-missing`, `repo-not-git`, `remote-missing`,
-`wrong-checkout`, plus `local.yaml` validation codes such as `store-id`,
-`store-path`, `repo-path`, `remote-identity`, `test-command`, and
+`wrong-checkout`, `agent-preflight`, plus `local.yaml` validation codes such as
+`store-id`, `store-path`, `repo-path`, `remote-identity`, `test-command`, and
 `unknown-key`.
 
-`doctor` does not probe executable versions or run tests.
+`doctor` performs a bounded coding-agent preflight: it resolves the profile,
+reports the binary on `PATH`, and asks the agent for a trivial answer with a
+60-second timeout. The probe runs in a disposable temporary directory, never in
+a business checkout, so it spends no repository work. `data.agent` records
+`profile`, `binary`, `ok`, `status`, `reason`, `exit_code`,
+`duration_seconds`, and a bounded `log_tail`. An unknown profile, a missing
+binary, a non-zero exit, or a timeout is an `agent-preflight` error, so a broken
+agent model is visible before the first fan-out attempt.
+`specrunway init` checks wiring only and does not run this preflight.
+
+`doctor` does not probe other executable versions or run tests.
 
 Next action: fix every error finding, then `specrunway plan` or
 `specrunway run`.
@@ -200,9 +211,11 @@ The envelope reports `execution_id`, `native_run_id`, `native_status`,
 `paused_step_id: "implementation-gate"`.
 
 Next action: record the matching approval and run `--continue`, or use
-`specrunway resume`. On `workflow-failed`, inspect the message tail; retry with
-`specrunway resume` when a native run exists, otherwise start again with
-`run --change`. Do not edit `.specify` state.
+`specrunway resume`. On `workflow-failed`, run `specrunway status` and read
+`last_failure` (step id, error code, log path); retry with `specrunway resume`
+when a native run exists. If the execution cannot be resumed, or the operator
+wants a fresh start, `specrunway abandon` releases the checkout so
+`run --change` can start again. Do not edit `.specify` state.
 
 ## `specrunway approve`
 
@@ -233,8 +246,16 @@ specrunway status --execution EXECUTION_ID [--root DIR] [--json]
 
 Requires `--execution`. Data includes `phase`, `pending_gate`,
 `native_run_id`, `native_runs`, `revision`, `active_owner`, `budgets`,
-`results`, `verification`, `approvals`, `change_id`, `repo_order`, and
-`operations`.
+`results`, `verification`, `approvals`, `last_failure`, `change_id`,
+`repo_order`, and `operations`.
+
+`last_failure` is `null` after a run pauses or completes again. When a native
+step failed, it records `step_id`, `code`, `message`, `log_path`, and
+`native_run_id`. The step id names the exact unit that stopped the run (for
+example `implement:repo:0`), the code is the bridge's stable error code (for
+example `agent-failed` or `result-rejected`), and `log_path` is the agent or
+test log that explains it. The non-JSON output prints the same three values on
+the status line.
 
 Stable codes: `snapshot-missing`, `no-execution`, `state-corrupt`.
 
@@ -244,12 +265,35 @@ Next action by phase:
 | --- | --- |
 | `planning` | Preparation did not finish. Read the last run error; retry `run --change` if the execution was never started. |
 | `awaiting_plan_review` | Review the plan, then `approve --kind plan` and continue. |
-| `implementing` | Wait, or `resume` if the native run is paused/failed. |
+| `implementing` | Read `last_failure`; `resume` for a retryable failure, or `abandon` to release the checkout. |
 | `awaiting_implementation_review` | Review accepted results, then `approve --kind implementation` and continue. |
 | `ready_for_review` | Merge if using `merged_commits`, then `archive`. |
 | `blocked` | Read `blocked_reason` and `budgets`; hand over to a human. |
 | `interrupted` | `recover`. |
 | `archived` | No further execution work. |
+
+## `specrunway abandon`
+
+```bash
+specrunway abandon --execution EXECUTION_ID [--root DIR] [--json]
+```
+
+Requires `--execution`. It releases the active-owner record so a later
+`specrunway run --change` can start on the same control/Store checkout. Use it
+for an execution that is paused at a gate, failed, blocked, interrupted, or
+waiting for review. The execution keeps its recorded state, results, receipts,
+logs, and worktrees for review; only checkout ownership moves.
+
+It refuses while the process recorded as the active owner is alive
+(`owner-alive`). Stop that process first, or use `recover` when the native run
+is still marked running and the owner is dead. Abandoning an archived execution
+is refused (`execution-archived`).
+
+Stable codes: `owner-alive`, `execution-conflict`, `execution-archived`,
+`snapshot-missing`, `no-execution`, `state-corrupt`.
+
+Next action: start the next execution with `specrunway run --change`, or keep
+the abandoned run for inspection.
 
 ## `specrunway resume`
 

@@ -2,15 +2,29 @@
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
 import yaml
 from tests.test_manifest import manifest as sample_manifest
 
+from specrunway import doctor, launcher
 from specrunway.doctor import run_doctor
 from specrunway.models import load_local_config
 
 
 def _severities(report):
     return {f["check"]: f["severity"] for f in report["data"]["findings"]}
+
+
+def _set_agent(monkeypatch, argv):
+    monkeypatch.setitem(
+        launcher.PROFILES,
+        "primary-coding-agent",
+        launcher.AgentProfile(
+            name="primary-coding-agent", argv=tuple(argv), timeout_seconds=30.0
+        ),
+    )
 
 
 def _rewrite(control, updater):
@@ -29,6 +43,70 @@ def test_doctor_ok_on_fixture(control_workspace):
     assert sevs["repo:repo-a"] == "ok"
     assert sevs["repo:repo-b"] == "ok"
     assert report["data"]["store"]["id"] == "fixstore"
+
+
+def test_doctor_agent_preflight_reports_resolved_binary(control_workspace):
+    report = run_doctor(root_dir=str(control_workspace["control"]))
+    agent = report["data"]["agent"]
+    assert agent["ok"] is True
+    assert agent["status"] == "completed"
+    assert agent["binary"] == sys.executable
+    assert _severities(report)["agent-preflight"] == "ok"
+    assert "agent-preflight" not in report["errors"]
+
+
+def test_doctor_agent_preflight_fails_on_nonzero_exit(control_workspace, monkeypatch):
+    _set_agent(monkeypatch, (sys.executable, "-c", "raise SystemExit(3)"))
+    report = run_doctor(root_dir=str(control_workspace["control"]))
+    assert report["ok"] is False
+    assert "agent-preflight" in report["errors"]
+    finding = next(
+        row for row in report["data"]["findings"] if row["check"] == "agent-preflight"
+    )
+    assert finding["severity"] == "error"
+    assert "primary-coding-agent" in finding["message"]
+    assert "exit 3" in finding["message"]
+    assert report["data"]["agent"]["ok"] is False
+    assert report["data"]["agent"]["exit_code"] == 3
+
+
+def test_doctor_agent_preflight_reports_missing_binary(control_workspace, monkeypatch):
+    _set_agent(monkeypatch, ("specrunway-no-such-agent-binary",))
+    report = run_doctor(root_dir=str(control_workspace["control"]))
+    assert report["ok"] is False
+    assert "agent-preflight" in report["errors"]
+    agent = report["data"]["agent"]
+    assert agent["status"] == "missing-binary"
+    assert agent["binary"] is None
+    finding = next(
+        row for row in report["data"]["findings"] if row["check"] == "agent-preflight"
+    )
+    assert "specrunway-no-such-agent-binary" in finding["message"]
+
+
+def test_doctor_agent_preflight_is_bounded_and_outside_repositories(
+    control_workspace, monkeypatch
+):
+    seen = {}
+    real_run_agent = launcher.run_agent
+
+    def capture(profile, cwd, prompt_file, log_dir, **kwargs):
+        seen["cwd"] = Path(cwd)
+        seen["prompt"] = Path(prompt_file)
+        seen["prompt_exists"] = Path(prompt_file).is_file()
+        seen["timeout"] = kwargs.get("timeout_seconds")
+        return real_run_agent(profile, cwd, prompt_file, log_dir, **kwargs)
+
+    monkeypatch.setattr(launcher, "run_agent", capture)
+    run_doctor(root_dir=str(control_workspace["control"]))
+    business_paths = {
+        Path(control_workspace["control"]),
+        Path(control_workspace["store"]),
+        *[Path(repo) for repo in control_workspace["repos"]],
+    }
+    assert seen["cwd"] not in business_paths
+    assert seen["prompt_exists"] is True
+    assert seen["timeout"] == doctor.AGENT_PROBE_TIMEOUT_SECONDS
 
 
 def test_doctor_walks_up_from_control_child(control_workspace, monkeypatch):

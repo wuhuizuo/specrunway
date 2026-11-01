@@ -137,7 +137,7 @@ integration_profiles:              # executable combined check, trusted config
 
 ```bash
 specrunway init --json     # Store setup + Specify workspace + bundled step
-specrunway doctor --json   # wiring findings, exit 1 on errors
+specrunway doctor --json   # wiring + bounded agent preflight, exit 1 on errors
 ```
 
 `init` is idempotent, creates the Store directory, registers the Store,
@@ -198,7 +198,8 @@ Execution order:
 | Situation | Command | Behavior |
 |---|---|---|
 | Gate pause | `specrunway resume` | Checks receipt + digests, resumes native run |
-| Retryable native failure | `specrunway resume` | Native resume; completed steps are not re-run |
+| Retryable native failure | `specrunway status`, then `specrunway resume` | `last_failure` names the step, code, and log; native resume does not re-run completed steps |
+| Paused/failed, fresh start wanted | `specrunway abandon` | Releases the active-owner record; refuses `owner-alive`; run state stays for review |
 | Blocked budget/no-progress | — | `specrunway status` shows `blocked`; preserve worktrees for takeover |
 | Orphan `running`, owner dead | `specrunway recover` | Old run preserved `abandoned-running`, new native run same execution, verified receipts reused |
 | Orphan `running`, owner alive | — | `specrunway recover` refuses `orphan-alive`; stop the process first |

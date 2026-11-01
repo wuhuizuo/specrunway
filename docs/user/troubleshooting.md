@@ -2,8 +2,9 @@
 
 This page is organized by symptom. Start with `specrunway status --execution
 <id> --json`; it shows the phase, pending gate, native run, active owner,
-budgets, accepted results, verification rows, approvals, and operation
-statuses. Preserve the run directory before changing anything.
+budgets, accepted results, verification rows, approvals, the last failed step
+(`last_failure`), and operation statuses. Preserve the run directory before
+changing anything.
 
 ## The phase does not move
 
@@ -11,7 +12,7 @@ statuses. Preserve the run directory before changing anything.
 | --- | --- | --- |
 | `planning` | Preparation stopped before the snapshot and workflow were ready. | Read the last run error; retry `run --change` if no native run was created. |
 | `awaiting_plan_review` | The plan gate has no matching approval receipt, or the receipt binds different content. | Review the plan, record `approve --kind plan`, then `run --continue` or `resume`. |
-| `implementing` | Work, trusted tests, repair, or integration is still running; or the native run is paused/failed. | Wait, then `resume`; if it reports `orphan-running`, use `recover`. |
+| `implementing` | Work, trusted tests, repair, or integration is still running; or the native run is paused/failed. | Read `last_failure` for the failing step, code, and log; then `resume` (or `abandon` to release the checkout). If `resume` reports `orphan-running`, use `recover`. |
 | `awaiting_implementation_review` | The implementation gate has no matching receipt, or a result/verification is missing. | Check `results` and `verification`; approve only after every required repository is accepted. |
 | `ready_for_review` | Normal completion; nothing is pending. | Merge if required, then archive explicitly. |
 | `blocked` | Budget exhausted, repeated failure without progress, or an uncertain archive. | Hand over to a human; read `blocked_reason` and `budgets`. |
@@ -59,6 +60,39 @@ accepted result was persisted; inspect `results/` under the run directory.
 3. If the native run is paused or failed, run `specrunway resume`.
 4. If `resume` reports `orphan-running`, the native state still says running.
    Use `specrunway recover`; do not edit `.specify` private state.
+
+## A paused or failed run blocks the next run
+
+`specrunway run --change` refuses with `execution-conflict` while the previous
+execution still owns the checkout. A failed step also leaves the phase at
+`implementing`; the real cause is in `status`:
+
+```bash
+specrunway status --execution "$EXEC" --json
+```
+
+```json
+"last_failure": {
+  "step_id": "implement:repo:0",
+  "code": "agent-failed",
+  "message": "agent did not complete: exit 1",
+  "log_path": "…/logs/repo-a/1/agent.log"
+}
+```
+
+Read the named log first. If the failure is retryable, `specrunway resume`
+re-runs only the failed native step. If resume is not appropriate, or the
+execution is a dead end, release the checkout explicitly:
+
+```bash
+specrunway abandon --execution "$EXEC" --json
+specrunway run --change <next-change> --json
+```
+
+`abandon` refuses with `owner-alive` while the recorded owner process is still
+running. Check `ps -p <pid>`; stop that process before retrying. It leaves the
+execution's state, results, receipts, and worktrees in place so the failure can
+still be reviewed. Never delete `active.json` or rewrite `state.json` by hand.
 
 ## orphan-alive (recover refuses)
 
@@ -219,8 +253,25 @@ openspec --version
 ```
 
 Expected: specrunway 0.1.0, opencode 2.1.4 or newer, specify-cli 1.2.1,
-OpenSpec 1.15.0. `specrunway doctor` checks wiring only, not versions or agent
-credentials. See `docs/TOOLCHAIN.md` for the full resolution order.
+OpenSpec 1.15.0. `specrunway doctor` checks wiring and runs a bounded
+coding-agent preflight; it does not verify other executable versions or run
+tests. See `docs/TOOLCHAIN.md` for the full resolution order.
+
+## doctor reports agent-preflight
+
+`agent-preflight` means the configured coding agent cannot answer. The finding
+names the profile and binary, and `data.agent` carries the status, exit code,
+and a bounded log tail:
+
+| `data.agent.status` | Meaning | Fix |
+| --- | --- | --- |
+| `missing-binary` | The profile's executable is not on `PATH`. | Install the agent or fix `PATH`; `--version` should work. |
+| `unknown-profile` | `local.yaml agent_profile` names no shipped profile. | Use `primary-coding-agent` or correct the wiring. |
+| `failed` | The probe exited non-zero, commonly because no model is usable. | Configure a provider/model in the agent's own config and rerun `doctor`. |
+| `timeout` | The agent did not answer within 60 seconds. | Check network and provider latency; the real run would also stall. |
+
+The probe runs in a temporary directory with a one-line prompt, so it never
+spends repository work. Fix the agent before `specrunway run`.
 
 ## Lock timeout or concurrent execution
 
@@ -229,8 +280,10 @@ credentials. See `docs/TOOLCHAIN.md` for the full resolution order.
 active execution per control/Store checkout.
 
 Find the process from `status.active_owner` or from the error context, stop it,
-and retry. Do not delete the lock file while a process may still be writing.
-Do not run two executions against the same Store or control checkout.
+and retry. If the owner is dead and the execution is paused or failed, release
+it with `specrunway abandon --execution <id>` instead of deleting state. Do not
+delete the lock file while a process may still be writing. Do not run two
+executions against the same Store or control checkout.
 
 ## Where the evidence is
 

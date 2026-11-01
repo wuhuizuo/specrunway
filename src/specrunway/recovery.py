@@ -91,6 +91,7 @@ def execution_status(control_root: Path, execution_id: str) -> dict:
         "results": state.get("results") or {},
         "verification": state.get("verification") or {},
         "approvals": state.get("approvals") or {},
+        "last_failure": state.get("last_failure"),
         "change_id": snapshot["change_id"],
         "repo_order": snapshot["manifest"]["repo_order"],
         "operations": [
@@ -207,8 +208,8 @@ def _preserve_native_run(
 def _resume_native(control_root: Path, store: FileRunStore, execution_id: str) -> dict:
     from specrunway.runner import (
         _record_pause,
-        _specify_workflow,
         continue_execution,
+        run_workflow,
     )
 
     state = store.read_state(execution_id)
@@ -231,7 +232,9 @@ def _resume_native(control_root: Path, store: FileRunStore, execution_id: str) -
             "execution-blocked",
             f"execution blocked: {state.get('blocked_reason') or 'budget/no-progress stop'}",
         )
-    payload = _specify_workflow(["workflow", "resume", str(native_run_id)], Path(control_root))
+    payload = run_workflow(
+        store, execution_id, Path(control_root), ["workflow", "resume", str(native_run_id)]
+    )
     with store.lock(timeout=5.0):
         _record_pause(store, execution_id, payload)
     return payload
@@ -256,6 +259,58 @@ def resume_execution(control_root: Path, execution_id: str) -> dict:
     with store.lock(timeout=5.0):
         store.claim_activity(execution_id)
     return _resume_native(control_root, store, execution_id)
+
+
+def abandon_execution(control_root: Path, execution_id: str) -> dict:
+    """Release the active-owner record of a paused or failed execution.
+
+    The execution keeps its recorded state for review; only the checkout
+    ownership moves so a later `run --change` can start. A live owner process
+    is never abandoned behind its back.
+    """
+    from specrunway.runstore import _now
+
+    control_root = Path(control_root)
+    store = FileRunStore(control_root / ".specrunway")
+    snapshot = _snapshot(store, execution_id)
+    state = store.read_state(execution_id)
+    if state.get("phase") == "archived":
+        raise RecoveryError(
+            "execution-archived",
+            f"execution {execution_id} is already archived; nothing to abandon",
+        )
+    with store.lock(timeout=5.0):
+        owner = store.active_owner()
+        if owner and owner.get("execution_id") != execution_id:
+            raise RecoveryError(
+                "execution-conflict",
+                f"active owner is {owner['execution_id']}; refusing release of {execution_id}",
+            )
+        pid = int((owner or {}).get("pid") or 0)
+        if owner and pid and _process_alive(pid):
+            raise RecoveryError(
+                "owner-alive",
+                f"process {pid} still owns the checkout; stop it before abandoning",
+            )
+        released = bool(owner)
+        if owner:
+            store.release_activity(execution_id)
+        phase = state.get("phase")
+        current = store.read_state(execution_id)
+
+        def mutate(next_state: dict) -> None:
+            next_state["abandoned_at"] = _now()
+            next_state["abandoned_from_phase"] = phase
+
+        store.update_state(execution_id, mutate, current["revision"])
+    return {
+        "execution_id": execution_id,
+        "change_id": snapshot["change_id"],
+        "phase": phase,
+        "pending_gate": state.get("pending_gate"),
+        "released": released,
+        "previous_owner": owner,
+    }
 
 
 def recover_execution(control_root: Path, execution_id: str) -> dict:
@@ -313,6 +368,7 @@ def recover_execution(control_root: Path, execution_id: str) -> dict:
 
 __all__ = [
     "RecoveryError",
+    "abandon_execution",
     "execution_status",
     "native_status",
     "recover_execution",

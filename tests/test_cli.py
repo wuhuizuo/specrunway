@@ -23,7 +23,7 @@ def test_doctor_json_ok(control_workspace):
 
 
 def test_commands_require_execution_flag():
-    for name in ("status", "resume", "recover", "archive"):
+    for name in ("status", "abandon", "resume", "recover", "archive"):
         with pytest.raises(SystemExit) as exited:
             main([name, "--json"])
         assert exited.value.code == 2

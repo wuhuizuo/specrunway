@@ -299,6 +299,64 @@ def test_two_repo_loop_reaches_ready_for_review(loop, capsys):
     assert "fake agent" not in _git(loop["repo_b"], "log", "--oneline")
 
 
+def test_failed_step_is_visible_in_status(loop, capsys, monkeypatch):
+    control = loop["control"]
+    monkeypatch.setenv("SPECRUNWAY_FAKE_SCENARIO", "crash")
+    rc = specrunway_main(
+        ["run", "--change", "demo", "--root", str(control), "--json"]
+    )
+    out = capsys.readouterr().out
+    assert rc == 0, out
+    execution_id = json.loads(out)["data"]["execution_id"]
+    assert json.loads(out)["data"]["paused_step_id"] == "plan-gate"
+
+    rc = specrunway_main(
+        [
+            "approve",
+            "--execution",
+            execution_id,
+            "--kind",
+            "plan",
+            "--actor",
+            "lead",
+            "--root",
+            str(control),
+            "--json",
+        ]
+    )
+    out = capsys.readouterr().out
+    assert rc == 0, out
+
+    rc = specrunway_main(
+        ["resume", "--execution", execution_id, "--root", str(control), "--json"]
+    )
+    out = capsys.readouterr().out
+    assert rc == 1, out
+    assert json.loads(out)["error"]["code"] == "workflow-failed"
+
+    rc = specrunway_main(
+        ["status", "--execution", execution_id, "--root", str(control), "--json"]
+    )
+    out = capsys.readouterr().out
+    assert rc == 0, out
+    data = json.loads(out)["data"]
+    assert data["phase"] == "implementing"
+    failure = data["last_failure"]
+    assert failure["step_id"] == "implement:repo:0"
+    assert failure["code"] == "agent-failed"
+    assert failure["log_path"].endswith("logs/repo-a/1/agent.log")
+    log_path = Path(failure["log_path"])
+    assert log_path.is_file()
+    assert "no usable model" in log_path.read_text(encoding="utf-8")
+
+    rc = specrunway_main(["status", "--execution", execution_id, "--root", str(control)])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "implement:repo:0" in out
+    assert "agent-failed" in out
+    assert str(log_path) in out
+
+
 def test_specify_runs_never_wait_on_interactive_stdin(tmp_path, monkeypatch):
     import subprocess as sp
     from types import SimpleNamespace

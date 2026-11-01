@@ -33,6 +33,10 @@ def main() -> int:
         raise SystemExit("fake agent: --file <prompt> is required")
     prompt_file = argv[argv.index("--file") + 1]
     prompt = Path(prompt_file).read_text(encoding="utf-8")
+    scenario = os.environ.get("SPECRUNWAY_FAKE_SCENARIO", "pass")
+    if scenario == "crash":
+        print("error: simulated agent failure: no usable model", file=sys.stderr)
+        return 3
     execution_id = _field(prompt, "execution_id")
     base_oid = _field(prompt, "base_oid")
     repo_order = ast.literal_eval(_field(prompt, "repo_order"))
@@ -52,7 +56,6 @@ def main() -> int:
             f"# implemented by the fake agent for {task_id}\nVALUE = {{'task': '{task_id}'}}\n",
             encoding="utf-8",
         )
-    scenario = os.environ.get("SPECRUNWAY_FAKE_SCENARIO", "pass")
     if scenario == "pass" and attempt >= 2:
         scenario = "marker-after-first"
     fail_before = int(os.environ.get("SPECRUNWAY_FAKE_FAIL_BEFORE", "0"))

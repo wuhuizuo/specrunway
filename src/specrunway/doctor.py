@@ -2,12 +2,21 @@
 
 from __future__ import annotations
 
+import tempfile
 from pathlib import Path
+from shutil import which
 
 from . import __version__
 from .models import ValidationError, load_local_config, validate_checkout_wiring
 
 CONTROL_CONFIG = "local.yaml"
+
+#: A preflight is bounded so `doctor` never waits for real repository work.
+AGENT_PROBE_TIMEOUT_SECONDS = 60.0
+AGENT_PROBE_PROMPT = (
+    "Answer with the single word OK. Do not read, create, or modify files; "
+    "this is a bounded availability check.\n"
+)
 
 
 def find_control_root(start: Path) -> Path | None:
@@ -19,8 +28,12 @@ def find_control_root(start: Path) -> Path | None:
     return None
 
 
-def run_doctor(root_dir: str | None = None) -> dict:
-    """Collect deterministic wiring findings for the control checkout."""
+def run_doctor(root_dir: str | None = None, *, probe_agent: bool = True) -> dict:
+    """Collect deterministic wiring findings for the control checkout.
+
+    ``probe_agent`` runs the bounded coding-agent preflight; bootstrap calls
+    pass ``False`` because it checks wiring only.
+    """
     warnings: list = []
     errors: list = []
     findings: list = []
@@ -114,8 +127,113 @@ def run_doctor(root_dir: str | None = None) -> dict:
     }
     errors.extend(row["code"] for row in wiring_rows)
 
+    if probe_agent:
+        agent = probe_agent_preflight(agent_profile)
+        data["agent"] = agent
+        if agent["ok"]:
+            findings.append(
+                _finding(
+                    "agent-preflight",
+                    "ok",
+                    f"{agent['profile']} resolved to {agent['binary']} and answered "
+                    f"in {agent['duration_seconds']}s",
+                )
+            )
+        else:
+            detail = f"{agent['profile']} cannot answer: {agent['reason'] or agent['status']}"
+            if agent.get("binary"):
+                detail += f" (binary {agent['binary']})"
+            elif agent.get("binary") is None and agent["status"] == "missing-binary":
+                detail += " (binary not found on PATH)"
+            if agent.get("log_tail"):
+                detail += f"; log tail: {agent['log_tail']}"
+            findings.append(_finding("agent-preflight", "error", detail))
+            errors.append("agent-preflight")
+
     findings.append(_finding("max_workers", "ok", "v1 runs one execution per checkout"))
     return _report(findings, warnings, errors, data, ok=not errors)
+
+
+def probe_agent_preflight(
+    profile_name: str, timeout_seconds: float = AGENT_PROBE_TIMEOUT_SECONDS
+) -> dict:
+    """Resolve the coding agent and check it can answer inside a disposable cwd.
+
+    The probe never runs in a business checkout: the prompt and the agent's
+    working directory live in a temporary directory that is removed afterwards.
+    """
+    from .launcher import resolve_profile, run_agent
+
+    result = {
+        "profile": profile_name,
+        "binary": None,
+        "ok": False,
+        "status": "not-run",
+        "reason": "",
+        "exit_code": None,
+        "duration_seconds": 0.0,
+        "log_tail": "",
+    }
+    try:
+        profile = resolve_profile(profile_name)
+    except ValidationError as exc:
+        result.update(
+            status="unknown-profile",
+            reason=f"[{getattr(exc, 'code', 'profile-unknown')}] {exc}",
+        )
+        return result
+    if not profile.argv:
+        result.update(status="missing-binary", reason="agent profile has no argv")
+        return result
+    executable = profile.argv[0]
+    binary = which(executable)
+    result["binary"] = binary
+    if binary is None:
+        result.update(
+            status="missing-binary",
+            reason=f"agent executable {executable!r} is not on PATH",
+        )
+        return result
+
+    with tempfile.TemporaryDirectory(prefix="specrunway-agent-probe-") as tmp:
+        probe_root = Path(tmp)
+        prompt_file = probe_root / "prompt.md"
+        prompt_file.write_text(AGENT_PROBE_PROMPT, encoding="utf-8")
+        try:
+            outcome = run_agent(
+                profile,
+                cwd=probe_root,
+                prompt_file=prompt_file,
+                log_dir=probe_root,
+                timeout_seconds=timeout_seconds,
+            )
+        except ValidationError as exc:
+            result.update(
+                status="launch-failed",
+                reason=f"[{getattr(exc, 'code', 'launch-failed')}] {exc}",
+            )
+            return result
+        tail = _log_tail(Path(outcome.get("log_path") or ""))
+
+    result.update(
+        status=outcome["status"],
+        ok=outcome["status"] == "completed",
+        reason=outcome.reason,
+        exit_code=outcome.get("exit_code"),
+        duration_seconds=outcome.get("duration_seconds", 0.0),
+        log_tail=tail,
+    )
+    return result
+
+
+def _log_tail(path: Path, lines: int = 3) -> str:
+    """Last non-empty log lines, bounded for a finding message."""
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    rows = [row.strip() for row in text.splitlines() if row.strip()]
+    return " | ".join(rows[-lines:])[:300]
 
 
 def _finding(check: str, severity: str, message: str) -> dict:

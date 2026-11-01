@@ -13,7 +13,14 @@ from specrunway.bridge.workflow import build_workflow_yaml, workflow_id_for
 from specrunway.freezer import freeze_execution, new_execution_id
 from specrunway.models import load_local_config, validate_manifest
 from specrunway.models.common import ValidationError
-from specrunway.runstore import FileRunStore, _read_json_or_none, atomic_write_json
+from specrunway.runstore import (
+    FileRunStore,
+    RevisionConflictError,
+    RunStoreError,
+    _now,
+    _read_json_or_none,
+    atomic_write_json,
+)
 from specrunway.toolresolvers import resolve_tool_bin
 
 
@@ -174,6 +181,169 @@ def _specify_workflow(
     return payload
 
 
+def _native_state_paths(control_root: Path) -> list:
+    runs_root = Path(control_root) / ".specify" / "workflows" / "runs"
+    if not runs_root.is_dir():
+        return []
+    rows = []
+    for state_path in runs_root.glob("*/state.json"):
+        try:
+            payload = json.loads(state_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if isinstance(payload, dict):
+            rows.append((state_path, payload))
+    return rows
+
+
+def _native_run_state(
+    control_root: Path, execution_id: str, native_run_id: str | None
+) -> dict | None:
+    """Read (never write) the native run state that recorded a failed step."""
+    wanted = workflow_id_for(execution_id)
+    candidates = []
+    for state_path, payload in _native_state_paths(control_root):
+        if payload.get("workflow_id") != wanted:
+            continue
+        if native_run_id and payload.get("run_id") == native_run_id:
+            return payload
+        candidates.append((str(payload.get("updated_at") or ""), state_path.stat().st_mtime, payload))
+    if not candidates:
+        return None
+    return max(candidates, key=lambda row: (row[0], row[1]))[2]
+
+
+def _find_log_path(payload) -> str | None:
+    """First ``log_path`` or ``*.log`` evidence string inside a step output."""
+    if isinstance(payload, dict):
+        candidate = payload.get("log_path")
+        if isinstance(candidate, str) and candidate:
+            return candidate
+        evidence = payload.get("evidence")
+        if isinstance(evidence, list):
+            for item in evidence:
+                if isinstance(item, str) and item.endswith(".log"):
+                    return item
+        for value in payload.values():
+            found = _find_log_path(value)
+            if found:
+                return found
+    elif isinstance(payload, list):
+        for item in payload:
+            found = _find_log_path(item)
+            if found:
+                return found
+    return None
+
+
+def _failed_step(state: dict) -> tuple | None:
+    results = state.get("step_results") or {}
+    failed = [
+        (step_id, row)
+        for step_id, row in results.items()
+        if isinstance(row, dict) and str(row.get("status")) == "failed"
+    ]
+    if not failed:
+        return None
+    current = state.get("current_step_id")
+    for step_id, row in failed:
+        if step_id == current:
+            return step_id, row
+    return failed[-1]
+
+
+def _log_path_fallback(
+    store: FileRunStore, execution_id: str, state: dict, step_id: str | None
+) -> str | None:
+    """Derive the repo attempt log for a fan-out failure without step evidence."""
+    if not step_id or not step_id.startswith("implement:repo:"):
+        return None
+    snapshot = _read_json_or_none(store.run_dir(execution_id) / "snapshot.json") or {}
+    repo_order = (snapshot.get("manifest") or {}).get("repo_order") or []
+    try:
+        repo_id = repo_order[int(step_id.rsplit(":", 1)[1])]
+    except (ValueError, IndexError):
+        return None
+    attempt = int(((state.get("budgets") or {}).get(repo_id) or {}).get("attempts_used") or 0)
+    if attempt <= 0:
+        return None
+    log_dir = store.run_dir(execution_id) / "logs" / repo_id / str(attempt)
+    for name in ("agent.log", "tests.log"):
+        if (log_dir / name).is_file():
+            return str(log_dir / name)
+    return None
+
+
+def record_native_failure(
+    store: FileRunStore,
+    execution_id: str,
+    control_root: Path,
+    exc: Exception,
+    native_run_id: str | None = None,
+) -> dict | None:
+    """Persist the native step that failed so ``status`` can explain the stop."""
+    try:
+        state = store.read_state(execution_id)
+    except RunStoreError:
+        return None
+    native = _native_run_state(
+        Path(control_root), execution_id, native_run_id or state.get("native_run_id")
+    )
+    failure: dict = {}
+    step = _failed_step(native) if native else None
+    if step is not None:
+        step_id, row = step
+        output = row.get("output") if isinstance(row.get("output"), dict) else {}
+        error = output.get("error") if isinstance(output.get("error"), dict) else {}
+        failure = {
+            "step_id": step_id,
+            "code": str(error.get("code") or "step-failed"),
+            "message": str(row.get("error") or error.get("message") or "step failed"),
+            "log_path": _find_log_path(output),
+            "native_run_id": (native or {}).get("run_id"),
+        }
+    if not failure:
+        failure = {
+            "step_id": None,
+            "code": str(getattr(exc, "code", None) or "workflow-failed"),
+            "message": str(exc),
+            "log_path": None,
+            "native_run_id": (native or {}).get("run_id") or native_run_id,
+        }
+    if not failure.get("log_path"):
+        failure["log_path"] = _log_path_fallback(
+            store, execution_id, state, failure.get("step_id")
+        )
+    failure["recorded_at"] = _now()
+    for _attempt in range(3):
+        current = store.read_state(execution_id)
+
+        def mutate(next_state: dict, *, row=failure) -> None:
+            next_state["last_failure"] = row
+
+        try:
+            store.update_state(execution_id, mutate, current["revision"])
+            break
+        except RevisionConflictError:
+            continue
+    return failure
+
+
+def run_workflow(
+    store: FileRunStore,
+    execution_id: str,
+    control_root: Path,
+    args: list,
+    allowed_statuses: set | None = None,
+) -> dict:
+    """Run/pause/resume the native workflow and record any failed step first."""
+    try:
+        return _specify_workflow(args, Path(control_root), allowed_statuses=allowed_statuses)
+    except RunError as exc:
+        record_native_failure(store, execution_id, Path(control_root), exc)
+        raise
+
+
 def _remember_native_run(store: FileRunStore, execution_id: str, payload: dict) -> None:
     current = store.read_state(execution_id)
 
@@ -201,6 +371,8 @@ def _record_pause(store: FileRunStore, execution_id: str, payload: dict) -> None
     def mutate(next_state: dict) -> None:
         next_state["phase"] = phase
         next_state["pending_gate"] = kind
+        # A run that paused or completed again is no longer a failed attempt.
+        next_state["last_failure"] = None
 
     store.update_state(execution_id, mutate, current["revision"])
 
@@ -215,7 +387,10 @@ def start_execution(control_root: Path, execution_id: str) -> dict:
         store.claim_activity(execution_id)
         _set_phase(store, execution_id, "implementing")
     workflow_file = _write_workflow(control_root, execution_id, snapshot)
-    payload = _specify_workflow(
+    payload = run_workflow(
+        store,
+        execution_id,
+        control_root,
         [
             "workflow",
             "run",
@@ -225,7 +400,6 @@ def start_execution(control_root: Path, execution_id: str) -> dict:
             "--input",
             f"control_root={control_root}",
         ],
-        control_root,
     )
     with store.lock(timeout=5.0):
         _record_pause(store, execution_id, payload)
@@ -258,7 +432,10 @@ def continue_execution(control_root: Path, execution_id: str) -> dict:
             execution_id,
             "implementing" if kind == "plan" else "awaiting_implementation_review",
         )
-    payload = _specify_workflow(
+    payload = run_workflow(
+        store,
+        execution_id,
+        control_root,
         [
             "workflow",
             "resume",
@@ -266,7 +443,6 @@ def continue_execution(control_root: Path, execution_id: str) -> dict:
             "--input",
             f"{verdict_input}=approve",
         ],
-        control_root,
     )
     with store.lock(timeout=5.0):
         _record_pause(store, execution_id, payload)
@@ -277,5 +453,7 @@ __all__ = [
     "RunError",
     "continue_execution",
     "prepare_execution",
+    "record_native_failure",
+    "run_workflow",
     "start_execution",
 ]

@@ -1,6 +1,6 @@
 # Implementation state
 
-Updated: 1 November 2026 (L01-L18 complete and archived; L19 guided onboarding in active change 09; mise developer environment added; P0 uv install path delivered by a SpecRunway dogfood run; toolchain raised to opencode 2.1.4 and OpenSpec 1.15.0; operator documentation entry set delivered by central Store change user-docs-v1).
+Updated: 1 November 2026 (L01-L18 complete and archived; L19 guided onboarding in active change 09; mise developer environment added; P0 uv install path delivered by a SpecRunway dogfood run; toolchain raised to opencode 2.1.4 and OpenSpec 1.15.0; operator documentation entry set delivered by central Store change user-docs-v1; four live-path defects fixed by central Store change p0-fixes-v1).
 
 ## Completed preparation
 
@@ -151,9 +151,38 @@ Updated: 1 November 2026 (L01-L18 complete and archived; L19 guided onboarding i
 - Verified in the execution worktree with
   `.venv/bin/python scripts/check_handoff.py`; the check passed.
 
+## Completed work: p0-fixes-v1 (central Store, live-path defects)
+
+- T001: `specrunway abandon --execution` releases the active-owner record of a
+  paused/failed execution so the next `run --change` can claim the checkout. It
+  refuses `owner-alive` while the recorded process lives, refuses
+  `execution-archived`, and keeps the execution's state, results, receipts,
+  logs, and worktrees for review.
+- T002: `specrunway doctor` runs a bounded coding-agent preflight (60-second
+  timeout, disposable cwd, one-line prompt) and reports `data.agent` plus an
+  `agent-preflight` finding for an unknown profile, missing binary, non-zero
+  exit, or timeout. `init` keeps checking wiring only.
+- T003: a failed native workflow records `last_failure` (`step_id`, `code`,
+  `message`, `log_path`, `native_run_id`) in `state.json`; `specrunway status`
+  returns and prints it, so `implement:repo:0` / `agent-failed` / the agent log
+  are visible without reading raw logs by hand.
+- T004: generated capability deltas now carry a real `## Purpose` derived from
+  the request, so archive no longer stores the OpenSpec placeholder and strict
+  validation passes.
+- Verification: `ruff check src tests` clean; full `pytest -q` 235 passed under
+  the pinned OpenSpec 1.15.0 / specify-cli 1.2.1 / Python 3.14.5 toolchain;
+  `scripts/check_handoff.py` passed; `openspec validate --all --strict` 11/11.
+  Evidence: `docs/evidence/13-p0-fixes-v1.md`.
+- Operator documentation updated: `docs/user/commands.md` (abandon, status
+  `last_failure`, doctor preflight), `docs/user/troubleshooting.md`, and
+  `docs/RUNBOOK.md`.
+
 ## Current change
 
-None. `09-guided-onboarding` (L19) was reviewed on 1 November 2026 and
+None in this repository. The latest work is the central Store change
+`p0-fixes-v1`; it is tracked in `specrunway-docs`, not in `openspec/` here,
+so this repository still has no active OpenSpec change. `09-guided-onboarding`
+(L19) was reviewed on 1 November 2026 and
 archived as `openspec/changes/archive/2026-11-01-09-guided-onboarding/`; its
 deltas are applied, so `openspec/specs/guided-onboarding/` is new and
 `openspec/specs/trusted-verification/` carries the optional-integration
@@ -184,9 +213,9 @@ the operator documentation entry set; its record lives in the
 - `scripts/worktree_check.sh` is the provisioning test profile for execution
   worktrees: it creates the worktree's own `.venv`, installs the package
   editable, ensures `specify-cli` and `tooling/openspec/node_modules`, then runs
-  pytest. It is only partially verified: with those dependencies present the
-  suite reached 188 passed and 33 skipped, while the per-worktree git install of
-  `specify-cli` failed on a flaky network.
+  pytest. Verified end to end by `p0-fixes-v1`: with the cached
+  `specify-cli==1.2.1` wheel the suite reached 226 passed before the change and
+  235 passed after it, with no skips.
 - A local control checkout may live at `.sr-control/` inside this repository
   (ignored): `local.yaml`, `.specify/`, and run state. `check_handoff.py`
   skips dot-directories so runtime artifacts are never treated as
@@ -199,15 +228,12 @@ the operator documentation entry set; its record lives in the
 
 ## Exact next action
 
-Run the planned central Store change `p0-fixes-v1` (`specrunway-docs` Store):
-four tasks for the defects recorded in `docs/evidence/12-user-docs-v1.md`, with
-the capability delta corrected by hand from the planner's fixed
-`<repo>-delivery` name to `execution-recovery`. Before freezing, pre-seed the
-worktree test profile dependencies (`$HOME/.cache/specrunway/wheels` with the
-specify-cli 1.2.1 wheel) because cloning them per worktree fails on a flaky
-network. `scripts/worktree_check.sh` is committed but only partially verified:
-with `specify_cli` and `tooling/openspec/node_modules` present the suite reached
-188 passed and 33 skipped. Then review `09-guided-onboarding` as archived and
-keep the remaining P0 items (`## What Changes` extraction, planner capability
-naming) in the follow-up list. Tag `v0.1.0` / GitHub Release only after explicit
-approval; v2 work stays deferred.
+Finish the central Store change `p0-fixes-v1`: the execution ran with the
+self-hosted `p0-fixes-v1-specrunway` profile (`bash
+scripts/worktree_check.sh`) and the suite passed; the coordinator still has to
+verify the result, record both gates, and archive explicitly. Then replay
+`doctor` and `status` against a real agent so the preflight and failure
+reporting are exercised outside fixtures. Keep the remaining P0 items
+(`## What Changes` extraction, planner capability naming) in the follow-up
+list, and tag `v0.1.0` / GitHub Release only after explicit approval; v2 work
+stays deferred.

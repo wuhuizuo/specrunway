@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 import yaml
+
+from specrunway import launcher
 
 
 def run_git(args: list, cwd: Path) -> None:
@@ -36,8 +39,21 @@ def workspace(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def control_workspace(workspace: Path) -> dict:
-    """Store + two business checkouts + control checkout with valid local.yaml."""
+def control_workspace(workspace: Path, monkeypatch) -> dict:
+    """Store + two business checkouts + control checkout with valid local.yaml.
+
+    The declared agent profile answers instantly so `doctor`'s bounded preflight
+    stays deterministic and offline; failure cases override the profile.
+    """
+    monkeypatch.setitem(
+        launcher.PROFILES,
+        "primary-coding-agent",
+        launcher.AgentProfile(
+            name="primary-coding-agent",
+            argv=(sys.executable, "-c", "print('agent preflight ok')"),
+            timeout_seconds=30.0,
+        ),
+    )
     root = workspace
     store = make_store(root / "store")
     make_repo(root / "store")
