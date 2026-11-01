@@ -260,3 +260,18 @@ execution, and no CLI path releases it yet, so clear that record before
 freezing. One item stays outside that change: the `## What Changes` extraction
 from the P0 report still needs a decision. Tag `v0.1.0` / GitHub Release only
 after explicit approval; v2 work stays deferred.
+
+### Planned, not executed
+
+Two central Store changes are planned and must be frozen only when work
+resumes:
+
+- `archive-ownership-v1` — archive releases checkout ownership, `doctor` gains
+  a skip switch, planning names capabilities from `Spec-Head` (capabilities
+  `execution-lifecycle`, `change-planning`; four tasks).
+- `run-observability-v1` — status reports the running step with elapsed time
+  and log path, `status --follow`, progress on stderr, `logs --execution`,
+  `executions` listing with `approve --pending`, and TTY-only interactive
+  approval (capability `run-observability`; six tasks). It answers the two
+  operator questions the live runs raised: gates gave no prompt, and long steps
+  were silent.
