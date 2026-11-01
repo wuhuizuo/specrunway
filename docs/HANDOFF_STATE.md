@@ -153,19 +153,25 @@ Updated: 1 November 2026 (L01-L18 complete and archived; L19 guided onboarding i
 
 ## Current change
 
-`09-guided-onboarding` — L19 implemented and checked; review/archive pending.
-The v1 baseline L01-L18 remains archived and valid. The separate central Store
-change `user-docs-v1` delivered and archived the operator documentation entry
-set; its record lives in the `specrunway-docs` Store, not in `openspec/` here.
+None. `09-guided-onboarding` (L19) was reviewed on 1 November 2026 and
+archived as `openspec/changes/archive/2026-11-01-09-guided-onboarding/`; its
+deltas are applied, so `openspec/specs/guided-onboarding/` is new and
+`openspec/specs/trusted-verification/` carries the optional-integration
+requirements. Review evidence: 226 tests passed, `ruff` clean, strict OpenSpec
+validation 11/11, and the handoff guard passed over 9 archived changes with 0
+active. The separate central Store change `user-docs-v1` delivered and archived
+the operator documentation entry set; its record lives in the
+`specrunway-docs` Store, not in `openspec/` here.
 
 ## Repository state
 
 - The v1 development changes 01-08 are archived under
   `openspec/changes/archive/2026-10-20-*`; their deltas are applied under
   `openspec/specs/`.
-- Change 09 is active under `openspec/changes/09-guided-onboarding/`; its
-  deltas are not yet applied to the baseline. Do not archive it until the diff
-  and evidence are reviewed.
+- Change 09 is archived under
+  `openspec/changes/archive/2026-11-01-09-guided-onboarding/`; its deltas are
+  applied to `openspec/specs/guided-onboarding/` and
+  `openspec/specs/trusted-verification/`. No change is active.
 - `README.md` is a short operator entry pointing at `docs/user/`; that entry
   set covers quickstart, concepts, commands, and troubleshooting.
   `docs/RUNBOOK.md` keeps the long-form guided and manual operation paths;
@@ -187,15 +193,14 @@ set; its record lives in the `specrunway-docs` Store, not in `openspec/` here.
 
 ## Exact next action
 
-Review the P0 dogfood findings in
-`docs/evidence/10-p0-uv-install-dogfood.md` and decide the P0.1 follow-ups
-(agent/OpenSpec preflight in `doctor`, `## What Changes` extraction fix, a
-self-hosted worktree test profile that provisions `.venv`/`node_modules`).
-Add the four gaps found by the live `user-docs-v1` run
-(`docs/evidence/12-user-docs-v1.md`): no CLI way to abandon or release an
-execution, no agent/model preflight in `doctor`, failed steps invisible in
-`status`, and planner spec deltas without a `## Purpose` that archive turns
-into a placeholder. Then review the change 09 diff, run the guided flow once on
-a disposable control checkout, and archive `09-guided-onboarding` if accepted.
-Tag `v0.1.0` / GitHub Release only after explicit approval; v2 work stays
-deferred.
+Plan the defect fixes as a new development change. Four gaps were found by the
+live `user-docs-v1` run (`docs/evidence/12-user-docs-v1.md`): no CLI way to
+abandon or release an execution, no agent/model preflight in `doctor`, failed
+steps invisible in `status`, and planner spec deltas without a `## Purpose`
+that archive turns into a placeholder. The P0 dogfood report
+(`docs/evidence/10-p0-uv-install-dogfood.md`) adds two more: `## What Changes`
+extraction in `plan`, and a self-hosted worktree test profile that provisions
+`.venv`/`node_modules`. Add their tasks to a numbered change, extend the
+expected source-ID set in `scripts/check_handoff.py` when the first L20+ task
+appears, and keep `09-guided-onboarding` archived as reviewed. Tag `v0.1.0` /
+GitHub Release only after explicit approval; v2 work stays deferred.
