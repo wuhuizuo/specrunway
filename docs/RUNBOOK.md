@@ -138,6 +138,7 @@ integration_profiles:              # executable combined check, trusted config
 ```bash
 specrunway init --json     # Store setup + Specify workspace + bundled step
 specrunway doctor --json   # wiring + bounded agent preflight, exit 1 on errors
+specrunway doctor --no-agent-probe --json   # wiring only; launches no agent
 ```
 
 `init` is idempotent, creates the Store directory, registers the Store,
@@ -156,6 +157,13 @@ specrunway plan my-change --store my-store --request request.md --json
 - Task routing comes from the manifest (`task_ids`, `depends_on`,
   `allowed_paths`, `test_profile`). Forward dependencies, unknown repos,
   duplicate/missing tasks, and unknown profiles fail before execution.
+- Generated capabilities are named from the request's `Spec-Head` when it
+  declares one (`Spec-Head: execution-recovery` writes
+  `specs/execution-recovery/spec.md`). A name that is not a lowercase slug of
+  letters, digits, and single hyphens fails with `capability-name`. Without
+  `Spec-Head`, planning keeps the
+  `<repo_id>-delivery` fallback and records `capability_name_source: fallback`
+  in `plan-summary.json`.
 - Planning success is NOT implementation completion; checkboxes stay
   unchecked.
 
@@ -225,9 +233,14 @@ the base ref (`partial-merge`). `validated_commits` requires explicit
 selection plus `--confirm-validated` and never claims a main-branch merge.
 
 Archive writes intent + backup before applying OpenSpec deltas, verifies the
-resulting path/specs, and records a receipt. A successful archive is never
-replayed. Backup: `<control>/.specrunway/runs/<execution>/archive-backup/<stamp>/`
-(`change/` tree, `before.json`, `after.json`).
+resulting path/specs, and records a receipt. After that receipt it releases the
+execution's active-owner record under the same checkout lock, so
+`specrunway run --change` can start the next execution immediately. A replay
+of a recorded archive, and `recover` reconciling an interrupted archive,
+release only a matching dead record. A live owner process is never released:
+archive refuses `owner-alive` before applying deltas. A successful archive is never replayed; backup:
+`<control>/.specrunway/runs/<execution>/archive-backup/<stamp>/` (`change/`
+tree, `before.json`, `after.json`).
 
 Restore drill: copy `archive-backup/<stamp>/change` back to the Store change
 path to inspect or re-validate the pre-archive bytes; do not re-run archive

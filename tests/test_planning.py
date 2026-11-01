@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from pathlib import Path
 
@@ -143,8 +144,10 @@ def test_plan_generation_path(workspace, tmp_path):
 
     plan_dir = control / ".specrunway" / "plans" / "gen-change"
     assert (plan_dir / "manifest.yaml").is_file()
-    summary = (plan_dir / "plan-summary.json").read_text(encoding="utf-8")
-    assert '"planning_complete": true' in summary
+    summary = json.loads((plan_dir / "plan-summary.json").read_text(encoding="utf-8"))
+    assert summary["planning_complete"] is True
+    assert summary["capability_name_source"] == "fallback"
+    assert summary["capability_names"] == ["repo-a-delivery", "repo-b-delivery"]
 
 
 def test_planned_capability_archives_with_a_real_purpose(workspace, tmp_path):
@@ -182,6 +185,89 @@ def test_planned_capability_archives_with_a_real_purpose(workspace, tmp_path):
     assert "TBD" not in baseline_text
     validated = adapter.validate("repo-a-delivery")
     assert validated["valid"] is True, validated["issues"]
+
+
+SPEC_HEAD_REQUEST = (
+    "# why\nQuota enforcement spans two repos and needs one declared capability.\n\n"
+    "# what\nAdd a shared quota service and operator metrics.\n\n"
+    "Spec-Head: quota-limits\n"
+    "Spec-Title: Quota limits SHALL be enforced\n"
+    "Spec-Body: Requests over the configured quota SHALL be rejected.\n"
+    "Spec-When: a client exceeds its quota\n"
+    "Spec-Then: the request is rejected\n\n"
+    "T001: Add quota enforcement.\nT002: Expose operator metrics.\n"
+)
+
+
+def test_declared_spec_head_names_the_capability_and_archives(workspace, tmp_path):
+    control, _request_file, store_id = workspace
+    request_file = tmp_path / "declared-request.md"
+    request_file.write_text(SPEC_HEAD_REQUEST, encoding="utf-8")
+    manifest_file = _manifest(tmp_path, "quota-change", "67f80512-00d1-4b0f-b5cd-3a1aad009002")
+
+    from specrunway.openspec_adapter import OpenSpecAdapter
+    from specrunway.planning import plan
+
+    outcome = plan(
+        control_root=control,
+        store_id=store_id,
+        change_id="quota-change",
+        request_path=request_file,
+        manifest_path=manifest_file,
+        openspec_bin=str(OPENSPEC_BIN),
+    )
+    change_path = Path(outcome.change_path)
+    declared = change_path / "specs" / "quota-limits" / "spec.md"
+    assert declared.is_file()
+    assert not (change_path / "specs" / "repo-a-delivery").exists()
+    assert "Quota limits SHALL be enforced" in declared.read_text(encoding="utf-8")
+
+    summary = json.loads(
+        (control / ".specrunway" / "plans" / "quota-change" / "plan-summary.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert summary["capability_name_source"] == "spec-head"
+    assert summary["capability_names"] == ["quota-limits"]
+
+    adapter = OpenSpecAdapter(
+        store_path=control.parent / "store",
+        store_id=store_id,
+        openspec_bin=str(OPENSPEC_BIN),
+    )
+    archived = adapter.archive("quota-change")
+    assert archived["specs_updated"] is True
+    baseline = control.parent / "store" / "openspec" / "specs" / "quota-limits" / "spec.md"
+    assert baseline.is_file()
+    validated = adapter.validate("quota-limits")
+    assert validated["valid"] is True, validated["issues"]
+
+
+@pytest.mark.parametrize(
+    "index,head",
+    list(enumerate(["Quota_Limits", "quota_limits", "", "quota--limits", "quota-"])),
+)
+def test_unusable_spec_head_is_rejected(workspace, tmp_path, index, head):
+    control, _request_file, store_id = workspace
+    request_file = tmp_path / f"bad-head-{index}.md"
+    request_file.write_text(
+        SPEC_HEAD_REQUEST.replace("Spec-Head: quota-limits", f"Spec-Head: {head}"),
+        encoding="utf-8",
+    )
+    from specrunway.planning import plan
+
+    change_id = f"bad-head-change-{index}"
+    with pytest.raises(ValidationError) as exc_info:
+        plan(
+            control_root=control,
+            store_id=store_id,
+            change_id=change_id,
+            request_path=request_file,
+            openspec_bin=str(OPENSPEC_BIN),
+        )
+    assert exc_info.value.code == "capability-name"
+    assert repr(head) in str(exc_info.value)
+    assert not (control.parent / "store" / "openspec" / "changes" / change_id).exists()
 
 
 def test_plan_manual_acceptance_path(workspace):

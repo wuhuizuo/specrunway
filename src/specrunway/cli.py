@@ -45,7 +45,7 @@ def _envelope(ok: bool, **body) -> dict:
 
 
 def cmd_doctor(args: argparse.Namespace) -> int:
-    report = run_doctor(root_dir=args.root)
+    report = run_doctor(root_dir=args.root, probe_agent=not args.no_agent_probe)
     if args.json:
         json.dump(report, sys.stdout, indent=2, sort_keys=True)
         sys.stdout.write("\n")
@@ -566,6 +566,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     doc.add_argument(
         "--root", help="Explicit control checkout root (default: walk up from cwd)"
+    )
+    doc.add_argument(
+        "--no-agent-probe",
+        action="store_true",
+        help="Skip the bounded coding-agent preflight and report wiring findings only",
     )
     doc.set_defaults(func=cmd_doctor)
 
