@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import shutil
 from datetime import UTC, datetime
 from pathlib import Path
@@ -26,6 +27,38 @@ POLICIES = {"merged_commits", "validated_commits"}
 
 def _now() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _process_alive(pid: int) -> bool:
+    if not pid or pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def _check_archive_ownership(store: FileRunStore, execution_id: str) -> dict | None:
+    """Refuse to archive under a foreign or live owner; return the record.
+
+    Archive is the end of an execution's life, so it holds the checkout lock
+    while it applies deltas and releases the record afterwards. A live owner
+    process is never released behind its back.
+    """
+    owner = store.active_owner()
+    if owner and owner.get("execution_id") != execution_id:
+        raise ArchiveError(
+            "execution-conflict",
+            f"active owner is {owner['execution_id']}; refusing to archive {execution_id}",
+        )
+    pid = int((owner or {}).get("pid") or 0)
+    if owner and _process_alive(pid):
+        raise ArchiveError(
+            "owner-alive",
+            f"process {pid} still owns the checkout; stop it before archiving",
+        )
+    return owner
 
 
 def _digest_tree(root: Path) -> str:
@@ -166,6 +199,14 @@ def archive_execution(
     op_key = f"{execution_id}:archive:{snapshot['planning_digest'][:16]}"
     for op in store.operations(execution_id):
         if op.get("operation_key") == op_key and op.get("status") == "recorded":
+            # Replaying a recorded archive also heals a stale owner record left
+            # by an older coordinator, but never releases a live process.
+            with store.lock(timeout=10.0):
+                owner = store.active_owner()
+                if owner and owner.get("execution_id") == execution_id:
+                    pid = int(owner.get("pid") or 0)
+                    if not _process_alive(pid):
+                        store.release_activity(execution_id)
             return {"archived": True, "already_archived": True, "operation": op}
     preflight = _preflight(control_root, store, execution_id)
     snapshot = preflight["snapshot"]
@@ -189,116 +230,125 @@ def archive_execution(
                 f"accepted commits are not merged into the base ref for: {', '.join(unmerged)}",
             )
 
-    store_path = Path(preflight["config"]["store"]["path"])
+    with store.lock(timeout=10.0):
+        # Ownership is checked before any delta is applied; a live owner keeps
+        # its claim and receives no surprise release.
+        _check_archive_ownership(store, execution_id)
+        store_path = Path(preflight["config"]["store"]["path"])
 
-    stamp = _now().replace(":", "").replace("-", "")
-    backup_dir = store.run_dir(execution_id) / "archive-backup" / stamp
-    backup_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(preflight["change_path"], backup_dir / "change")
-    specs_root = store_path / "openspec" / "specs"
-    atomic_write_json(
-        backup_dir / "before.json",
-        {
-            "change_path": str(preflight["change_path"]),
-            "specs_digest": _digest_tree(specs_root),
-            "specs_root": str(specs_root),
-            "created_at": _now(),
-        },
-    )
-
-    store.write_intent(
-        execution_id,
-        {
-            "operation_key": op_key,
-            "kind": "archive",
-            "execution_id": execution_id,
-            "scope": {"change_id": snapshot["change_id"], "policy": selected},
-            "before": {
+        stamp = _now().replace(":", "").replace("-", "")
+        backup_dir = store.run_dir(execution_id) / "archive-backup" / stamp
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(preflight["change_path"], backup_dir / "change")
+        specs_root = store_path / "openspec" / "specs"
+        atomic_write_json(
+            backup_dir / "before.json",
+            {
                 "change_path": str(preflight["change_path"]),
-                "backup_dir": str(backup_dir),
                 "specs_digest": _digest_tree(specs_root),
-                "policy": selected,
+                "specs_root": str(specs_root),
+                "created_at": _now(),
             },
-        },
-    )
-
-    from specrunway.openspec_adapter import OpenSpecAdapter
-
-    adapter = OpenSpecAdapter(
-        store_path=store_path,
-        store_id=preflight["config"]["store"]["id"],
-        openspec_bin=resolve_tool_bin(control_root, None, "openspec"),
-    )
-    adapter.store_setup()
-    try:
-        outcome = adapter.archive(snapshot["change_id"])
-    except Exception as exc:
-        store.mark_uncertain(
-            execution_id,
-            op_key,
-            {"phase": "archive", "error": str(exc), "backup_dir": str(backup_dir)},
         )
 
-        def uncertain(next_state: dict) -> None:
-            next_state["phase"] = "blocked"
-            next_state["blocked_reason"] = "uncertain archive outcome"
+        store.write_intent(
+            execution_id,
+            {
+                "operation_key": op_key,
+                "kind": "archive",
+                "execution_id": execution_id,
+                "scope": {"change_id": snapshot["change_id"], "policy": selected},
+                "before": {
+                    "change_path": str(preflight["change_path"]),
+                    "backup_dir": str(backup_dir),
+                    "specs_digest": _digest_tree(specs_root),
+                    "policy": selected,
+                },
+            },
+        )
+
+        from specrunway.openspec_adapter import OpenSpecAdapter
+
+        adapter = OpenSpecAdapter(
+            store_path=store_path,
+            store_id=preflight["config"]["store"]["id"],
+            openspec_bin=resolve_tool_bin(control_root, None, "openspec"),
+        )
+        adapter.store_setup()
+        try:
+            outcome = adapter.archive(snapshot["change_id"])
+        except Exception as exc:
+            store.mark_uncertain(
+                execution_id,
+                op_key,
+                {"phase": "archive", "error": str(exc), "backup_dir": str(backup_dir)},
+            )
+
+            def uncertain(next_state: dict) -> None:
+                next_state["phase"] = "blocked"
+                next_state["blocked_reason"] = "uncertain archive outcome"
+
+            current = store.read_state(execution_id)
+            store.update_state(execution_id, uncertain, current["revision"])
+            raise ArchiveError(
+                "archive-uncertain",
+                f"openspec archive failed; outcome preserved for reconciliation: {exc}",
+            ) from exc
+
+        after_specs = _digest_tree(specs_root)
+        archived_path = Path(outcome.get("path") or "")
+        if not archived_path.is_dir():
+            store.mark_uncertain(
+                execution_id,
+                op_key,
+                {"phase": "verify", "outcome": outcome, "specs_digest": after_specs},
+            )
+            raise ArchiveError(
+                "archive-uncertain",
+                "archive returned success but the archived change path is missing",
+            )
+        if preflight["change_path"].exists():
+            store.mark_uncertain(
+                execution_id,
+                op_key,
+                {"phase": "mixed", "outcome": outcome, "specs_digest": after_specs},
+            )
+            raise ArchiveError(
+                "archive-mixed",
+                "both active and archived change paths exist; block automatic replay",
+            )
+        store.record_receipt(
+            execution_id,
+            op_key,
+            {
+                "archived_as": outcome.get("archived_as"),
+                "path": outcome.get("path"),
+                "specs_updated": outcome.get("specs_updated"),
+                "specs_digest": after_specs,
+                "change_removed": True,
+            },
+        )
+        atomic_write_json(
+            backup_dir / "after.json",
+            {
+                "archived_as": outcome.get("archived_as"),
+                "path": outcome.get("path"),
+                "specs_digest": after_specs,
+                "created_at": _now(),
+            },
+        )
+
+        def finish(next_state: dict) -> None:
+            next_state["phase"] = "archived"
+            next_state["archived_as"] = outcome.get("archived_as")
 
         current = store.read_state(execution_id)
-        store.update_state(execution_id, uncertain, current["revision"])
-        raise ArchiveError(
-            "archive-uncertain",
-            f"openspec archive failed; outcome preserved for reconciliation: {exc}",
-        ) from exc
+        store.update_state(execution_id, finish, current["revision"])
 
-    after_specs = _digest_tree(specs_root)
-    archived_path = Path(outcome.get("path") or "")
-    if not archived_path.is_dir():
-        store.mark_uncertain(
-            execution_id,
-            op_key,
-            {"phase": "verify", "outcome": outcome, "specs_digest": after_specs},
-        )
-        raise ArchiveError(
-            "archive-uncertain",
-            "archive returned success but the archived change path is missing",
-        )
-    if preflight["change_path"].exists():
-        store.mark_uncertain(
-            execution_id,
-            op_key,
-            {"phase": "mixed", "outcome": outcome, "specs_digest": after_specs},
-        )
-        raise ArchiveError(
-            "archive-mixed",
-            "both active and archived change paths exist; block automatic replay",
-        )
-    store.record_receipt(
-        execution_id,
-        op_key,
-        {
-            "archived_as": outcome.get("archived_as"),
-            "path": outcome.get("path"),
-            "specs_updated": outcome.get("specs_updated"),
-            "specs_digest": after_specs,
-            "change_removed": True,
-        },
-    )
-    atomic_write_json(
-        backup_dir / "after.json",
-        {
-            "archived_as": outcome.get("archived_as"),
-            "path": outcome.get("path"),
-            "specs_digest": after_specs,
-            "created_at": _now(),
-        },
-    )
-
-    def finish(next_state: dict) -> None:
-        next_state["phase"] = "archived"
-        next_state["archived_as"] = outcome.get("archived_as")
-
-    current = store.read_state(execution_id)
-    store.update_state(execution_id, finish, current["revision"])
+        # The receipt is written and the execution is terminal, so the claim
+        # ends here and the next `run --change` can start immediately.
+        if store.active_owner():
+            store.release_activity(execution_id)
     return {
         "archived": True,
         "archived_as": outcome.get("archived_as"),

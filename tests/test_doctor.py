@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -9,6 +10,7 @@ import yaml
 from tests.test_manifest import manifest as sample_manifest
 
 from specrunway import doctor, launcher
+from specrunway.cli import main as specrunway_main
 from specrunway.doctor import run_doctor
 from specrunway.models import load_local_config
 
@@ -107,6 +109,39 @@ def test_doctor_agent_preflight_is_bounded_and_outside_repositories(
     assert seen["cwd"] not in business_paths
     assert seen["prompt_exists"] is True
     assert seen["timeout"] == doctor.AGENT_PROBE_TIMEOUT_SECONDS
+
+
+def test_doctor_no_agent_probe_skips_the_launch(control_workspace, monkeypatch, capsys):
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("the agent preflight must not launch with --no-agent-probe")
+
+    monkeypatch.setattr(launcher, "run_agent", forbidden)
+    rc = specrunway_main(
+        [
+            "doctor",
+            "--root",
+            str(control_workspace["control"]),
+            "--no-agent-probe",
+            "--json",
+        ]
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["ok"] is True
+    assert "agent" not in payload["data"]
+    assert all(row["check"] != "agent-preflight" for row in payload["data"]["findings"])
+    # Wiring findings are unchanged from a default run.
+    assert _severities(payload)["repo:repo-a"] == "ok"
+
+
+def test_doctor_default_cli_still_probes(control_workspace, capsys):
+    rc = specrunway_main(
+        ["doctor", "--root", str(control_workspace["control"]), "--json"]
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["data"]["agent"]["ok"] is True
+    assert _severities(payload)["agent-preflight"] == "ok"
 
 
 def test_doctor_walks_up_from_control_child(control_workspace, monkeypatch):

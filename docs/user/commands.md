@@ -127,7 +127,7 @@ Next action: `specrunway doctor --json`, then `specrunway plan`.
 ## `specrunway doctor`
 
 ```bash
-specrunway doctor [--root DIR] [--json]
+specrunway doctor [--root DIR] [--no-agent-probe] [--json]
 ```
 
 Required input is a control checkout with `local.yaml`. The report includes
@@ -150,6 +150,11 @@ binary, a non-zero exit, or a timeout is an `agent-preflight` error, so a broken
 agent model is visible before the first fan-out attempt.
 `specrunway init` checks wiring only and does not run this preflight.
 
+`--no-agent-probe` skips the preflight entirely for CI or wiring-only checks.
+It launches no agent process, omits `data.agent`, and adds no
+`agent-preflight` finding; the wiring findings are unchanged. Running `doctor`
+without the switch still probes.
+
 `doctor` does not probe other executable versions or run tests.
 
 Next action: fix every error finding, then `specrunway plan` or
@@ -168,10 +173,19 @@ used to generate artifacts for a new or incomplete change. `--manifest`
 supplies explicit routing and is required for a manual plan whose tasks have no
 routing labels.
 
+A generated capability is named from the request's `Spec-Head` value when one
+is declared, for example `Spec-Head: execution-recovery` writes
+`specs/execution-recovery/spec.md`. A declared name must be a lowercase slug
+(`[a-z0-9-]`); anything else fails with `capability-name` instead of silently
+falling back. When the request declares no name, planning keeps the per-repo
+`<repo_id>-delivery` fallback and records it as
+`capability_name_source: "fallback"` in `plan-summary.json`; a declared name is
+recorded as `"spec-head"`.
+
 Stable codes: `store-unknown`, `plan-request-required`, `plan-incomplete`,
 `manifest-required`, `manifest-unreadable`, `manifest-type`, `task-routing`,
-and manifest validation codes such as `unknown-key`, `repo-*`, `task-*`,
-`acceptance-*`, `budget-*`, `forward-dependency`, `unknown-dep`,
+`capability-name`, and manifest validation codes such as `unknown-key`,
+`repo-*`, `task-*`, `acceptance-*`, `budget-*`, `forward-dependency`, `unknown-dep`,
 `unknown-profile`, and `test-profile`. Upstream calls may return
 `tool-missing`, `timeout`, `upstream-error`, `unknown_store`,
 `no_registered_stores`, or `change-exists`.
@@ -360,12 +374,23 @@ base ref.
 Stable codes: `not-ready`, `unaccepted-code`, `tasks-missing`,
 `verification-stale`, `repo-unknown`, `no-approval`, `approval-mismatch`,
 `approval-stale`, `policy-unknown`, `confirmation-required`, `partial-merge`,
-`archive-uncertain`, `archive-mixed`, `archive-lost`, plus `snapshot-missing`,
-`tool-missing`, `upstream-error`, and `timeout`.
+`owner-alive`, `execution-conflict`, `archive-uncertain`, `archive-mixed`,
+`archive-lost`, plus `snapshot-missing`, `tool-missing`, `upstream-error`, and
+`timeout`.
+
+Archive is the end of the execution's claim on the checkout. After writing the
+completion receipt and marking the execution `archived`, it releases the
+active-owner record, so `specrunway run --change` can claim the same checkout
+immediately without editing state by hand. A recorded live owner process is
+never released behind its back: archive refuses `owner-alive` before applying
+deltas and leaves ownership unchanged. `abandon` still refuses an archived
+execution with `execution-archived`.
 
 A successful re-run of an already archived execution returns
-`already_archived: true` instead of applying deltas again.
+`already_archived: true` instead of applying deltas again; it also releases a
+matching dead owner record left by an older coordinator.
 
-Next action: none on success. On refusal, use
+Next action: none on success; start the next execution with
+`specrunway run --change`. On refusal, use
 [troubleshooting.md](troubleshooting.md); do not delete the backup or retry a
 mixed/uncertain outcome blindly.

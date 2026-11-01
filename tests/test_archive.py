@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
+import sys
 import uuid
 from pathlib import Path
 
@@ -236,6 +238,45 @@ def test_archive_requires_merged_commits(completion):
     # replay is refused, not re-applied
     again = archive_execution(completion["control"], completion["execution_id"])
     assert again["already_archived"] is True
+
+
+def _dead_pid() -> int:
+    process = subprocess.Popen([sys.executable, "-c", "pass"])
+    process.wait(timeout=30)
+    return process.pid
+
+
+@pytest.mark.skipif(not OPENSPEC.is_file(), reason="pinned openspec CLI missing")
+def test_archive_releases_owner_and_unblocks_next_execution(completion):
+    store = completion["store"]
+    execution_id = completion["execution_id"]
+    store.claim_activity(execution_id, pid=_dead_pid())
+    _git(completion["repo"], "merge", "--ff-only", completion["head"])
+
+    outcome = archive_execution(completion["control"], execution_id)
+
+    assert outcome["archived"] is True
+    assert store.read_state(execution_id)["phase"] == "archived"
+    assert store.active_owner() is None
+    # The defect this change fixes: the next run can claim the checkout without
+    # editing active.json by hand.
+    assert store.claim_activity("next-execution")["execution_id"] == "next-execution"
+
+
+@pytest.mark.skipif(not OPENSPEC.is_file(), reason="pinned openspec CLI missing")
+def test_archive_refuses_a_live_owner_before_applying_deltas(completion):
+    store = completion["store"]
+    execution_id = completion["execution_id"]
+    store.claim_activity(execution_id, pid=os.getpid())
+    _git(completion["repo"], "merge", "--ff-only", completion["head"])
+
+    with pytest.raises(ArchiveError) as refused:
+        archive_execution(completion["control"], execution_id)
+
+    assert refused.value.code == "owner-alive"
+    assert completion["change"].is_dir()
+    assert store.read_state(execution_id)["phase"] == "ready_for_review"
+    assert store.active_owner()["execution_id"] == execution_id
 
 
 @pytest.mark.skipif(not OPENSPEC.is_file(), reason="pinned openspec CLI missing")

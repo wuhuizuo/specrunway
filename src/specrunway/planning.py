@@ -15,6 +15,8 @@ from specrunway.openspec_adapter import OpenSpecAdapter, OpenSpecCommandError
 from specrunway.runstore import atomic_write_json
 
 TASK_LABEL_RE = re.compile(r"^-\s+\[[ xX]\]\s+([\d.]+)\s+\[([A-Z0-9][A-Z0-9-]*)\]\s+(.+)$")
+CAPABILITY_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+SPEC_HEAD_RE = re.compile(r"^Spec-Head:\s*(?P<name>.+?)\s*$", re.MULTILINE)
 
 PROPOSAL_TEMPLATE = """# {change_id}
 
@@ -148,7 +150,11 @@ def plan(
     adapter.store_setup()
 
     request_text = request_path.read_text(encoding="utf-8") if request_path else None
+    if request_text is not None:
+        # Reject an unusable declared capability before creating the change.
+        parse_capability_heads(request_text)
     generated: list = []
+    capability_meta = {"names": [], "source": "existing"}
 
     existing: dict | None = None
     try:
@@ -165,7 +171,7 @@ def plan(
             )
         created = adapter.new_change(change_id)
         change_path = Path(created["change_path"])
-        manifest = _write_generation(
+        manifest, capability_meta = _write_generation(
             adapter, change_path, change_id, request_text, manifest, generated, config
         )
     elif not existing["planning_complete"]:
@@ -175,7 +181,7 @@ def plan(
                 f"change {change_id} exists but lacks artifacts; pass --request to generate them",
             )
         change_path = Path(existing["change_root"])
-        manifest = _write_generation(
+        manifest, capability_meta = _write_generation(
             adapter, change_path, change_id, request_text, manifest, generated, config
         )
     else:
@@ -189,6 +195,13 @@ def plan(
                     "manual plan without mapped routing: supply --manifest (or task labels)",
                 )
             manifest = _manual_manifest(adapter, change_id, found_ids, config)
+        capability_meta = {
+            "names": sorted(
+                path.parent.name
+                for path in (change_path / "specs").glob("*/spec.md")
+            ),
+            "source": "existing",
+        }
 
     planning = adapter.status(change_id)
     if not planning["planning_complete"]:
@@ -216,6 +229,8 @@ def plan(
             "task_ids": found_ids,
             "planning_complete": True,
             "generated": generated,
+            "capability_names": capability_meta["names"],
+            "capability_name_source": capability_meta["source"],
         },
     )
 
@@ -238,7 +253,7 @@ def _write_generation(
     manifest: dict | None,
     generated: list,
     config: dict,
-) -> dict:
+) -> tuple[dict, dict]:
     """Materialize proposal/design/tasks/specs from the request + routing."""
     task_texts = parse_task_texts(request_text)
     if manifest is None:
@@ -263,8 +278,8 @@ def _write_generation(
     generated.append("design.md")
     (change_path / "tasks.md").write_text(render_tasks(manifest, task_texts), encoding="utf-8")
     generated.append("tasks.md")
-    _write_spec_deltas(change_path, request_text, manifest, generated)
-    return manifest
+    capability_meta = _write_spec_deltas(change_path, request_text, manifest, generated)
+    return manifest, capability_meta
 
 
 def _section(text: str, name: str, *, fallback: str) -> str:
@@ -280,41 +295,88 @@ def _section(text: str, name: str, *, fallback: str) -> str:
     return fallback
 
 
+def parse_capability_heads(request_text: str) -> list:
+    """Declared capability names from ``Spec-Head`` lines, validated as slugs."""
+    names: list = []
+    for match in SPEC_HEAD_RE.finditer(request_text):
+        name = match.group("name").strip()
+        if not CAPABILITY_NAME_RE.match(name):
+            raise ValidationError(
+                "capability-name",
+                f"Spec-Head {name!r} is not a lowercase slug "
+                "(expected [a-z0-9-], for example execution-recovery)",
+            )
+        if name not in names:
+            names.append(name)
+    return names
+
+
 def _write_spec_deltas(
     change_path: Path, request_text: str, manifest: dict, generated: list
-) -> None:
-    """Scaffold one capability delta per repo (request may override via Spec blocks)."""
+) -> dict:
+    """Scaffold capability deltas, named by Spec-Head or the documented fallback."""
     capability_blocks = _parse_spec_blocks(request_text)
-    shared = next(iter(capability_blocks.values()), None)
+    declared = parse_capability_heads(request_text)
     spec_root = change_path / "specs"
     spec_root.mkdir(parents=True, exist_ok=True)
+    if declared:
+        for name in declared:
+            block = capability_blocks.get(name) or _default_capability_block(name)
+            _write_capability(spec_root, name, request_text, block, generated)
+        return {"names": declared, "source": "spec-head"}
+
+    # No declared name: keep the deterministic per-repository fallback and
+    # record it in the plan summary so the fallback is visible.
+    shared = next(iter(capability_blocks.values()), None)
+    names: list = []
     for repo in manifest["repos"]:
-        block = shared or {
-            "title": f"{repo['repo_id']} delivery",
+        name = f"{repo['repo_id']}-delivery"
+        block = shared or _default_capability_block(repo["repo_id"], delivery=True)
+        _write_capability(spec_root, name, request_text, block, generated)
+        names.append(name)
+    return {"names": names, "source": "fallback"}
+
+
+def _default_capability_block(name: str, *, delivery: bool = False) -> dict:
+    if delivery:
+        return {
+            "title": f"{name} delivery",
             "body": "The requested capability SHALL complete with trusted verification.",
-            "scenario_title": f"{repo['repo_id']} tasks accepted",
+            "scenario_title": f"{name} tasks accepted",
             "when": "the implementation completes in a separate worktree",
             "then": "the tasks attach to accepted commit evidence",
         }
-        purpose = _capability_purpose(request_text, block, repo["repo_id"])
-        target = spec_root / f"{repo['repo_id']}-delivery"
-        target.mkdir(parents=True, exist_ok=True)
-        (target / "spec.md").write_text(
-            f"# {target.name} Specification\n\n"
-            "## Purpose\n\n"
-            f"{purpose}\n\n"
-            "## ADDED Requirements\n\n"
-            f"### Requirement: {block['title']}\n\n"
-            f"{block['body']}\n\n"
-            f"#### Scenario: {block['scenario_title']}\n\n"
-            f"- **WHEN** {block['when']}\n"
-            f"- **THEN** {block['then']}\n",
-            encoding="utf-8",
-        )
-        generated.append(f"specs/{target.name}/spec.md")
+    return {
+        "title": f"{name} capability",
+        "body": "The requested capability SHALL complete with trusted verification.",
+        "scenario_title": f"{name} accepted",
+        "when": "the implementation completes in a separate worktree",
+        "then": "the tasks attach to accepted commit evidence",
+    }
 
 
-def _capability_purpose(request_text: str, block: dict, repo_id: str) -> str:
+def _write_capability(
+    spec_root: Path, name: str, request_text: str, block: dict, generated: list
+) -> None:
+    purpose = _capability_purpose(request_text, block)
+    target = spec_root / name
+    target.mkdir(parents=True, exist_ok=True)
+    (target / "spec.md").write_text(
+        f"# {target.name} Specification\n\n"
+        "## Purpose\n\n"
+        f"{purpose}\n\n"
+        "## ADDED Requirements\n\n"
+        f"### Requirement: {block['title']}\n\n"
+        f"{block['body']}\n\n"
+        f"#### Scenario: {block['scenario_title']}\n\n"
+        f"- **WHEN** {block['when']}\n"
+        f"- **THEN** {block['then']}\n",
+        encoding="utf-8",
+    )
+    generated.append(f"specs/{target.name}/spec.md")
+
+
+def _capability_purpose(request_text: str, block: dict) -> str:
     """Write a real Purpose from the request; never rely on the archive placeholder.
 
     OpenSpec reads a delta's ``## Purpose`` only while creating the capability, so
@@ -323,7 +385,7 @@ def _capability_purpose(request_text: str, block: dict, repo_id: str) -> str:
     """
     why = _section(request_text, "why", fallback="")
     what = _section(request_text, "what", fallback="")
-    purpose = _one_paragraph(why or what or f"Deliver {block['title']} in {repo_id}.")
+    purpose = _one_paragraph(why or what or f"Deliver {block['title']} with verification.")
     # Strict validation rejects a Purpose shorter than 50 characters, so add
     # what the request asks for; both halves are written by the requester.
     if len(purpose) < 50 and what and what != why:
@@ -483,6 +545,7 @@ __all__ = [
     "crosscheck_task_routing",
     "extract_task_ids",
     "load_manifest_file",
+    "parse_capability_heads",
     "parse_task_texts",
     "plan",
     "render_tasks",

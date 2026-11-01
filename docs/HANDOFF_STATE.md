@@ -1,6 +1,6 @@
 # Implementation state
 
-Updated: 1 November 2026 (L01-L18 complete and archived; L19 guided onboarding in active change 09; mise developer environment added; P0 uv install path delivered by a SpecRunway dogfood run; toolchain raised to opencode 2.1.4 and OpenSpec 1.15.0; operator documentation entry set delivered by central Store change user-docs-v1; four live-path defects fixed by central Store change p0-fixes-v1).
+Updated: 1 November 2026 (L01-L18 complete and archived; L19 guided onboarding in active change 09; mise developer environment added; P0 uv install path delivered by a SpecRunway dogfood run; toolchain raised to opencode 2.1.4 and OpenSpec 1.15.0; operator documentation entry set delivered by central Store change user-docs-v1; four live-path defects fixed by central Store change p0-fixes-v1; archive ownership, the doctor probe switch, and request-driven capability naming delivered by central Store change archive-ownership-v1).
 
 ## Completed preparation
 
@@ -195,6 +195,39 @@ Updated: 1 November 2026 (L01-L18 complete and archived; L19 guided onboarding i
   `last_failure`, doctor preflight), `docs/user/troubleshooting.md`, and
   `docs/RUNBOOK.md`.
 
+## Completed work: archive-ownership-v1 (central Store)
+
+- T001: `specrunway archive` now holds the checkout lock while it applies
+  deltas and, after writing the completion receipt and `archived` phase,
+  releases the active-owner record of the execution it archived. A later
+  `specrunway run --change` can claim the checkout with no hand edit. A foreign
+  owner is refused with `execution-conflict`; a matching live owner process is
+  refused with `owner-alive` before any delta is applied. A replay of an
+  already recorded archive also releases a matching dead record left by an
+  older coordinator. `abandon` still refuses archived executions
+  (`execution-archived`).
+- T002: `specrunway doctor --no-agent-probe` skips the bounded coding-agent
+  preflight, launches no agent, omits `data.agent` and the `agent-preflight`
+  finding, and keeps wiring findings unchanged. The default still probes.
+- T003: `specrunway plan` names a generated capability from the request's
+  `Spec-Head` value (`Spec-Head: execution-recovery` writes
+  `specs/execution-recovery/spec.md`). A non-slug name fails with
+  `capability-name` before the change is created. Without a declared name the
+  per-repo `<repo_id>-delivery` fallback stays and `plan-summary.json` records
+  `capability_name_source: "fallback"`; declared names record `"spec-head"`.
+- T004: `docs/user/commands.md` and `docs/RUNBOOK.md` document the doctor
+  switch, capability naming, and archive ownership; this handoff state records
+  the completion. `docs/evidence/14-archive-ownership-v1.md` holds commands,
+  counts, and boundaries.
+- Verification: trusted profile `bash scripts/worktree_check.sh` reported 241
+  passed (up from 235; six regression tests added); `ruff check src tests`
+  clean; `scripts/check_handoff.py` passed; `openspec validate --all --strict`
+  11/11. Execution `0c300426-2956-4766-b6c9-fe10a91d17de`, base commit
+  `8ac503a3f4cbd82e600c827b53c429523e22bfcb`.
+- This change is tracked in the central Store `specrunway-docs`, not in this
+  repository's `openspec/` baseline. Merge and archive stay explicit review
+  gates.
+
 ## Current change
 
 None in this repository. Both central Store changes are archived:
@@ -233,9 +266,9 @@ the operator documentation entry set; its record lives in the
 - `scripts/worktree_check.sh` is the provisioning test profile for execution
   worktrees: it creates the worktree's own `.venv`, installs the package
   editable, ensures `specify-cli` and `tooling/openspec/node_modules`, then runs
-  pytest. Verified end to end by `p0-fixes-v1`: with the cached
-  `specify-cli==1.2.1` wheel the suite reached 226 passed before the change and
-  235 passed after it, with no skips.
+  pytest. Verified end to end by `p0-fixes-v1` (226 before, 235 after) and
+  `archive-ownership-v1` (241 passed) with the cached `specify-cli==1.2.1`
+  wheel, with no skips.
 - A local control checkout may live at `.sr-control/` inside this repository
   (ignored): `local.yaml`, `.specify/`, and run state. `check_handoff.py`
   skips dot-directories so runtime artifacts are never treated as
@@ -248,27 +281,21 @@ the operator documentation entry set; its record lives in the
 
 ## Exact next action
 
-Fix the archive-ownership leak recorded in
-`docs/evidence/13-p0-fixes-v1.md`: `specrunway archive` should release the
-active-owner record it already holds the lock for, so the next `run --change`
-does not need a hand-edited `active.json`. It is planned (not executed) as
-central Store change `archive-ownership-v1` with four tasks and the capability
-deltas `execution-lifecycle` (archive ownership, optional agent preflight) and
-`change-planning` (capability names from `Spec-Head`); freeze it when work
-resumes. The control checkout is still claimed by the archived `05884c10-…`
-execution, and no CLI path releases it yet, so clear that record before
-freezing. One item stays outside that change: the `## What Changes` extraction
-from the P0 report still needs a decision. Tag `v0.1.0` / GitHub Release only
-after explicit approval; v2 work stays deferred.
+Review, merge, and archive central Store change `archive-ownership-v1`
+(execution `0c300426-2956-4766-b6c9-fe10a91d17de`) through the normal explicit
+gates. The archive path now releases its own active-owner record, so
+re-running `archive` for the archived `05884c10-…` execution also heals the
+claim it left behind. Then freeze `run-observability-v1` when work resumes.
+One item stays
+outside both changes: the `## What Changes` extraction from the P0 report still
+needs a decision. Tag `v0.1.0` / GitHub Release only after explicit approval;
+v2 work stays deferred.
 
 ### Planned, not executed
 
-Two central Store changes are planned and must be frozen only when work
+One central Store change is still planned and must be frozen only when work
 resumes:
 
-- `archive-ownership-v1` — archive releases checkout ownership, `doctor` gains
-  a skip switch, planning names capabilities from `Spec-Head` (capabilities
-  `execution-lifecycle`, `change-planning`; four tasks).
 - `run-observability-v1` — status reports the running step with elapsed time
   and log path, `status --follow`, progress on stderr, `logs --execution`,
   `executions` listing with `approve --pending`, and TTY-only interactive
