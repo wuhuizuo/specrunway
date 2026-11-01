@@ -181,6 +181,12 @@ the operator documentation entry set; its record lives in the
   generated and ignored.
 - `scripts/check_handoff.py` covers active and archived changes and asserts
   L01-L19 coverage.
+- `scripts/worktree_check.sh` is the provisioning test profile for execution
+  worktrees: it creates the worktree's own `.venv`, installs the package
+  editable, ensures `specify-cli` and `tooling/openspec/node_modules`, then runs
+  pytest. It is only partially verified: with those dependencies present the
+  suite reached 188 passed and 33 skipped, while the per-worktree git install of
+  `specify-cli` failed on a flaky network.
 - A local control checkout may live at `.sr-control/` inside this repository
   (ignored): `local.yaml`, `.specify/`, and run state. `check_handoff.py`
   skips dot-directories so runtime artifacts are never treated as
@@ -193,14 +199,15 @@ the operator documentation entry set; its record lives in the
 
 ## Exact next action
 
-Plan the defect fixes as a new development change. Four gaps were found by the
-live `user-docs-v1` run (`docs/evidence/12-user-docs-v1.md`): no CLI way to
-abandon or release an execution, no agent/model preflight in `doctor`, failed
-steps invisible in `status`, and planner spec deltas without a `## Purpose`
-that archive turns into a placeholder. The P0 dogfood report
-(`docs/evidence/10-p0-uv-install-dogfood.md`) adds two more: `## What Changes`
-extraction in `plan`, and a self-hosted worktree test profile that provisions
-`.venv`/`node_modules`. Add their tasks to a numbered change, extend the
-expected source-ID set in `scripts/check_handoff.py` when the first L20+ task
-appears, and keep `09-guided-onboarding` archived as reviewed. Tag `v0.1.0` /
-GitHub Release only after explicit approval; v2 work stays deferred.
+Run the planned central Store change `p0-fixes-v1` (`specrunway-docs` Store):
+four tasks for the defects recorded in `docs/evidence/12-user-docs-v1.md`, with
+the capability delta corrected by hand from the planner's fixed
+`<repo>-delivery` name to `execution-recovery`. Before freezing, pre-seed the
+worktree test profile dependencies (`$HOME/.cache/specrunway/wheels` with the
+specify-cli 1.2.1 wheel) because cloning them per worktree fails on a flaky
+network. `scripts/worktree_check.sh` is committed but only partially verified:
+with `specify_cli` and `tooling/openspec/node_modules` present the suite reached
+188 passed and 33 skipped. Then review `09-guided-onboarding` as archived and
+keep the remaining P0 items (`## What Changes` extraction, planner capability
+naming) in the follow-up list. Tag `v0.1.0` / GitHub Release only after explicit
+approval; v2 work stays deferred.
