@@ -5,9 +5,11 @@ Date: 1 November 2026. Change: `archive-ownership-v1` in the
 Base commit: `8ac503a3f4cbd82e600c827b53c429523e22bfcb`. This evidence is part
 of the commit that delivers the change; the coordinator's result record
 carries its exact head and attempt. Attempt 1 committed the same work but its
-agent process died on a transport error before returning, so attempt 2
-re-verified the tree and added two end-to-end archive-ownership checks before
-recording the final counts.
+agent process died on a transport error before returning. Attempt 2 added two
+end-to-end archive-ownership checks and the stricter capability-name cases,
+then timed out before returning. Attempt 3 re-verified the complete tree: the
+focused tests, the trusted worktree profile, lint, the handoff guard, and
+strict OpenSpec validation all passed before this result was recorded.
 
 The change closes the residual defect recorded in
 `docs/evidence/13-p0-fixes-v1.md`: a successful archive left the control
