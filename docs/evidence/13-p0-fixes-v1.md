@@ -105,3 +105,39 @@ The baseline count and the final count differ by the nine added tests.
 - `abandon` does not delete evidence and does not change the execution's phase.
 - The planner naming defect (`<repo>-delivery`) stays on the P0 follow-up list;
   this change only adds the Purpose section.
+
+## Review performed after `ready_for_review`
+
+The change reached `ready_for_review` on the first attempt and was merged as
+`3b40ceb` and archived as `2026-11-01-p0-fixes-v1`. Independent checks on the
+merged tree:
+
+| Check | Result |
+| --- | --- |
+| Store strict validation after archive | `execution-recovery` and `specrunway-delivery` both pass (2/2) |
+| Archived capability Purpose | the request purpose survived; no `TBD` placeholder (T004 holds) |
+| Live agent preflight, real control checkout | `primary-coding-agent resolved to /opt/homebrew/bin/opencode and answered in 0.836s`, exit 0 (T002 holds outside fake agents) |
+| `last_failure` on a clean execution | `None` |
+| Merged diff scope | 18 files under `src/`, `tests/`, `docs/`; nothing outside `allowed_paths` |
+
+## Residual defect found by the review
+
+`archive` never releases the active-owner record, and `abandon` refuses an
+archived execution, so the control checkout stays claimed after every
+successful archive. Observed immediately after archiving this change:
+
+```text
+$ specrunway abandon --execution 05884c10-...
+{"error": {"code": "execution-archived",
+           "message": "execution 05884c10-... is already archived; nothing to abandon"}}
+```
+
+A new `run --change` is therefore still blocked, and the only documented way
+out is to edit state by hand. T001 fixed abandonment for paused and failed
+executions; it did not cover the most common end state. The fix belongs in
+`archive`: after writing its receipt it owns the lock and should release the
+record. `abandon` should keep refusing archived executions.
+
+Two smaller follow-ups remain open: `doctor` probes the agent by default with no
+CLI switch to skip it, and the planner still names every capability
+`<repo>-delivery`, ignoring the request's `Spec-Head`.

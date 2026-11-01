@@ -126,6 +126,24 @@ Updated: 1 November 2026 (L01-L18 complete and archived; L19 guided onboarding i
 - Historical evidence stays historical: the L01 report remains the 1.14.3 gate
   record, and the release replay remains the 1.18.33 live run.
 
+## Completed work: p0-fixes-v1 (central Store defect change)
+
+- Four defects from the live `user-docs-v1` run were fixed in one execution
+  (`05884c10-…`, one attempt): explicit `specrunway abandon`, a bounded
+  coding-agent preflight in `doctor`, `last_failure` reporting in `status`, and
+  a real `## Purpose` in generated spec deltas.
+- Accepted head `3b40ceb`; trusted verification ran the self-hosted
+  `bash scripts/worktree_check.sh` profile and reported 235 passed (up from
+  226). Both gates were signed locally by `wuhuizuo`, merged fast-forward, and
+  archived as `2026-11-01-p0-fixes-v1` in the `specrunway-docs` Store.
+- Post-archive checks: Store strict validation 2/2, the archived
+  `execution-recovery` capability carries the request purpose with no `TBD`,
+  and a live preflight resolved `opencode` and answered in 0.836s.
+- Residual defect, recorded in `docs/evidence/13-p0-fixes-v1.md`: `archive`
+  never releases the active-owner record while `abandon` refuses an archived
+  execution, so a checkout stays claimed after every successful archive. The
+  fix belongs in `archive`, which already owns the lock at that point.
+
 ## Completed work: user-docs-v1 (central Store documentation change)
 
 - Delivered the operator entry set: `docs/user/quickstart.md` (uv and manual
@@ -179,9 +197,11 @@ Updated: 1 November 2026 (L01-L18 complete and archived; L19 guided onboarding i
 
 ## Current change
 
-None in this repository. The latest work is the central Store change
-`p0-fixes-v1`; it is tracked in `specrunway-docs`, not in `openspec/` here,
-so this repository still has no active OpenSpec change. `09-guided-onboarding`
+None in this repository. Both central Store changes are archived:
+`user-docs-v1` (`2026-11-01-user-docs-v1`) and `p0-fixes-v1`
+(`2026-11-01-p0-fixes-v1`), tracked in `specrunway-docs` rather than in
+`openspec/` here, so this repository still has no active OpenSpec change.
+`09-guided-onboarding`
 (L19) was reviewed on 1 November 2026 and
 archived as `openspec/changes/archive/2026-11-01-09-guided-onboarding/`; its
 deltas are applied, so `openspec/specs/guided-onboarding/` is new and
@@ -228,12 +248,14 @@ the operator documentation entry set; its record lives in the
 
 ## Exact next action
 
-Finish the central Store change `p0-fixes-v1`: the execution ran with the
-self-hosted `p0-fixes-v1-specrunway` profile (`bash
-scripts/worktree_check.sh`) and the suite passed; the coordinator still has to
-verify the result, record both gates, and archive explicitly. Then replay
-`doctor` and `status` against a real agent so the preflight and failure
-reporting are exercised outside fixtures. Keep the remaining P0 items
-(`## What Changes` extraction, planner capability naming) in the follow-up
-list, and tag `v0.1.0` / GitHub Release only after explicit approval; v2 work
-stays deferred.
+Fix the archive-ownership leak recorded in
+`docs/evidence/13-p0-fixes-v1.md`: `specrunway archive` should release the
+active-owner record it already holds the lock for, so the next `run --change`
+does not need a hand-edited `active.json`. Treat it as a new central Store
+change, and use `specrunway abandon` (now available) to release the current
+`05884c10-…` claim before freezing that change; `abandon` itself must keep
+refusing archived executions. Two smaller follow-ups stay on the list: a
+`--no-agent-probe` switch for `doctor`, and planner capability naming instead of
+the fixed `<repo>-delivery`. Also decide whether `## What Changes` extraction
+from the P0 report is still wanted. Tag `v0.1.0` / GitHub Release only after
+explicit approval; v2 work stays deferred.
