@@ -1,6 +1,6 @@
 # Implementation state
 
-Updated: 25 October 2026 (L01-L18 complete and archived; L19 guided onboarding in active change 09; mise developer environment added; P0 uv install path delivered by a SpecRunway dogfood run; toolchain raised to opencode 2.1.4 and OpenSpec 1.15.0).
+Updated: 1 November 2026 (L01-L18 complete and archived; L19 guided onboarding in active change 09; mise developer environment added; P0 uv install path delivered by a SpecRunway dogfood run; toolchain raised to opencode 2.1.4 and OpenSpec 1.15.0; operator documentation entry set delivered by central Store change user-docs-v1).
 
 ## Completed preparation
 
@@ -126,10 +126,33 @@ Updated: 25 October 2026 (L01-L18 complete and archived; L19 guided onboarding i
 - Historical evidence stays historical: the L01 report remains the 1.14.3 gate
   record, and the release replay remains the 1.18.33 live run.
 
+## Completed work: user-docs-v1 (central Store documentation change)
+
+- Delivered the operator entry set: `docs/user/quickstart.md` (uv and manual
+  install, wizard, plan, approve, run, `ready_for_review`),
+  `docs/user/concepts.md` (change, execution, approval receipt, frozen
+  snapshot, trusted result, operation intent, lifecycle),
+  `docs/user/commands.md` (every subcommand with required arguments, stable
+  envelope error codes, and next action), and
+  `docs/user/troubleshooting.md` (stuck phases, `orphan-alive`, archive
+  refusals, nested Store paths). `README.md` is now a short operator entry
+  that points at `docs/user/`; contributor material moved behind one clearly
+  labeled section.
+- Statements were checked against `cli.py`, the local/records validators,
+  approvals, recovery, archive, the wizard, and the pinned toolchain docs.
+  The change adds no product behavior and no runtime dependency.
+- This change is tracked in the central Store `specrunway-docs` as
+  `user-docs-v1`. It is not an OpenSpec change in this repository's
+  `openspec/` baseline; review and archive stay in that Store.
+- Verified in the execution worktree with
+  `.venv/bin/python scripts/check_handoff.py`; the check passed.
+
 ## Current change
 
 `09-guided-onboarding` — L19 implemented and checked; review/archive pending.
-The v1 baseline L01-L18 remains archived and valid.
+The v1 baseline L01-L18 remains archived and valid. The separate central Store
+change `user-docs-v1` delivered the operator documentation entry set; its
+review/archive is tracked in that Store, not in `openspec/` here.
 
 ## Repository state
 
@@ -139,9 +162,11 @@ The v1 baseline L01-L18 remains archived and valid.
 - Change 09 is active under `openspec/changes/09-guided-onboarding/`; its
   deltas are not yet applied to the baseline. Do not archive it until the diff
   and evidence are reviewed.
-- `README.md` and `docs/RUNBOOK.md` describe both the guided and manual
-  configuration paths; `docs/TOOLCHAIN.md` records the compatibility gate and
-  the mise developer entry point.
+- `README.md` is a short operator entry pointing at `docs/user/`; that entry
+  set covers quickstart, concepts, commands, and troubleshooting.
+  `docs/RUNBOOK.md` keeps the long-form guided and manual operation paths;
+  `docs/TOOLCHAIN.md` records the compatibility gate and the mise developer
+  entry point.
 - `mise.toml` is the checked-in developer environment entry point; `.venv` is
   generated and ignored.
 - `scripts/check_handoff.py` covers active and archived changes and asserts
@@ -163,5 +188,7 @@ Review the P0 dogfood findings in
 (agent/OpenSpec preflight in `doctor`, `## What Changes` extraction fix, a
 self-hosted worktree test profile that provisions `.venv`/`node_modules`).
 Then review the change 09 diff, run the guided flow once on a disposable
-control checkout, and archive `09-guided-onboarding` if accepted. Tag
-`v0.1.0` / GitHub Release only after explicit approval; v2 work stays deferred.
+control checkout, and archive `09-guided-onboarding` if accepted. Review and
+archive the central Store change `user-docs-v1` in its own Store after
+approval of the `docs/user/` entry set. Tag `v0.1.0` / GitHub Release only
+after explicit approval; v2 work stays deferred.
