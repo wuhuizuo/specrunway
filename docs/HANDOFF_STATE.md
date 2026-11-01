@@ -251,11 +251,12 @@ the operator documentation entry set; its record lives in the
 Fix the archive-ownership leak recorded in
 `docs/evidence/13-p0-fixes-v1.md`: `specrunway archive` should release the
 active-owner record it already holds the lock for, so the next `run --change`
-does not need a hand-edited `active.json`. Treat it as a new central Store
-change, and use `specrunway abandon` (now available) to release the current
-`05884c10-…` claim before freezing that change; `abandon` itself must keep
-refusing archived executions. Two smaller follow-ups stay on the list: a
-`--no-agent-probe` switch for `doctor`, and planner capability naming instead of
-the fixed `<repo>-delivery`. Also decide whether `## What Changes` extraction
-from the P0 report is still wanted. Tag `v0.1.0` / GitHub Release only after
-explicit approval; v2 work stays deferred.
+does not need a hand-edited `active.json`. It is planned (not executed) as
+central Store change `archive-ownership-v1` with four tasks and the capability
+deltas `execution-lifecycle` (archive ownership, optional agent preflight) and
+`change-planning` (capability names from `Spec-Head`); freeze it when work
+resumes. The control checkout is still claimed by the archived `05884c10-…`
+execution, and no CLI path releases it yet, so clear that record before
+freezing. One item stays outside that change: the `## What Changes` extraction
+from the P0 report still needs a decision. Tag `v0.1.0` / GitHub Release only
+after explicit approval; v2 work stays deferred.
