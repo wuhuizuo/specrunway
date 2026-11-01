@@ -146,6 +146,10 @@ The v1 baseline L01-L18 remains archived and valid.
   generated and ignored.
 - `scripts/check_handoff.py` covers active and archived changes and asserts
   L01-L19 coverage.
+- A local control checkout may live at `.sr-control/` inside this repository
+  (ignored): `local.yaml`, `.specify/`, and run state. `check_handoff.py`
+  skips dot-directories so runtime artifacts are never treated as
+  documentation.
 - `main` now includes `501af3d` (P0 uv install documentation) and
   `docs/evidence/10-p0-uv-install-dogfood.md`. The P0 dogfood control, Store,
   and run directory live only under `/tmp/specrunway-dogfood-p0/` and are not

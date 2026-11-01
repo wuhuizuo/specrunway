@@ -49,7 +49,10 @@ for change in changes:
             requirements += 1; scenarios += len(parts)
 assert seen == {f'L{i:02d}' for i in range(1,20)}, f'Incorrect required source IDs: {seen}'
 for p in root.rglob('*'):
-    if not p.is_file() or any(x in p.parts for x in ['node_modules','.venv','.git','.entire']): continue
+    rel = p.relative_to(root)
+    if not p.is_file() or 'node_modules' in rel.parts: continue
+    # Skip tool, venv, and local control-checkout trees: runtime state is not documentation.
+    if any(part.startswith('.') for part in rel.parts): continue
     if p.suffix in ['.md','.yaml','.json','.sh','.py']:
         assert not re.search(r'[\u3400-\u9fff]',p.read_text()), f'Non-English content in {p}'
 print(json.dumps({'changes':len(changes),'active':len(active),'archived':len(archived),
