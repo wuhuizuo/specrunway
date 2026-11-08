@@ -323,6 +323,18 @@ def _log_path_fallback(
     return None
 
 
+def _failure_details(output: dict, error: dict) -> dict:
+    """Scalar step data that explains a refusal (for example budget numbers)."""
+    details: dict = {}
+    for source in (output.get("data"), error.get("details")):
+        if not isinstance(source, dict):
+            continue
+        for key, value in source.items():
+            if value is None or isinstance(value, (str, int, float, bool)):
+                details[str(key)] = value
+    return details
+
+
 def record_native_failure(
     store: FileRunStore,
     execution_id: str,
@@ -344,13 +356,23 @@ def record_native_failure(
         step_id, row = step
         output = row.get("output") if isinstance(row.get("output"), dict) else {}
         error = output.get("error") if isinstance(output.get("error"), dict) else {}
+        code = str(error.get("code") or "step-failed")
+        message = str(error.get("message") or "").strip()
+        row_error = row.get("error")
+        if not message and isinstance(row_error, str):
+            row_error = row_error.strip()
+            if row_error and row_error != code:
+                message = row_error
         failure = {
             "step_id": step_id,
-            "code": str(error.get("code") or "step-failed"),
-            "message": str(row.get("error") or error.get("message") or "step failed"),
+            "code": code,
+            "message": message or "step failed",
             "log_path": _find_log_path(output),
             "native_run_id": (native or {}).get("run_id"),
         }
+        details = _failure_details(output, error)
+        if details:
+            failure["details"] = details
     if not failure:
         failure = {
             "step_id": None,
@@ -442,6 +464,7 @@ def start_execution(
     snapshot = _snapshot(store, execution_id)
     with store.lock(timeout=5.0):
         store.claim_activity(execution_id)
+        store.mark_activated(execution_id)
         _set_phase(store, execution_id, "implementing")
     workflow_file = _write_workflow(control_root, execution_id, snapshot)
     payload = run_workflow(
@@ -487,6 +510,7 @@ def continue_execution(
     verdict_input = "plan_verdict" if kind == "plan" else "implementation_verdict"
     with store.lock(timeout=5.0):
         store.claim_activity(execution_id)
+        store.mark_activated(execution_id)
         _set_phase(
             store,
             execution_id,

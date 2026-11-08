@@ -17,8 +17,11 @@ from specrunway.bridge.actions import (
     action_run_repo,
     action_verify_round,
 )
+from specrunway.bridge.workflow import workflow_id_for
 from specrunway.freezer import freeze_execution, new_execution_id
-from specrunway.runstore import FileRunStore, atomic_write_json
+from specrunway.recovery import execution_status
+from specrunway.runner import RunError, record_native_failure
+from specrunway.runstore import FileRunStore, _now, atomic_write_json
 
 REPO = Path(__file__).resolve().parents[1]
 FAKE_AGENT = Path(__file__).with_name("fake_agent_cli.py")
@@ -238,6 +241,95 @@ def test_total_minutes_budget_refuses_attempt(budgeted, monkeypatch):
         action_run_repo(_cfg(budgeted, store, execution_id, "run-repo", repo="repo-a"), None)
     assert stopped.value.output["error"]["code"] == "budget-exhausted"
     assert "total budget" in stopped.value.output["error"]["message"]
+
+
+def test_total_budget_counts_from_last_activation(budgeted, monkeypatch):
+    """A plan gate left open for days must not spend the next activation's budget."""
+    monkeypatch.setenv("SPECRUNWAY_FAKE_SCENARIO", "pass")
+    store, execution_id, _snapshot = _freeze(budgeted, budget={"total_minutes": 1})
+    state = store.read_state(execution_id)
+    state["created_at"] = "2020-01-01T00:00:00Z"
+    state["last_activated_at"] = _now()
+    atomic_write_json(store.run_dir(execution_id) / "state.json", state)
+
+    result = action_run_repo(
+        _cfg(budgeted, store, execution_id, "run-repo", repo="repo-a"), None
+    )
+    assert result["data"]["passed"] is True
+    state = store.read_state(execution_id)
+    assert state["budgets"]["repo-a"]["attempts_used"] == 1
+    assert state["phase"] != "blocked"
+
+
+def test_stale_freeze_is_refused_before_spending_an_attempt(budgeted, monkeypatch):
+    monkeypatch.setenv("SPECRUNWAY_FAKE_SCENARIO", "pass")
+    store, execution_id, snapshot = _freeze(budgeted, budget={"total_minutes": 120})
+    snapshot["created_at"] = "2020-01-01T00:00:00Z"
+    atomic_write_json(store.run_dir(execution_id) / "snapshot.json", snapshot)
+
+    with pytest.raises(SpecRunwayActionError) as refused:
+        action_run_repo(_cfg(budgeted, store, execution_id, "run-repo", repo="repo-a"), None)
+    output = refused.value.output
+    assert output["error"]["code"] == "freeze-stale"
+    assert output["error"]["code"] != "budget-exhausted"
+    assert "re-freeze" in output["error"]["message"]
+    assert "specrunway run --change budget-demo" in output["error"]["message"]
+    assert output["data"]["total_minutes"] == 120
+    assert output["data"]["age_minutes"] > 120
+    assert output["data"]["frozen_at"] == "2020-01-01T00:00:00Z"
+
+    state = store.read_state(execution_id)
+    assert (state.get("budgets") or {}).get("repo-a") is None
+    assert state["phase"] == "blocked"
+
+
+def test_budget_failure_keeps_message_and_numbers_in_last_failure(budgeted, monkeypatch):
+    monkeypatch.setenv("SPECRUNWAY_FAKE_SCENARIO", "pass")
+    store, execution_id, _snapshot = _freeze(budgeted, budget={"total_minutes": 1})
+    state = store.read_state(execution_id)
+    state["created_at"] = "2020-01-01T00:00:00Z"
+    state.pop("last_activated_at", None)
+    atomic_write_json(store.run_dir(execution_id) / "state.json", state)
+
+    with pytest.raises(SpecRunwayActionError) as stopped:
+        action_run_repo(_cfg(budgeted, store, execution_id, "run-repo", repo="repo-a"), None)
+    output = stopped.value.output
+    assert output["error"]["code"] == "budget-exhausted"
+
+    native_dir = budgeted["control"] / ".specify" / "workflows" / "runs" / "native-1"
+    native_dir.mkdir(parents=True)
+    atomic_write_json(
+        native_dir / "state.json",
+        {
+            "workflow_id": workflow_id_for(execution_id),
+            "run_id": "native-1",
+            "updated_at": "2026-01-01T00:00:00Z",
+            "current_step_id": "implement:repo:0",
+            "step_results": {
+                "implement:repo:0": {
+                    "status": "failed",
+                    "error": output["error"]["code"],
+                    "output": output,
+                }
+            },
+        },
+    )
+    failure = record_native_failure(
+        store,
+        execution_id,
+        budgeted["control"],
+        RunError("workflow-failed", "native workflow failed"),
+        native_run_id="native-1",
+    )
+    assert failure["message"] == output["error"]["message"]
+    assert failure["message"] != "budget-exhausted"
+    assert "total budget" in failure["message"]
+    assert failure["details"]["total_minutes"] == 1
+    assert failure["details"]["elapsed_minutes"] > 1
+
+    status = execution_status(budgeted["control"], execution_id)
+    assert status["last_failure"]["message"] == failure["message"]
+    assert status["last_failure"]["details"] == failure["details"]
 
 
 def test_run_repo_keeps_result_evidence_out_of_the_worktree(budgeted):

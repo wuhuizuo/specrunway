@@ -249,6 +249,7 @@ def _resume_native(
             "execution-blocked",
             f"execution blocked: {state.get('blocked_reason') or 'budget/no-progress stop'}",
         )
+    store.mark_activated(execution_id)
     payload = run_workflow(
         store,
         execution_id,

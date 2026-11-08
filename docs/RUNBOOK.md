@@ -220,6 +220,8 @@ Execution order:
 | Retryable native failure | `specrunway status`, then `specrunway resume` | `last_failure` names the step, code, and log; native resume does not re-run completed steps |
 | Paused/failed, fresh start wanted | `specrunway abandon` | Releases the active-owner record; refuses `owner-alive`; run state stays for review |
 | Blocked budget/no-progress | — | `specrunway status` shows `blocked`; preserve worktrees for takeover |
+| `freeze-stale` before the first attempt | `specrunway run --change <change_id>` | The snapshot is older than the total-minute limit; no attempt was spent. Re-freeze instead of resuming the stale inputs |
+| Total budget measured wrongly after a gate wait | — | The budget counts from the last activation (start/resume), not from execution creation; `last_failure.details` reports `elapsed_minutes` and `total_minutes` |
 | Orphan `running`, owner dead | `specrunway recover` | Old run preserved `abandoned-running`, new native run same execution, verified receipts reused |
 | Orphan `running`, owner alive | — | `specrunway recover` refuses `orphan-alive`; stop the process first |
 | Archive outcome unknown | `specrunway recover` | Path-based reconciliation records the proven result; mixed state stays blocked |

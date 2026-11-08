@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import os
 import shutil
-from datetime import UTC
+from datetime import UTC, datetime
 from pathlib import Path
 
 from specrunway.approvals import GateError, require_gate
@@ -152,11 +152,42 @@ def _budget(manifest: dict) -> dict:
     return {key: int(configured.get(key, default)) for key, default in DEFAULT_BUDGET.items()}
 
 
-def _elapsed_minutes(created_at: str) -> float:
-    from datetime import datetime
+def _parse_timestamp(value: str) -> datetime:
+    """Parse an RFC 3339 timestamp written with ``Z`` or an explicit offset."""
+    text = str(value or "").strip()
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    parsed = datetime.fromisoformat(text)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed
 
-    started = datetime.strptime(created_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
-    return (datetime.now(UTC) - started).total_seconds() / 60.0
+
+def _age_minutes(value: str) -> float:
+    """Age of a stored timestamp; an absent or malformed value is not stale."""
+    if not value:
+        return 0.0
+    try:
+        started = _parse_timestamp(value)
+    except ValueError:
+        return 0.0
+    return max(0.0, (datetime.now(UTC) - started).total_seconds() / 60.0)
+
+
+def _activation_time(state: dict) -> str:
+    """The last start/resume mark, falling back to execution creation."""
+    return str(state.get("last_activated_at") or state.get("created_at") or "")
+
+
+def _has_started_work(state: dict) -> bool:
+    for row in (state.get("budgets") or {}).values():
+        if isinstance(row, dict) and int(row.get("attempts_used") or 0) > 0:
+            return True
+    return False
+
+
+def _minutes(value: float) -> float:
+    return round(max(0.0, value), 3)
 
 
 def _block(store: FileRunStore, execution_id: str, reason: str) -> None:
@@ -288,7 +319,11 @@ def action_run_repo(config: dict, context) -> dict:
             envelope(
                 "run-repo",
                 False,
-                {"repo_id": repo_id, "max_attempts": budget["repo_max_attempts"]},
+                {
+                    "repo_id": repo_id,
+                    "attempts_used": attempt - 1,
+                    "max_attempts": budget["repo_max_attempts"],
+                },
                 store_uid=snapshot["store_uid"],
                 change_uid=snapshot["change_uid"],
                 execution_id=execution_id,
@@ -302,22 +337,65 @@ def action_run_repo(config: dict, context) -> dict:
                 },
             ),
         )
+    if attempt == 1 and not _has_started_work(state):
+        frozen_at = str(snapshot.get("created_at") or "")
+        age = _age_minutes(frozen_at)
+        if age > budget["total_minutes"]:
+            _block(
+                store,
+                execution_id,
+                f"frozen snapshot is stale for {snapshot['change_id']}; re-freeze",
+            )
+            raise SpecRunwayActionError(
+                "freeze-stale",
+                envelope(
+                    "run-repo",
+                    False,
+                    {
+                        "repo_id": repo_id,
+                        "frozen_at": frozen_at or None,
+                        "age_minutes": _minutes(age),
+                        "total_minutes": budget["total_minutes"],
+                    },
+                    store_uid=snapshot["store_uid"],
+                    change_uid=snapshot["change_uid"],
+                    execution_id=execution_id,
+                    error={
+                        "code": "freeze-stale",
+                        "message": (
+                            f"frozen snapshot for {snapshot['change_id']} is "
+                            f"{age:.0f} minutes old (limit {budget['total_minutes']}); "
+                            f"re-freeze with `specrunway run --change "
+                            f"{snapshot['change_id']}` before work starts"
+                        ),
+                        "retryable": False,
+                    },
+                ),
+            )
     _remove_result_file(worktree, run_dir, repo_id, attempt, "stale-result")
-    if _elapsed_minutes(state["created_at"]) > budget["total_minutes"]:
+    activation = _activation_time(state)
+    elapsed = _age_minutes(activation)
+    if elapsed > budget["total_minutes"]:
         _block(store, execution_id, "total time budget exhausted")
         raise SpecRunwayActionError(
             "budget-exhausted",
             envelope(
                 "run-repo",
                 False,
-                {"repo_id": repo_id, "total_minutes": budget["total_minutes"]},
+                {
+                    "repo_id": repo_id,
+                    "activated_at": activation or None,
+                    "elapsed_minutes": _minutes(elapsed),
+                    "total_minutes": budget["total_minutes"],
+                },
                 store_uid=snapshot["store_uid"],
                 change_uid=snapshot["change_uid"],
                 execution_id=execution_id,
                 error={
                     "code": "budget-exhausted",
                     "message": (
-                        f"execution exceeded the {budget['total_minutes']} minute total budget"
+                        f"execution exceeded the {budget['total_minutes']} minute "
+                        f"total budget ({elapsed:.1f} minutes since the last activation)"
                     ),
                     "retryable": False,
                 },
@@ -708,7 +786,11 @@ def action_repair_round(config: dict, context) -> dict:
             envelope(
                 "repair-round",
                 False,
-                {"repos": failing, "rounds_used": repairs},
+                {
+                    "repos": failing,
+                    "rounds_used": repairs,
+                    "max_repairs": budget["integration_max_repairs"],
+                },
                 store_uid=snapshot["store_uid"],
                 change_uid=snapshot["change_uid"],
                 execution_id=execution_id,

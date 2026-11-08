@@ -504,9 +504,21 @@ def cmd_status(args: argparse.Namespace) -> int:
     detail = ""
     failure = data.get("last_failure")
     if failure:
+        message = str(failure.get("message") or "").strip()
+        message_detail = (
+            f" {message}" if message and message != failure.get("code") else ""
+        )
+        details = failure.get("details") or {}
+        numbers = ", ".join(
+            f"{key}={value}"
+            for key, value in sorted(details.items())
+            if isinstance(value, (int, float, str, bool))
+        )
+        numbers_detail = f" ({numbers})" if numbers else ""
         detail = (
             f"; last failed step {failure.get('step_id') or 'unknown'} "
-            f"[{failure.get('code')}] log {failure.get('log_path') or 'unavailable'}"
+            f"[{failure.get('code')}]{message_detail}{numbers_detail} "
+            f"log {failure.get('log_path') or 'unavailable'}"
         )
     _emit(
         payload,

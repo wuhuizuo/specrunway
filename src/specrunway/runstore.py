@@ -128,6 +128,27 @@ class FileRunStore:
         if path.is_file():
             path.unlink()
 
+    def mark_activated(self, execution_id: str) -> dict:
+        """Record when the execution last became active (start or resume).
+
+        The total-time budget is measured from this mark, so time spent waiting
+        at a review gate does not spend execution budget.
+        """
+        last_conflict: RevisionConflictError | None = None
+        for _attempt in range(3):
+            current = self.read_state(execution_id)
+
+            def mutate(next_state: dict) -> None:
+                next_state["last_activated_at"] = _now()
+
+            try:
+                return self.update_state(execution_id, mutate, current["revision"])
+            except RevisionConflictError as exc:
+                last_conflict = exc
+        raise last_conflict or RevisionConflictError(
+            f"{self.run_dir(execution_id) / 'state.json'} changed under mark_activated"
+        )
+
     def _active_path(self) -> Path:
         return self.specrunway_root / ACTIVE_FILE
 

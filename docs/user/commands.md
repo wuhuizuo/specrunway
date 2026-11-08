@@ -216,11 +216,18 @@ without `--continue` is rejected (`execution-conflict`); `--continue` without
 pending approval receipt against the frozen snapshot; use `resume` when you
 also need live plan revalidation.
 
+The total-time budget is measured from the execution's last activation (start
+or resume), not from its creation, so time spent at a plan or implementation
+gate does not consume it. Before the first repository attempt, a frozen
+snapshot older than the total-minute limit is refused with `freeze-stale` and
+no attempt is recorded; the message tells you to re-freeze with
+`specrunway run --change <change_id>`.
+
 Stable codes: `manifest-missing`, `change-missing`, `repo-unconfigured`,
 `execution-conflict`, `execution-required`, `specify-not-initialized`,
-`workflow-output`, `workflow-failed`, `run-not-started`, plus the shared
-runtime codes and gate codes (`no-approval`, `approval-rejected`,
-`approval-mismatch`, `approval-corrupt`).
+`workflow-output`, `workflow-failed`, `run-not-started`, `freeze-stale`,
+`budget-exhausted`, plus the shared runtime codes and gate codes
+(`no-approval`, `approval-rejected`, `approval-mismatch`, `approval-corrupt`).
 
 While the native workflow runs, `run` (and `resume`/`recover`) writes
 `[native]` step transitions and durations to stderr. With `--json`, stdout
@@ -294,12 +301,16 @@ It stops on Ctrl-C. With `--json`, follow emits one `specrunway/v1` event
 object per line (JSON Lines) rather than a single envelope.
 
 `last_failure` is `null` after a run pauses or completes again. When a native
-step failed, it records `step_id`, `code`, `message`, `log_path`, and
-`native_run_id`. The step id names the exact unit that stopped the run (for
-example `implement:repo:0`), the code is the bridge's stable error code (for
-example `agent-failed` or `result-rejected`), and `log_path` is the agent or
-test log that explains it. The non-JSON output prints the same three values on
-the status line.
+step failed, it records `step_id`, `code`, `message`, `log_path`,
+`native_run_id`, and, when the step reported explanatory values, `details`.
+The step id names the exact unit that stopped the run (for example
+`implement:repo:0`), the code is the bridge's stable error code (for example
+`agent-failed`, `result-rejected`, `freeze-stale`, or `budget-exhausted`),
+and `log_path` is the agent or test log that explains it. `message` keeps the
+human explanation rather than repeating the code; `details` keeps the scalar
+numbers from the failed step, such as `elapsed_minutes` and `total_minutes`
+for a budget refusal. The non-JSON output prints the step id, code, message,
+numbers, and log path on the status line.
 
 Stable codes: `snapshot-missing`, `no-execution`, `state-corrupt`.
 

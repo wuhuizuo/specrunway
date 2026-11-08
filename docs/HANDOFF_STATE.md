@@ -259,10 +259,11 @@ Updated: 1 November 2026 (L01-L18 complete and archived; L19 guided onboarding i
 
 ## Current change
 
-None. Four central Store changes are archived in `specrunway-docs`:
-`user-docs-v1`, `p0-fixes-v1`, `archive-ownership-v1`, and
-`run-observability-v1`; this repository's own `openspec/` baseline has
-`09-guided-onboarding` archived and no active change.
+`budget-accounting-v1` is implemented and waiting for review in the central
+Store `specrunway-docs` (four tasks, capability `execution-budget`). Four
+earlier central Store changes are archived: `user-docs-v1`, `p0-fixes-v1`,
+`archive-ownership-v1`, and `run-observability-v1`; this repository's own
+`openspec/` baseline has `09-guided-onboarding` archived and no active change.
 
 ## Repository state
 
@@ -325,13 +326,34 @@ None. Four central Store changes are archived in `specrunway-docs`:
   Verification used the repository test profile; see the evidence file for
   the exact command and result.
 
+## Completed work: budget accounting
+
+- T001: `state.last_activated_at` is written on start and resume
+  (`FileRunStore.mark_activated`), and the total-minute check in `run-repo`
+  measures from that mark with execution `created_at` only as a legacy
+  fallback. Time spent at a plan or implementation gate no longer spends the
+  budget.
+- T002: before the first repository attempt of an execution, a snapshot older
+  than the manifest `total_minutes` is refused with `freeze-stale` and a
+  re-freeze hint. The execution is marked blocked and `attempts_used` stays
+  unchanged; the code is distinct from `budget-exhausted`.
+- T003: `record_native_failure` prefers the step's human `error.message` over a
+  bare `row.error` code and records scalar step data in
+  `last_failure.details` (for example `elapsed_minutes`, `total_minutes`,
+  `repo_id`, `attempt`). `status` and its text line show the message and
+  numbers; budget refusal envelopes carry the same values.
+- T004: `docs/user/commands.md`, `docs/user/troubleshooting.md`,
+  `docs/RUNBOOK.md`, `docs/DECISIONS.md` (D16), and
+  `docs/evidence/16-budget-accounting-v1.md` document the behavior and the
+  shipped codes.
+- Verification: trusted profile `bash scripts/worktree_check.sh` reported
+  `264 passed in 241.85s` (exit 0; three regression cases added), and
+  `ruff check src/specrunway tests` passed. See
+  `docs/evidence/16-budget-accounting-v1.md` for the exact commands.
+
 ## Exact next action
 
-Freeze and run central Store change `budget-accounting-v1` (planned, four
-tasks): measure the total-time budget from the execution's last activation,
-refuse a stale freeze with `freeze-stale` before spending an attempt, and keep
-the message and numbers in `last_failure`. Its capability delta is
-`execution-budget`, planned without hand edits because `Spec-Head` naming now
-works. One decision stays open: whether to implement the `## What Changes`
-extraction fix from the P0 report. Tag `v0.1.0` / GitHub Release only after
-explicit approval; v2 work stays deferred.
+Review, merge, and archive central Store change `budget-accounting-v1`
+(capability `execution-budget`). One decision stays open: whether to implement
+the `## What Changes` extraction fix from the P0 report. Tag `v0.1.0` /
+GitHub Release only after explicit approval; v2 work stays deferred.

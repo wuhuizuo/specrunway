@@ -76,7 +76,8 @@ specrunway status --execution "$EXEC" --json
   "step_id": "implement:repo:0",
   "code": "agent-failed",
   "message": "agent did not complete: exit 1",
-  "log_path": "…/logs/repo-a/1/agent.log"
+  "log_path": "…/logs/repo-a/1/agent.log",
+  "details": {"attempt": 1, "repo_id": "repo-a"}
 }
 ```
 
@@ -127,7 +128,12 @@ attempts, two integration repair rounds, and 120 minutes total.
 
 - `budget-exhausted`: stop. A human must inspect the worktree, logs, and test
   evidence, then decide whether to repair manually or start a new execution
-  with a corrected request or budget.
+  with a corrected request or budget. `last_failure.details` keeps the
+  `elapsed_minutes` and `total_minutes` that triggered the refusal.
+- `freeze-stale`: the frozen snapshot is older than the total-time limit and
+  no repository attempt was spent. Re-freeze with
+  `specrunway run --change <change_id>` so base commits and approved inputs are
+  current; do not resume the old freeze.
 - `no-progress`: the same failure repeated at the same head. Do not loop; fix
   the underlying cause and start a new execution.
 - `execution-blocked` from `resume`: the execution is already blocked.
