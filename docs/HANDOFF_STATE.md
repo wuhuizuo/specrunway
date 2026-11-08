@@ -233,15 +233,36 @@ Updated: 1 November 2026 (L01-L18 complete and archived; L19 guided onboarding i
   Store strict validation passes for `execution-lifecycle`, `change-planning`,
   `execution-recovery`, and `specrunway-delivery`.
 
+## Completed work: run-observability-v1 (progress and gate affordances)
+
+- `specrunway status` now reports `current_step` (id, status, timestamps,
+  elapsed seconds) and `native_log_path`; `status --follow` streams step
+  transitions until the workflow settles or the operator interrupts.
+- New `specrunway executions` lists executions with phase, pending gate, change,
+  and the active marker; `approve --pending` resolves the single execution that
+  waits for that gate; `approve --interactive` asks y/N on a TTY and refuses
+  without one, recording the same receipt.
+- New `specrunway logs --execution [--repo] [--attempt] [--follow]` enumerates
+  and tails agent, trusted-test, and native workflow logs without the operator
+  knowing the run-directory layout.
+- `run`/`resume` forward native progress to stderr through temporary files
+  (never pipes), so stdout stays one `specrunway/v1` envelope under `--json`.
+- Execution `61d595ad-…` finished on the first attempt: accepted head
+  `cb3db47`, 261 tests passed (14 new), merged fast-forward, archived as
+  `2026-11-08-run-observability-v1`. The new commands were exercised against
+  the live execution before approval; outputs are in
+  `docs/evidence/15-run-observability-v1.md`.
+- Two gaps found while driving it are recorded there and need a future change:
+  the total-time budget counts wall-clock from execution creation (a six-day
+  gate wait exhausted it with zero agent work), and `last_failure.message` keeps
+  only the bare code instead of the budget detail.
+
 ## Current change
 
-None in this repository. Three central Store changes are archived:
-`user-docs-v1`, `p0-fixes-v1`, and `archive-ownership-v1`; they live in
-`specrunway-docs` rather than `openspec/` here. `09-guided-onboarding` was
-reviewed and archived as `openspec/changes/archive/2026-11-01-09-guided-onboarding/`,
-so this repository has no active OpenSpec change and its baseline carries
-`guided-onboarding` plus the optional-integration requirements in
-`trusted-verification`.
+None. Four central Store changes are archived in `specrunway-docs`:
+`user-docs-v1`, `p0-fixes-v1`, `archive-ownership-v1`, and
+`run-observability-v1`; this repository's own `openspec/` baseline has
+`09-guided-onboarding` archived and no active change.
 
 ## Repository state
 
@@ -306,9 +327,10 @@ so this repository has no active OpenSpec change and its baseline carries
 
 ## Exact next action
 
-Finish and review central Store change `run-observability-v1`: run the trusted
-profile (`bash scripts/worktree_check.sh`), inspect the acceptance evidence in
-`docs/evidence/15-run-observability-v1.md`, then merge and archive through the
-explicit coordinator flow. Tag `v0.1.0` / GitHub Release only after explicit
-approval; v2 work stays deferred. The `## What Changes` extraction fix from the
-P0 report remains an open decision outside this change.
+Plan the two gaps recorded in `docs/evidence/15-run-observability-v1.md` as one
+central Store change: make the total-time budget count active execution time
+(or refuse a stale freeze with its own code before spending an attempt), and
+keep the human message and numbers in `last_failure` instead of the bare error
+code. Decide separately whether to implement the `## What Changes` extraction
+fix from the P0 report. Tag `v0.1.0` / GitHub Release only after explicit
+approval; v2 work stays deferred.

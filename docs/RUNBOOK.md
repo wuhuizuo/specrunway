@@ -261,8 +261,17 @@ for the recorded execution (it returns `already_archived`).
 
 ```bash
 openspec store unregister my-store --json   # disposable fixtures only
+git worktree remove --force <control>/.specrunway/runs/<execution>/worktrees/<repo>
+git worktree prune
 rm -rf <control>/.specrunway/runs/<execution>      # after evidence is captured
 ```
+
+An archived execution's worktree is a workspace, not evidence: its commits are
+in the base ref and the change backup lives under
+`<execution>/archive-backup/`. Removing worktrees took this repository's runs
+from about 380 MB to under 2 MB while keeping snapshots, state, results, test
+receipts, and archive backups. Remove a worktree through `git worktree remove`
+rather than `rm -rf`, then run `git worktree prune`.
 
 Preserve a usable failure scene (worktrees, logs, receipts) before cleanup
 when investigating a failure.

@@ -75,3 +75,51 @@ Result: `All checks passed!`
 the execution settles so a paused run does not block the terminal. Following a
 running execution still requires the operator to keep the process alive or
 interrupt it with Ctrl-C.
+
+## Review performed after `ready_for_review`
+
+Merged as `cb3db47` and archived as `2026-11-08-run-observability-v1`.
+Independent checks, run against the execution worktree's own package so the
+new code answered for real data:
+
+```text
+$ specrunway executions
+61d595ad-... awaiting_implementation_review pending=implementation change=run-observability-v1 active
+8d09d111-... blocked                        pending=plan           change=run-observability-v1
+0c300426-... archived                       pending=none           change=archive-ownership-v1
+
+$ specrunway status --execution 61d595ad-... --json
+current_step: implementation-gate | status: paused | elapsed: 0.001
+native_log_path: .../.specify/workflows/runs/677544c1/log.jsonl
+
+$ specrunway logs --execution 61d595ad-...
+agent  specrunway/1  .../logs/specrunway/1/agent.log    (218001 bytes)
+test   specrunway/1  .../logs/specrunway/1/tests.log    (3043 bytes)
+native 677544c1/1    .../.specify/workflows/runs/677544c1/log.jsonl (2663 bytes)
+
+$ specrunway status --execution 61d595ad-... --follow
+status awaiting_implementation_review: implementation-gate paused in 0.0s pending_gate=implementation log .../log.jsonl
+```
+
+Trusted verification: 261 passed, exit 0, 210.8s (14 new cases). The progress
+path uses temporary files rather than pipes, so a slow reader cannot block the
+native workflow.
+
+## Findings recorded during this round
+
+Two gaps showed up while driving the run and are candidates for a later change:
+
+1. **Total-time budget counts wall-clock from execution creation.** A plan gate
+   left open for six days made the next attempt fail at the first repository
+   step with `budget-exhausted` and zero agent work. Either the budget should
+   count active execution time only, or `resume`/`run` should refuse a stale
+   freeze with its own code before spending an attempt.
+2. **`last_failure.message` loses the budget detail.** It recorded the bare
+   string `budget-exhausted` while the step envelope carried "exceeded the 180
+   minute total budget". The failure row should keep the human message and the
+   relevant numbers.
+
+Cleanup after this round removed the archived executions' worktrees through
+`git worktree remove --force` plus `git worktree prune`, and deleted three
+abandoned/unreferenced executions; run evidence (snapshots, state, results,
+receipts, archive backups) stays. `.srrunway` went from about 380 MB to 1.8 MB.
