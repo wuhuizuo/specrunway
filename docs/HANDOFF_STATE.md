@@ -257,13 +257,34 @@ Updated: 1 November 2026 (L01-L18 complete and archived; L19 guided onboarding i
   gate wait exhausted it with zero agent work), and `last_failure.message` keeps
   only the bare code instead of the budget detail.
 
+## Completed work: budget-accounting-v1 (budget semantics and refusal detail)
+
+- The total-time budget now counts from `state.last_activated_at`, written by
+  `FileRunStore.mark_activated` on start, resume, native resume, and recovery's
+  new native run; `created_at` remains only as a fallback for older state, so
+  time spent at a review gate no longer spends the budget.
+- A snapshot older than `total_minutes` is refused before the first repository
+  attempt with `freeze-stale`, an age and limit, and a re-freeze hint, and no
+  attempt is recorded. `_failure_details` keeps the human message and scalar
+  numbers in `last_failure`, so `status` explains a refusal instead of showing
+  the bare code.
+- Execution `670e797c-…` needed two attempts: the first finished the work but
+  wrote `result.json` to `.sr-control/` instead of the worktree root and exited
+  1. Attempt 2 continued the same agent session and passed the trusted profile
+  with 264 tests. Accepted head `d9d9410`, merged fast-forward, archived as
+  `2026-11-08-budget-accounting-v1`.
+- T001 and T002 still need their live check: the execution ran the pre-change
+  package, so `last_activated_at` is absent there; the next start or resume
+  after this merge writes it. Test evidence is in
+  `docs/evidence/16-budget-accounting-v1.md`.
+
 ## Current change
 
-`budget-accounting-v1` is implemented and waiting for review in the central
-Store `specrunway-docs` (four tasks, capability `execution-budget`). Four
-earlier central Store changes are archived: `user-docs-v1`, `p0-fixes-v1`,
-`archive-ownership-v1`, and `run-observability-v1`; this repository's own
-`openspec/` baseline has `09-guided-onboarding` archived and no active change.
+None. Five central Store changes are archived in `specrunway-docs`:
+`user-docs-v1`, `p0-fixes-v1`, `archive-ownership-v1`, `run-observability-v1`,
+and `budget-accounting-v1`; that Store now carries six capabilities. This
+repository's own `openspec/` baseline has `09-guided-onboarding` archived and
+no active change.
 
 ## Repository state
 
@@ -353,7 +374,16 @@ earlier central Store changes are archived: `user-docs-v1`, `p0-fixes-v1`,
 
 ## Exact next action
 
-Review, merge, and archive central Store change `budget-accounting-v1`
-(capability `execution-budget`). One decision stays open: whether to implement
-the `## What Changes` extraction fix from the P0 report. Tag `v0.1.0` /
-GitHub Release only after explicit approval; v2 work stays deferred.
+Two follow-ups came out of `budget-accounting-v1` and belong in one central
+Store change:
+
+- state the absolute `result.json` path in the execution prompt instead of
+  "working directory root"; attempt 1 of `budget-accounting-v1` lost a full
+  attempt by writing it to `.sr-control/`.
+- make the attempt number visible to the agent, because a reused session
+  reported the wrong attempt in the evidence it wrote.
+
+Then confirm the live `last_activated_at` write on the next run. Decide
+separately whether to implement the `## What Changes` extraction fix from the
+P0 report. Tag `v0.1.0` / GitHub Release only after explicit approval; v2 work
+stays deferred.

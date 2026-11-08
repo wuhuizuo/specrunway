@@ -3,7 +3,8 @@
 Date: 8 November 2026
 
 Execution: `670e797c-c156-43ac-8cd6-56a4670cc204` (repo `specrunway`,
-attempt 1, base `19a2c7c0ffe53d32551f0dd39a29cd446cc69f46`).
+attempt 2, base `19a2c7c0ffe53d32551f0dd39a29cd446cc69f46`; attempt 1 is
+recorded below).
 
 ## Delivered behavior
 
@@ -96,3 +97,32 @@ only before the first repository attempt of an execution. A run that has
 already started work is not forced to re-freeze after an implementation-gate
 wait; its accepted results and worktrees remain valid. Re-freezing creates a
 new execution and does not migrate old attempts.
+
+## Attempt 1 and what it exposed
+
+Attempt 1 finished the work (`d9d9410`, 264 tests) but exited 1 after its
+summary, and it wrote `result.json` to `.sr-control/result.json` instead of the
+worktree root, so the coordinator rejected the attempt. The stray file is kept
+at `runs/670e797c-…/misplaced-result-attempt1.json`.
+
+The prompt says "write a JSON file result.json in the working directory root".
+The coordinator knows the absolute path and should state it, because the agent
+otherwise has to infer which checkout is the working directory. This is the
+cheapest remaining fix for wasted attempts and belongs in the next change.
+
+Attempt 2 continued the same `opencode` session through the per-change session
+id. That reuse worked, but it also carried stale context: this document was
+written during attempt 2 while the agent still described itself as attempt 1.
+Session reuse needs an attempt marker the agent can see, or the evidence it
+writes will misreport which attempt produced it.
+
+## Review performed after `ready_for_review`
+
+Merged as `d9d9410` and archived as `2026-11-08-budget-accounting-v1`.
+Checks: trusted profile 264 passed in 230.0s; Store strict validation 6/6; the
+archived `execution-budget` capability carries the request purpose.
+
+T001 and T002 have test evidence only at this point: the execution itself ran
+the pre-change package, so `state.last_activated_at` is still absent for it.
+The field is written on the next start or resume after the merge, and that is
+the live check to make when the next change runs.
