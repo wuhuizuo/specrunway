@@ -327,10 +327,11 @@ None. Four central Store changes are archived in `specrunway-docs`:
 
 ## Exact next action
 
-Plan the two gaps recorded in `docs/evidence/15-run-observability-v1.md` as one
-central Store change: make the total-time budget count active execution time
-(or refuse a stale freeze with its own code before spending an attempt), and
-keep the human message and numbers in `last_failure` instead of the bare error
-code. Decide separately whether to implement the `## What Changes` extraction
-fix from the P0 report. Tag `v0.1.0` / GitHub Release only after explicit
-approval; v2 work stays deferred.
+Freeze and run central Store change `budget-accounting-v1` (planned, four
+tasks): measure the total-time budget from the execution's last activation,
+refuse a stale freeze with `freeze-stale` before spending an attempt, and keep
+the message and numbers in `last_failure`. Its capability delta is
+`execution-budget`, planned without hand edits because `Spec-Head` naming now
+works. One decision stays open: whether to implement the `## What Changes`
+extraction fix from the P0 report. Tag `v0.1.0` / GitHub Release only after
+explicit approval; v2 work stays deferred.
