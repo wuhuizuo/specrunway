@@ -75,16 +75,24 @@ def native_status(control_root: Path, run_id: str) -> dict:
 
 
 def execution_status(control_root: Path, execution_id: str) -> dict:
-    store = FileRunStore(Path(control_root) / ".specrunway")
+    from specrunway.observability import current_step, native_log_path
+
+    control_root = Path(control_root)
+    store = FileRunStore(control_root / ".specrunway")
     snapshot = _snapshot(store, execution_id)
     state = store.read_state(execution_id)
     owner = store.active_owner()
+    step = current_step(control_root, execution_id, state)
+    native_log = native_log_path(control_root, state.get("native_run_id"))
     return {
         "execution_id": execution_id,
         "phase": state.get("phase"),
         "pending_gate": state.get("pending_gate"),
         "native_run_id": state.get("native_run_id"),
         "native_runs": state.get("native_runs") or [],
+        "current_step": step,
+        "running_step": step,
+        "native_log_path": str(native_log) if native_log and native_log.is_file() else None,
         "revision": state.get("revision"),
         "active_owner": owner,
         "budgets": state.get("budgets") or {},
@@ -205,7 +213,12 @@ def _preserve_native_run(
     store.update_state(execution_id, mutate, state["revision"])
 
 
-def _resume_native(control_root: Path, store: FileRunStore, execution_id: str) -> dict:
+def _resume_native(
+    control_root: Path,
+    store: FileRunStore,
+    execution_id: str,
+    progress_stream=None,
+) -> dict:
     from specrunway.runner import (
         _record_pause,
         continue_execution,
@@ -226,21 +239,31 @@ def _resume_native(control_root: Path, store: FileRunStore, execution_id: str) -
     if native == "completed":
         return status
     if state.get("pending_gate"):
-        return continue_execution(control_root, execution_id)
+        if progress_stream is None:
+            return continue_execution(control_root, execution_id)
+        return continue_execution(
+            control_root, execution_id, progress_stream=progress_stream
+        )
     if state.get("phase") == "blocked":
         raise RecoveryError(
             "execution-blocked",
             f"execution blocked: {state.get('blocked_reason') or 'budget/no-progress stop'}",
         )
     payload = run_workflow(
-        store, execution_id, Path(control_root), ["workflow", "resume", str(native_run_id)]
+        store,
+        execution_id,
+        Path(control_root),
+        ["workflow", "resume", str(native_run_id)],
+        progress_stream=progress_stream,
     )
     with store.lock(timeout=5.0):
         _record_pause(store, execution_id, payload)
     return payload
 
 
-def resume_execution(control_root: Path, execution_id: str) -> dict:
+def resume_execution(
+    control_root: Path, execution_id: str, progress_stream=None
+) -> dict:
     """Resume a paused/failed run without rerunning verified completed work."""
     control_root = Path(control_root)
     from specrunway.runner import _require_specify_init
@@ -258,7 +281,9 @@ def resume_execution(control_root: Path, execution_id: str) -> dict:
             raise RecoveryError(exc.code, exc.message) from exc
     with store.lock(timeout=5.0):
         store.claim_activity(execution_id)
-    return _resume_native(control_root, store, execution_id)
+    return _resume_native(
+        control_root, store, execution_id, progress_stream=progress_stream
+    )
 
 
 def abandon_execution(control_root: Path, execution_id: str) -> dict:
@@ -313,7 +338,9 @@ def abandon_execution(control_root: Path, execution_id: str) -> dict:
     }
 
 
-def recover_execution(control_root: Path, execution_id: str) -> dict:
+def recover_execution(
+    control_root: Path, execution_id: str, progress_stream=None
+) -> dict:
     """Reconcile an interrupted run; never edit the native run's private state."""
     control_root = Path(control_root)
     from specrunway.archive import reconcile_pending_archive
@@ -359,10 +386,16 @@ def recover_execution(control_root: Path, execution_id: str) -> dict:
 
         current = store.read_state(execution_id)
         store.update_state(execution_id, mutate, current["revision"])
-        return start_execution(control_root, execution_id)
+        if progress_stream is None:
+            return start_execution(control_root, execution_id)
+        return start_execution(
+            control_root, execution_id, progress_stream=progress_stream
+        )
     if native == "paused" or native == "failed":
         _verify_live_plan(control_root, snapshot)
-        return _resume_native(control_root, store, execution_id)
+        return _resume_native(
+            control_root, store, execution_id, progress_stream=progress_stream
+        )
     return status
 
 

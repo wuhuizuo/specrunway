@@ -174,10 +174,17 @@ specrunway plan my-change --store my-store --request request.md --json
 
 ```bash
 specrunway run --change my-change --json          # freezes snapshot + starts native run
-specrunway approve --execution <id> --kind plan --actor <you> --json
+specrunway executions --json                      # find the id and its pending gate
+specrunway approve --pending --actor <you> --json # or --execution <id> --kind plan
 specrunway resume --execution <id> --json         # or: specrunway run --execution <id> --continue
-specrunway status --execution <id> --json
+specrunway status --execution <id> --follow       # stream step transitions
+specrunway logs --execution <id> --follow         # tail agent/test/native logs
 ```
+
+`run`, `resume`, and `recover` print `[native]` step progress to stderr while
+stdout stays a clean `specrunway/v1` envelope under `--json`. `approve
+--interactive` asks `y/N` on a terminal and refuses when stdin is not a TTY;
+the recorded receipt is still `self_asserted`.
 
 Execution order:
 
@@ -208,7 +215,8 @@ Execution order:
 
 | Situation | Command | Behavior |
 |---|---|---|
-| Gate pause | `specrunway resume` | Checks receipt + digests, resumes native run |
+| Gate pause | `specrunway executions --json`, then `approve --pending` | Lists the single pending execution and takes the gate kind from state |
+| Silent or long step | `specrunway status --follow` | Streams step id, status, and duration; `logs --execution <id> --follow` tails the matching agent/test/native log |
 | Retryable native failure | `specrunway status`, then `specrunway resume` | `last_failure` names the step, code, and log; native resume does not re-run completed steps |
 | Paused/failed, fresh start wanted | `specrunway abandon` | Releases the active-owner record; refuses `owner-alive`; run state stays for review |
 | Blocked budget/no-progress | — | `specrunway status` shows `blocked`; preserve worktrees for takeover |

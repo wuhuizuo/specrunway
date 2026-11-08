@@ -277,14 +277,38 @@ so this repository has no active OpenSpec change and its baseline carries
   part of the repository. The disposable Store id `p0-store` is a local
   registration on this machine.
 
+## Completed work: run observability
+
+- Central Store change `run-observability-v1` (six tasks) adds the operator
+  surface without changing gate semantics or the `specrunway/v1` version:
+  `status` reports `current_step`/`running_step` (step id, status, start,
+  finish, elapsed seconds, native log path) and `native_log_path`;
+  `status --follow` streams transitions and durations until the run settles;
+  `run`/`resume`/`recover` forward `[native]` progress to stderr while
+  `--json` stdout stays one clean envelope; `specrunway logs --execution`
+  locates agent/test/native logs by attempt and can tail them;
+  `specrunway executions` lists runs and pending gates; `approve --pending`
+  resolves the single pending execution; `approve --interactive` asks y/N on
+  a TTY and refuses with `not-a-tty` otherwise. Approval remains an explicit
+  `self_asserted` receipt.
+- `src/specrunway/observability.py` holds the read-only helpers; the native
+  log watcher (`NativeProgressWatcher`) follows
+  `.specify/workflows/runs/<run>/log.jsonl` without editing native state.
+- Tests: `tests/test_observability.py` covers paused/failed/completed status
+  detail, follow transitions, stderr-only progress with a clean JSON stdout, a
+  real spawned native-log writer, log kinds and `log-missing`, existing-content
+  follow, executions listing, single/zero/conflicting pending approval, a real
+  pty acceptance, and the non-TTY refusal.
+- Documentation: `docs/user/commands.md`, `docs/RUNBOOK.md`, and
+  `docs/evidence/15-run-observability-v1.md` describe the shipped commands.
+  Verification used the repository test profile; see the evidence file for
+  the exact command and result.
+
 ## Exact next action
 
-Freeze and run central Store change `run-observability-v1` (planned, six tasks):
-`status` reporting the running step with elapsed time and log path,
-`status --follow`, progress on stderr, `logs --execution`, `executions` with
-`approve --pending`, and TTY-only interactive approval. Freezing is cheap now
-because `archive-ownership-v1` released the checkout: `.specrunway/active.json`
-no longer needs a hand edit after an archive. One decision stays open outside
-that change: whether to implement the `## What Changes` extraction fix from the
-P0 report. Tag `v0.1.0` / GitHub Release only after explicit approval; v2 work
-stays deferred.
+Finish and review central Store change `run-observability-v1`: run the trusted
+profile (`bash scripts/worktree_check.sh`), inspect the acceptance evidence in
+`docs/evidence/15-run-observability-v1.md`, then merge and archive through the
+explicit coordinator flow. Tag `v0.1.0` / GitHub Release only after explicit
+approval; v2 work stays deferred. The `## What Changes` extraction fix from the
+P0 report remains an open decision outside this change.

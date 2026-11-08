@@ -133,10 +133,33 @@ def cmd_plan(args: argparse.Namespace) -> int:
     return 0
 
 
+def _confirm_approval(execution_id: str, kind: str, actor: str) -> None:
+    """Ask y/N on the operator's terminal; never consume a piped stdin."""
+    from specrunway.observability import ObservabilityError
+
+    stdin = sys.stdin
+    is_tty = getattr(stdin, "isatty", lambda: False)()
+    if not is_tty:
+        raise ObservabilityError(
+            "not-a-tty", "approve --interactive requires a terminal on stdin"
+        )
+    sys.stderr.write(
+        f"Approve {kind} for execution {execution_id} as {actor}? [y/N] "
+    )
+    sys.stderr.flush()
+    try:
+        answer = stdin.readline()
+    except (EOFError, KeyboardInterrupt):
+        answer = ""
+    if str(answer).strip().lower() not in {"y", "yes"}:
+        raise ObservabilityError("approval-declined", "approval declined; no receipt recorded")
+
+
 def cmd_approve(args: argparse.Namespace) -> int:
     """Record the operator's own confirmation bound to the frozen subject digest."""
     from specrunway.approvals import record_approval
     from specrunway.models.common import ValidationError
+    from specrunway.observability import ObservabilityError, resolve_pending_execution
     from specrunway.runstore import FileRunStore, RunStoreError
 
     control_root = Path(args.root).resolve() if args.root else find_control_root(Path.cwd())
@@ -149,32 +172,60 @@ def cmd_approve(args: argparse.Namespace) -> int:
     specrunway_root = control_root / ".specrunway"
     store = FileRunStore(specrunway_root)
     try:
-        snapshot = store.run_dir(args.execution).joinpath("snapshot.json")
+        execution_id = args.execution
+        kind = args.kind
+        if args.pending:
+            if execution_id:
+                raise ValidationError(
+                    "approval-selector", "pass either --execution or --pending, not both"
+                )
+            resolved = resolve_pending_execution(control_root)
+            execution_id = resolved["execution_id"]
+            pending_kind = resolved.get("pending_gate")
+            if kind and pending_kind and kind != pending_kind:
+                raise ValidationError(
+                    "approval-kind-conflict",
+                    f"execution {execution_id} waits at {pending_kind!r}, not {kind!r}",
+                )
+            kind = kind or pending_kind
+        elif not execution_id:
+            raise ValidationError(
+                "execution-required", "pass --execution or --pending"
+            )
+        if not kind:
+            raise ValidationError(
+                "approval-kind-required", "pass --kind {plan,implementation}"
+            )
+        if kind not in ("plan", "implementation"):
+            raise ValidationError("approval-kind", f"unsupported approval kind {kind!r}")
+        if args.interactive:
+            _confirm_approval(execution_id, kind, args.actor)
+        snapshot = store.run_dir(execution_id).joinpath("snapshot.json")
         if not snapshot.is_file():
             raise ValidationError(
-                "snapshot-missing", f"no frozen snapshot.json for execution {args.execution}"
+                "snapshot-missing", f"no frozen snapshot.json for execution {execution_id}"
             )
         from specrunway.runstore import _read_json_or_none
 
         frozen = _read_json_or_none(snapshot)
         if frozen is None:
             raise ValidationError(
-                "snapshot-missing", f"snapshot.json unreadable for {args.execution}"
+                "snapshot-missing", f"snapshot.json unreadable for {execution_id}"
             )
         # record_approval recomputes the binding subject digest from frozen
         # content (plan: planning digest; implementation: accepted results
         # tree), so no caller-supplied digest is consumed here.
         record = record_approval(
             store=store,
-            execution_id=args.execution,
-            kind=args.kind,
+            execution_id=execution_id,
+            kind=kind,
             snapshot=frozen,
             actor=args.actor,
             decision=args.decision,
         )
     except RunStoreError as exc:
         return _fail_cli(_error_envelope("approve", exc), args.json, "specrunway approve")
-    except ValidationError as exc:
+    except (ValidationError, ObservabilityError) as exc:
         return _fail_cli(_error_envelope("approve", exc), args.json, "specrunway approve")
     except Exception as exc:  # noqa: BLE001
         return _fail_cli(_error_envelope("approve", exc), args.json, "specrunway approve")
@@ -182,7 +233,7 @@ def cmd_approve(args: argparse.Namespace) -> int:
         action="approve",
         ok=True,
         data={
-            "execution_id": args.execution,
+            "execution_id": execution_id,
             "kind": record["kind"],
             "decision": record["decision"],
             "subject_digest": record["subject_digest"],
@@ -223,7 +274,9 @@ def cmd_run(args: argparse.Namespace) -> int:
         if args.continue_run:
             if not execution_id:
                 raise RunError("execution-required", "--continue requires --execution")
-            payload = continue_execution(control_root, execution_id)
+            payload = continue_execution(
+                control_root, execution_id, progress_stream=sys.stderr
+            )
         else:
             if execution_id:
                 raise RunError(
@@ -232,7 +285,9 @@ def cmd_run(args: argparse.Namespace) -> int:
                 )
             prepared = prepare_execution(control_root, args.change)
             execution_id = prepared["execution_id"]
-            payload = start_execution(control_root, execution_id)
+            payload = start_execution(
+                control_root, execution_id, progress_stream=sys.stderr
+            )
     except Exception as exc:  # noqa: BLE001 (CLI boundary; stable envelope required)
         return _fail_cli(_error_envelope("run", exc), args.json, "specrunway run")
     status = payload.get("status")
@@ -397,6 +452,10 @@ def _validation_error(code: str, message: str) -> Exception:
 
 
 def cmd_status(args: argparse.Namespace) -> int:
+    from specrunway.observability import (
+        format_status_transition,
+        iter_status_transitions,
+    )
     from specrunway.recovery import execution_status
 
     root = _control_root_for(args)
@@ -406,11 +465,42 @@ def cmd_status(args: argparse.Namespace) -> int:
             args.json,
             "specrunway status",
         )
+    if args.follow:
+        try:
+            for event in iter_status_transitions(root, args.execution):
+                if args.json:
+                    json.dump(
+                        _specrunway_envelope(
+                            action="status", ok=True, data=event, warnings=[]
+                        ),
+                        sys.stdout,
+                        indent=2,
+                        sort_keys=True,
+                    )
+                    sys.stdout.write("\n")
+                else:
+                    sys.stdout.write(format_status_transition(event) + "\n")
+                sys.stdout.flush()
+        except KeyboardInterrupt:
+            return 0
+        except Exception as exc:  # noqa: BLE001
+            return _fail_cli(
+                _error_envelope("status", exc), args.json, "specrunway status"
+            )
+        return 0
     try:
         data = execution_status(root, args.execution)
     except Exception as exc:  # noqa: BLE001
         return _fail_cli(_error_envelope("status", exc), args.json, "specrunway status")
     payload = _specrunway_envelope(action="status", ok=True, data=data, warnings=[])
+    step = data.get("current_step") or {}
+    step_detail = ""
+    if step.get("step_id"):
+        elapsed = step.get("elapsed_seconds")
+        duration = f" for {elapsed:.1f}s" if isinstance(elapsed, (int, float)) else ""
+        step_detail = f" step {step['step_id']} {step.get('status') or 'unknown'}{duration}"
+        if step.get("log_path"):
+            step_detail += f" log {step['log_path']}"
     detail = ""
     failure = data.get("last_failure")
     if failure:
@@ -421,9 +511,133 @@ def cmd_status(args: argparse.Namespace) -> int:
     _emit(
         payload,
         args.json,
-        f"status {data['phase']}: execution {args.execution} "
-        f"(native run {data['native_run_id']}){detail}\n",
+        f"status {data['phase']}: execution {args.execution}"
+        f"{step_detail} (native run {data['native_run_id']}){detail}\n",
     )
+    return 0
+
+
+def cmd_executions(args: argparse.Namespace) -> int:
+    """List executions and the gate each one waits at."""
+    from specrunway.observability import list_executions, pending_executions
+
+    root = _control_root_for(args)
+    if root is None:
+        return _fail_cli(
+            _error_envelope("executions", RuntimeError("no control checkout found")),
+            args.json,
+            "specrunway executions",
+        )
+    try:
+        rows = list_executions(root)
+        pending = [row["execution_id"] for row in pending_executions(root)]
+    except Exception as exc:  # noqa: BLE001
+        return _fail_cli(
+            _error_envelope("executions", exc), args.json, "specrunway executions"
+        )
+    payload = _specrunway_envelope(
+        action="executions",
+        ok=True,
+        data={"executions": rows, "pending": pending},
+        warnings=[],
+    )
+    if args.json:
+        _emit(payload, True, "")
+    elif not rows:
+        sys.stdout.write("executions: none\n")
+    else:
+        for row in rows:
+            gate = row.get("pending_gate") or "none"
+            owner = " active" if row.get("active_owner") else ""
+            sys.stdout.write(
+                f"{row['execution_id']} {row.get('phase')} "
+                f"pending={gate} change={row.get('change_id') or 'unknown'}{owner}\n"
+            )
+    return 0
+
+
+def cmd_logs(args: argparse.Namespace) -> int:
+    """Locate and optionally tail agent, test, and native logs."""
+    from specrunway.observability import (
+        ObservabilityError,
+        enumerate_logs,
+        iter_log_chunks,
+    )
+
+    root = _control_root_for(args)
+    if root is None:
+        return _fail_cli(
+            _error_envelope("logs", RuntimeError("no control checkout found")),
+            args.json,
+            "specrunway logs",
+        )
+    kind = None if args.kind == "all" else args.kind
+    if args.follow:
+        try:
+            for chunk in iter_log_chunks(
+                root,
+                args.execution,
+                kind=kind,
+                repo_id=args.repo,
+                attempt=args.attempt,
+            ):
+                if args.json:
+                    json.dump(
+                        {
+                            "api_version": "specrunway/v1",
+                            "action": "logs",
+                            "ok": True,
+                            "data": {"execution_id": args.execution, "chunk": chunk},
+                        },
+                        sys.stdout,
+                        sort_keys=True,
+                    )
+                    sys.stdout.write("\n")
+                else:
+                    sys.stdout.write(chunk)
+                sys.stdout.flush()
+        except KeyboardInterrupt:
+            return 0
+        except Exception as exc:  # noqa: BLE001
+            return _fail_cli(_error_envelope("logs", exc), args.json, "specrunway logs")
+        return 0
+    try:
+        rows = enumerate_logs(
+            root,
+            args.execution,
+            kind=kind,
+            repo_id=args.repo,
+            attempt=args.attempt,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return _fail_cli(_error_envelope("logs", exc), args.json, "specrunway logs")
+    if not rows:
+        return _fail_cli(
+            _error_envelope(
+                "logs",
+                ObservabilityError(
+                    "log-missing",
+                    f"no matching logs for execution {args.execution}",
+                ),
+            ),
+            args.json,
+            "specrunway logs",
+        )
+    payload = _specrunway_envelope(
+        action="logs",
+        ok=True,
+        data={"execution_id": args.execution, "logs": rows},
+        warnings=[],
+    )
+    if args.json:
+        _emit(payload, True, "")
+    else:
+        for row in rows:
+            scope = row.get("repo_id") or row.get("run_id") or "native"
+            sys.stdout.write(
+                f"{row['kind']} {scope}/{row.get('attempt')} {row['path']} "
+                f"({row.get('size', 0)} bytes)\n"
+            )
     return 0
 
 
@@ -463,7 +677,7 @@ def cmd_resume(args: argparse.Namespace) -> int:
             "specrunway resume",
         )
     try:
-        outcome = resume_execution(root, args.execution)
+        outcome = resume_execution(root, args.execution, progress_stream=sys.stderr)
     except Exception as exc:  # noqa: BLE001
         return _fail_cli(_error_envelope("resume", exc), args.json, "specrunway resume")
     payload = _specrunway_envelope(
@@ -496,7 +710,7 @@ def cmd_recover(args: argparse.Namespace) -> int:
             "specrunway recover",
         )
     try:
-        outcome = recover_execution(root, args.execution)
+        outcome = recover_execution(root, args.execution, progress_stream=sys.stderr)
     except Exception as exc:  # noqa: BLE001
         return _fail_cli(_error_envelope("recover", exc), args.json, "specrunway recover")
     payload = _specrunway_envelope(
@@ -610,8 +824,56 @@ def build_parser() -> argparse.ArgumentParser:
     )
     wizard_parser.set_defaults(func=cmd_wizard)
 
+    status_parser = sub.add_parser("status", help="Show execution status")
+    status_parser.add_argument("--execution", required=True, help="Execution UUID")
+    status_parser.add_argument(
+        "--follow",
+        action="store_true",
+        help="Stream step transitions and their durations until the run settles",
+    )
+    status_parser.add_argument(
+        "--root", help="Explicit control root (default: walk up from cwd)"
+    )
+    status_parser.add_argument(
+        "--json", action="store_true", help="Emit specrunway/v1 JSON envelope"
+    )
+    status_parser.set_defaults(func=cmd_status)
+
+    executions_parser = sub.add_parser(
+        "executions", help="List executions and their pending gates"
+    )
+    executions_parser.add_argument(
+        "--root", help="Explicit control root (default: walk up from cwd)"
+    )
+    executions_parser.add_argument(
+        "--json", action="store_true", help="Emit specrunway/v1 JSON envelope"
+    )
+    executions_parser.set_defaults(func=cmd_executions)
+
+    logs_parser = sub.add_parser(
+        "logs", help="Locate or follow the agent, test, and native logs"
+    )
+    logs_parser.add_argument("--execution", required=True, help="Execution UUID")
+    logs_parser.add_argument(
+        "--kind",
+        choices=["all", "agent", "test", "native"],
+        default="all",
+        help="Log kind to locate (default: all)",
+    )
+    logs_parser.add_argument("--repo", help="Only logs for this repository id")
+    logs_parser.add_argument("--attempt", type=int, help="Only this attempt number")
+    logs_parser.add_argument(
+        "--follow", action="store_true", help="Tail matching logs until the run settles"
+    )
+    logs_parser.add_argument(
+        "--root", help="Explicit control root (default: walk up from cwd)"
+    )
+    logs_parser.add_argument(
+        "--json", action="store_true", help="Emit specrunway/v1 JSON envelope"
+    )
+    logs_parser.set_defaults(func=cmd_logs)
+
     for name, help_text, handler in (
-        ("status", "Show execution status", cmd_status),
         ("abandon", "Release a paused/failed execution's checkout ownership", cmd_abandon),
         ("resume", "Resume a paused/failed execution", cmd_resume),
         ("recover", "Reconcile an interrupted execution", cmd_recover),
@@ -681,9 +943,21 @@ def build_parser() -> argparse.ArgumentParser:
     approve_parser = sub.add_parser(
         "approve", help="Record a self_asserted approval bound to a frozen subject digest"
     )
-    approve_parser.add_argument("--execution", required=True, help="Execution UUID")
+    approve_parser.add_argument("--execution", help="Execution UUID")
     approve_parser.add_argument(
-        "--kind", required=True, choices=["plan", "implementation"], help="Approval kind"
+        "--pending",
+        action="store_true",
+        help="Resolve the single execution waiting at an approval gate",
+    )
+    approve_parser.add_argument(
+        "--kind",
+        choices=["plan", "implementation"],
+        help="Approval kind (default: the pending gate with --pending)",
+    )
+    approve_parser.add_argument(
+        "--interactive",
+        action="store_true",
+        help="Ask y/N on the terminal before recording the receipt",
     )
     approve_parser.add_argument(
         "--actor", required=True, help="Operator recording the approval"

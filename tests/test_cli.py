@@ -35,7 +35,7 @@ def test_approve_require_flags(capsys):
     except SystemExit as exc:
         assert exc.code == 2
     out = capsys.readouterr().err
-    assert "--execution" in out
+    assert "--actor" in out
 
 
 def test_plan_requires_change_id():

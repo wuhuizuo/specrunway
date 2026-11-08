@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import subprocess
+import tempfile
+import time
 from pathlib import Path
 
 import yaml
@@ -137,21 +139,68 @@ def _write_workflow(control_root: Path, execution_id: str, snapshot: dict) -> Pa
     return target
 
 
+def _run_with_progress(
+    argv: list,
+    control_root: Path,
+    progress_stream,
+    progress_poll: float,
+) -> tuple[int, str, str]:
+    """Run a native workflow while forwarding its step log to stderr.
+
+    stdout/stderr go to temporary files (not pipes) so a slow operator stream
+    can never deadlock the native process, and the JSON body stays intact.
+    """
+    from specrunway.observability import NativeProgressWatcher
+
+    runs_root = Path(control_root) / ".specify" / "workflows" / "runs"
+    known = set(runs_root.glob("*/log.jsonl")) if runs_root.is_dir() else set()
+    watcher = NativeProgressWatcher(Path(control_root), progress_stream, known=known)
+    with tempfile.TemporaryFile() as out_file, tempfile.TemporaryFile() as err_file:
+        process = subprocess.Popen(
+            argv,
+            cwd=str(control_root),
+            stdout=out_file,
+            stderr=err_file,
+            stdin=subprocess.DEVNULL,
+            shell=False,
+        )
+        while process.poll() is None:
+            watcher.poll()
+            time.sleep(progress_poll)
+        watcher.poll()
+        out_file.seek(0)
+        err_file.seek(0)
+        stdout = out_file.read().decode("utf-8", errors="replace")
+        stderr = err_file.read().decode("utf-8", errors="replace")
+        return int(process.returncode or 0), stdout, stderr
+
+
 def _specify_workflow(
     args: list[str],
     control_root: Path,
     allowed_statuses: set | None = None,
+    progress_stream=None,
+    progress_poll: float = 0.2,
 ) -> dict:
     specify_bin = resolve_tool_bin(control_root, None, "specify")
-    process = subprocess.run(
-        [specify_bin, *args, "--json"],
-        cwd=str(control_root),
-        capture_output=True,
-        text=True,
-        check=False,
-        stdin=subprocess.DEVNULL,
-    )
-    combined = (process.stdout or "") + (process.stderr or "")
+    argv = [specify_bin, *args, "--json"]
+    if progress_stream is None:
+        process = subprocess.run(
+            argv,
+            cwd=str(control_root),
+            capture_output=True,
+            text=True,
+            check=False,
+            stdin=subprocess.DEVNULL,
+        )
+        returncode = process.returncode
+        stdout = process.stdout or ""
+        stderr = process.stderr or ""
+    else:
+        returncode, stdout, stderr = _run_with_progress(
+            argv, Path(control_root), progress_stream, progress_poll
+        )
+    combined = stdout + stderr
     payload = None
     for candidate in (
         combined.strip(),
@@ -170,13 +219,13 @@ def _specify_workflow(
             f"cannot parse `specify workflow {args[0]}` output: {combined[-500:]}",
         )
     allowed = allowed_statuses or {"completed", "paused"}
-    if process.returncode != 0 or payload.get("status") not in allowed:
+    if returncode != 0 or payload.get("status") not in allowed:
         detail = combined.strip().splitlines()
         tail = " | ".join(line.strip() for line in detail[-4:] if line.strip())
         raise RunError(
             "workflow-failed",
             f"native workflow {args[0]} did not succeed "
-            f"(exit {process.returncode}, status {payload.get('status')!r}): {tail[-600:]}",
+            f"(exit {returncode}, status {payload.get('status')!r}): {tail[-600:]}",
         )
     return payload
 
@@ -335,10 +384,16 @@ def run_workflow(
     control_root: Path,
     args: list,
     allowed_statuses: set | None = None,
+    progress_stream=None,
 ) -> dict:
     """Run/pause/resume the native workflow and record any failed step first."""
     try:
-        return _specify_workflow(args, Path(control_root), allowed_statuses=allowed_statuses)
+        return _specify_workflow(
+            args,
+            Path(control_root),
+            allowed_statuses=allowed_statuses,
+            progress_stream=progress_stream,
+        )
     except RunError as exc:
         record_native_failure(store, execution_id, Path(control_root), exc)
         raise
@@ -377,7 +432,9 @@ def _record_pause(store: FileRunStore, execution_id: str, payload: dict) -> None
     store.update_state(execution_id, mutate, current["revision"])
 
 
-def start_execution(control_root: Path, execution_id: str) -> dict:
+def start_execution(
+    control_root: Path, execution_id: str, progress_stream=None
+) -> dict:
     """Start the native workflow; native gates pause for approval receipts."""
     control_root = Path(control_root)
     _require_specify_init(control_root)
@@ -400,13 +457,16 @@ def start_execution(control_root: Path, execution_id: str) -> dict:
             "--input",
             f"control_root={control_root}",
         ],
+        progress_stream=progress_stream,
     )
     with store.lock(timeout=5.0):
         _record_pause(store, execution_id, payload)
     return payload
 
 
-def continue_execution(control_root: Path, execution_id: str) -> dict:
+def continue_execution(
+    control_root: Path, execution_id: str, progress_stream=None
+) -> dict:
     """Resume a paused run once the matching approval receipt exists."""
     control_root = Path(control_root)
     _require_specify_init(control_root)
@@ -443,6 +503,7 @@ def continue_execution(control_root: Path, execution_id: str) -> dict:
             "--input",
             f"{verdict_input}=approve",
         ],
+        progress_stream=progress_stream,
     )
     with store.lock(timeout=5.0):
         _record_pause(store, execution_id, payload)

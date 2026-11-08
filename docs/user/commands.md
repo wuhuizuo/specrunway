@@ -55,8 +55,10 @@ The CLI walks upward from the current directory looking for `local.yaml`.
 | `doctor` | `local.yaml` | Check control wiring and report findings |
 | `plan` | `CHANGE_ID` | Generate or accept planning artifacts and routing |
 | `run` | `--change` or `--execution --continue` | Freeze/start or continue an execution |
-| `approve` | `--execution --kind --actor` | Record a local approval receipt |
-| `status` | `--execution` | Show phase, gates, results, budgets, operations, last failure |
+| `approve` | `--execution` or `--pending`, `--actor` | Record a local approval receipt |
+| `status` | `--execution` | Show phase, running step, gates, results, budgets, operations, last failure |
+| `executions` | none | List executions and the gate each one waits at |
+| `logs` | `--execution` | Locate or follow agent, test, and native logs |
 | `abandon` | `--execution` | Release a paused/failed execution's checkout ownership |
 | `resume` | `--execution` | Resume a paused/failed execution after revalidation |
 | `recover` | `--execution` | Reconcile an interrupted execution or archive |
@@ -220,6 +222,11 @@ Stable codes: `manifest-missing`, `change-missing`, `repo-unconfigured`,
 runtime codes and gate codes (`no-approval`, `approval-rejected`,
 `approval-mismatch`, `approval-corrupt`).
 
+While the native workflow runs, `run` (and `resume`/`recover`) writes
+`[native]` step transitions and durations to stderr. With `--json`, stdout
+stays a single clean `specrunway/v1` envelope; redirect stderr separately if
+you only want the machine-readable result.
+
 The envelope reports `execution_id`, `native_run_id`, `native_status`,
 `paused_step_id`, and a `next` hint. A plan-gate pause has
 `paused_step_id: "plan-gate"`; an implementation-gate pause has
@@ -235,20 +242,33 @@ wants a fresh start, `specrunway abandon` releases the checkout so
 ## `specrunway approve`
 
 ```bash
-specrunway approve --execution EXECUTION_ID --kind {plan,implementation}
-                   --actor NAME [--decision {approve,reject}]
+specrunway approve (--execution EXECUTION_ID | --pending)
+                   [--kind {plan,implementation}] --actor NAME
+                   [--decision {approve,reject}] [--interactive]
                    [--root DIR] [--json]
 ```
 
-All three of `--execution`, `--kind`, and `--actor` are required.
-`--decision` defaults to `approve`. The subject digest is recomputed from
-frozen content: `plan` binds the planning digest, `implementation` binds the
-accepted-results tree. A rejected decision is recorded but the gate will refuse
-to advance (`approval-rejected`).
+`--actor` is always required. Pass either `--execution` or `--pending`, not
+both. `--pending` resolves the single execution waiting at a gate and takes the
+kind from that gate; if several executions are pending it refuses with
+`pending-execution-conflict`, and with none it refuses with
+`no-pending-execution`. With `--execution`, `--kind` is required.
+`--decision` defaults to `approve`.
 
-Stable codes: `approval-kind`, `result-required` (implementation approval
-before any accepted result), `no-execution`, `snapshot-missing`,
-`state-corrupt`, `revision-conflict`.
+`--interactive` asks `y/N` on the terminal before recording the receipt and
+refuses with `not-a-tty` when stdin is not a terminal; a declined answer
+records nothing (`approval-declined`). The receipt is otherwise identical,
+still `self_asserted`.
+
+The subject digest is recomputed from frozen content: `plan` binds the planning
+digest, `implementation` binds the accepted-results tree. A rejected decision
+is recorded but the gate will refuse to advance (`approval-rejected`).
+
+Stable codes: `approval-kind`, `approval-kind-required`,
+`approval-kind-conflict`, `approval-selector`, `approval-declined`,
+`not-a-tty`, `no-pending-execution`, `pending-execution-conflict`,
+`result-required` (implementation approval before any accepted result),
+`no-execution`, `snapshot-missing`, `state-corrupt`, `revision-conflict`.
 
 Next action: `specrunway run --execution <id> --continue` or
 `specrunway resume --execution <id>`.
@@ -256,13 +276,22 @@ Next action: `specrunway run --execution <id> --continue` or
 ## `specrunway status`
 
 ```bash
-specrunway status --execution EXECUTION_ID [--root DIR] [--json]
+specrunway status --execution EXECUTION_ID [--follow] [--root DIR] [--json]
 ```
 
 Requires `--execution`. Data includes `phase`, `pending_gate`,
-`native_run_id`, `native_runs`, `revision`, `active_owner`, `budgets`,
+`native_run_id`, `native_runs`, `current_step` (also exposed as
+`running_step`), `native_log_path`, `revision`, `active_owner`, `budgets`,
 `results`, `verification`, `approvals`, `last_failure`, `change_id`,
-`repo_order`, and `operations`.
+`repo_order`, and `operations`. `current_step` reports the step id, its status,
+`started_at`, `finished_at`, `elapsed_seconds`, and the native log that belongs
+to it; it is derived from `.specify/workflows/runs/<run>/log.jsonl` without
+changing the envelope version.
+
+`--follow` streams one line per step transition, including the step duration,
+until the workflow settles (completed, paused at a gate, failed, or blocked).
+It stops on Ctrl-C. With `--json`, follow emits one `specrunway/v1` event
+object per line (JSON Lines) rather than a single envelope.
 
 `last_failure` is `null` after a run pauses or completes again. When a native
 step failed, it records `step_id`, `code`, `message`, `log_path`, and
@@ -286,6 +315,45 @@ Next action by phase:
 | `blocked` | Read `blocked_reason` and `budgets`; hand over to a human. |
 | `interrupted` | `recover`. |
 | `archived` | No further execution work. |
+
+## `specrunway executions`
+
+```bash
+specrunway executions [--root DIR] [--json]
+```
+
+Lists every execution under `.specrunway/runs/`, newest first, with
+`execution_id`, `change_id`, `phase`, `pending_gate`, revision, native run id,
+timestamps, and whether this checkout currently marks it active. `data.pending`
+lists the execution ids waiting at a gate. Use it after a restart to recover an
+execution id without reading directory names; `approve --pending` then resolves
+the single pending one.
+
+Stable codes: `state-corrupt` when a run state cannot be read.
+
+Next action: `status --execution <id>` for detail, or `approve --pending`.
+
+## `specrunway logs`
+
+```bash
+specrunway logs --execution EXECUTION_ID [--kind {all,agent,test,native}]
+                [--repo REPO_ID] [--attempt N] [--follow]
+                [--root DIR] [--json]
+```
+
+Requires `--execution`. It locates the agent and trusted-test logs under
+`.specrunway/runs/<id>/logs/<repo>/<attempt>/` and the native workflow log
+under `.specify/workflows/runs/<run>/log.jsonl`, so the operator does not need
+to know that layout. Each row reports `kind`, `repo_id`, `attempt`, `path`, and
+`size`; native rows also report `run_id`. Without `--follow` it prints the
+paths. `--follow` prints existing content and then tails appended bytes until
+the execution settles or the operator interrupts.
+
+Stable codes: `log-missing` when no file matches the filters,
+`no-execution`, `state-corrupt`.
+
+Next action: narrow with `--kind`, `--repo`, or `--attempt`, or read the file
+path directly.
 
 ## `specrunway abandon`
 
